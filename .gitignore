@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+*.exe
+*.dll
+*.o
+*.a
+
+# Save files
+*.sav
+
+# Debug outputs
+debug/screenshots/
+debug.png
+
+# pokered-master: clone pret/pokered here manually (see README)
+pokered-master/
+
+# Claude Code session data
+.claude/
+
+# mnemo memory tree (project-local, regenerates from codebase)
+.mnemo/
+
+# Empty scratch file
+powershell
+
+# IDE / OS
+.vscode/
+*.user
+Thumbs.db
+.DS_Store

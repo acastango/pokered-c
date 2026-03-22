@@ -1,0 +1,187 @@
+/* wram.c — Global variable definitions matching pokered wram.asm layout */
+#include "../platform/hardware.h"
+#include <string.h>
+
+/* ---- HRAM ------------------------------------------------ */
+uint8_t hJoyInput       = 0;
+uint8_t hJoyHeld        = 0;
+uint8_t hJoyPressed     = 0;
+uint8_t hJoyReleased    = 0;
+uint8_t wJoyIgnore      = 0;
+uint8_t hRandomAdd      = 0;
+uint8_t hRandomSub      = 0;
+uint8_t hFrameCounter   = 0;
+uint8_t hVBlankOccurred = 0;
+uint8_t hSCX            = 0;
+uint8_t hSCY            = 0;
+uint8_t hWY             = 0;
+uint8_t hLoadedROMBank  = 1;
+uint8_t hAutoBGTransferEnabled = 0;
+uint8_t hTileAnimations = 0;
+uint32_t hDividend      = 0;
+uint8_t  hDivisor       = 0;
+uint32_t hQuotient      = 0;
+uint8_t  hMultiplicand[3] = {0};
+uint8_t  hMultiplier    = 0;
+uint8_t  hProduct[3]    = {0};
+uint8_t  hTextID        = 0;
+uint8_t  hItemAlreadyFound = 0;
+
+/* ---- Video buffers --------------------------------------- */
+uint8_t    wTileMap[TILEMAP_WIDTH * TILEMAP_HEIGHT]             = {0};
+uint8_t    wSurroundingTiles[SURROUNDING_WIDTH * SURROUNDING_HEIGHT] = {0};
+uint8_t    wOverworldMap[1300]                                  = {0};
+uint8_t    wTileMapBackup[SCREEN_AREA]                          = {0};
+uint8_t    wTileMapBackup2[SCREEN_AREA]                         = {0};
+oam_entry_t wShadowOAM[MAX_SPRITES]                            = {0};
+
+/* ---- Tileset --------------------------------------------- */
+uint8_t  wTilesetBank               = 0;
+uint16_t wTilesetBlocksPtr          = 0;
+uint16_t wTilesetGfxPtr             = 0;
+uint16_t wTilesetCollisionPtr       = 0;
+uint8_t  wTilesetTalkingOverTiles[3]= {0xFF, 0xFF, 0xFF};
+uint8_t  wGrassTile                 = 0xFF;
+uint8_t  wCurMapTileset             = 0;
+
+/* ---- Map state ------------------------------------------- */
+uint8_t  wCurMap                    = 0;
+uint8_t  wLastMap                   = 0;
+uint16_t wYCoord                    = 0;
+uint16_t wXCoord                    = 0;
+uint8_t  wYBlockCoord               = 0;
+uint8_t  wXBlockCoord               = 0;
+uint16_t wCurrentTileBlockMapViewPointer = 0;
+uint16_t wMapViewVRAMPointer        = 0;
+uint8_t  wCurMapHeight              = 0;
+uint8_t  wCurMapWidth               = 0;
+uint16_t wCurMapDataPtr             = 0;
+uint16_t wCurMapTextPtr             = 0;
+uint16_t wCurMapScriptPtr           = 0;
+uint8_t  wCurMapConnections         = 0;
+uint8_t  wNumberOfWarps             = 0;
+uint8_t  wNumSigns                  = 0;
+uint8_t  wNumSprites                = 0;
+uint8_t  wDestinationWarpID         = 0xFF;
+uint8_t  wMapBackgroundTile         = 0;
+
+/* ---- Player state ---------------------------------------- */
+uint8_t wPlayerMovingDirection      = 0;
+uint8_t wPlayerLastStopDirection    = 0;
+uint8_t wPlayerDirection            = 0;
+uint8_t wWalkBikeSurfState          = 0;
+uint8_t wWalkCounter                = 0;
+uint8_t wStepCounter                = 0;
+
+/* ---- Party / inventory ----------------------------------- */
+uint8_t     wPartyCount             = 0;
+party_mon_t wPartyMons[PARTY_LENGTH];
+uint8_t     wPartyMonOT[PARTY_LENGTH][NAME_LENGTH];
+uint8_t     wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
+uint8_t     wNumBagItems            = 0;
+uint8_t     wBagItems[BAG_ITEM_CAPACITY * 2 + 1];
+uint8_t     wPlayerMoney[3]         = {0};
+uint8_t     wPlayerName[NAME_LENGTH]= {0x91,0x84,0x83,0x50}; /* RED + term */
+uint8_t     wRivalName[NAME_LENGTH] = {0};
+uint16_t    wPlayerID               = 0;
+uint8_t     wObtainedBadges         = 0;
+
+/* ---- Pokédex --------------------------------------------- */
+uint8_t wPokedexOwned[19]           = {0};
+uint8_t wPokedexSeen[19]            = {0};
+
+/* ---- Event flags ----------------------------------------- */
+uint8_t wEventFlags[EVENT_FLAGS_BYTES] = {0};
+
+/* ---- Item pickup flags ----------------------------------- */
+uint16_t wPickedUpItems[248] = {0};
+
+/* ---- Wild encounters ------------------------------------- */
+uint8_t wGrassRate = 0;
+uint8_t wWaterRate = 0;
+uint8_t wGrassMons[NUM_WILD_SLOTS * 2] = {0};
+uint8_t wWaterMons[NUM_WILD_SLOTS * 2] = {0};
+
+/* ---- Battle state ---------------------------------------- */
+uint8_t  wIsInBattle            = 0;
+uint8_t  wBattleType            = 0;
+uint8_t  wCurEnemyLevel         = 0;
+uint8_t  wCurPartySpecies       = 0;
+uint8_t  wEnemyMonSpecies       = 0;
+uint8_t  wTrainerClass          = 0;
+uint8_t  wPlayerMonStatMods[NUM_STAT_MODS] = {7,7,7,7,7,7};
+uint8_t  wEnemyMonStatMods[NUM_STAT_MODS]  = {7,7,7,7,7,7};
+uint8_t  wCriticalHitOrOHKO     = 0;
+uint16_t wDamage                = 0;
+uint8_t  wDamageMultipliers     = 0;
+uint8_t  wMoveMissed            = 0;
+uint8_t  wPlayerSelectedMove    = 0;
+uint8_t  wEnemySelectedMove     = 0;
+uint8_t  wRepelRemainingSteps   = 0;
+
+/* ---- Audio ----------------------------------------------- */
+uint8_t  wAudioROMBank          = 0;
+uint16_t wMusicTempo            = 0;
+uint16_t wSfxTempo              = 0;
+uint8_t  wChannelCommandPointers[NUM_CHANNELS * 2]  = {0};
+uint8_t  wChannelReturnAddresses[NUM_CHANNELS * 2]  = {0};
+uint8_t  wChannelSoundIDs[NUM_CHANNELS]             = {0};
+uint8_t  wChannelFlags1[NUM_CHANNELS]               = {0};
+uint8_t  wChannelFlags2[NUM_CHANNELS]               = {0};
+uint8_t  wChannelDutyCycles[NUM_CHANNELS]           = {0};
+uint8_t  wChannelOctaves[NUM_CHANNELS]              = {0};
+uint8_t  wChannelNoteDelayCounters[NUM_CHANNELS]    = {0};
+uint8_t  wChannelNoteSpeeds[NUM_CHANNELS]           = {0};
+uint8_t  wChannelVolumes[NUM_CHANNELS]              = {0};
+
+/* ---- Math helpers ---------------------------------------- */
+#include <math.h>
+
+uint16_t CalcStat(uint8_t base, uint8_t dv, uint16_t stat_exp, uint8_t level, int is_hp) {
+    uint32_t s = (uint32_t)(base + dv) * 2 + (uint32_t)(sqrt((double)stat_exp) / 4);
+    s = s * level / 100 + (is_hp ? (level + 10) : 5);
+    return (uint16_t)(s > 65535 ? 65535 : s);
+}
+
+uint16_t CalcDamage(uint8_t level, uint8_t bp, uint8_t attack, uint8_t defense) {
+    if (!bp) return 0;
+    uint32_t d = (uint32_t)level * 2 / 5 + 2;
+    d = d * bp * attack / (defense ? defense : 1) / 50 + 2;
+    if (d > 997) d = 997;
+    return (uint16_t)d;
+}
+
+uint16_t ModifyStat(uint16_t base, uint8_t stage) {
+    if (stage < 1)  stage = 1;
+    if (stage > 13) stage = 13;
+    return (uint32_t)base * STAT_MOD_NUM[stage-1] / STAT_MOD_DEN[stage-1];
+}
+
+uint8_t CalcCheckSum(const uint8_t *data, uint16_t len) {
+    uint8_t sum = 0;
+    while (len--) sum += *data++;
+    return ~sum;
+}
+
+/* Simple PRNG matching GB engine (hRandomAdd/hRandomSub updated by platform) */
+uint8_t BattleRandom(void) {
+    /* On GB: rDIV provides entropy; here we just use the state directly */
+    hRandomAdd += 0x05;
+    hRandomSub -= 0x03;
+    return hRandomAdd ^ hRandomSub;
+}
+
+void WRAMClear(void) {
+    memset(wTileMap, 0, sizeof(wTileMap));
+    memset(wShadowOAM, 0, sizeof(wShadowOAM));
+    memset(wEventFlags, 0, sizeof(wEventFlags));
+    memset(wPickedUpItems, 0, sizeof(wPickedUpItems));
+    wPartyCount     = 0;
+    wNumBagItems    = 0;
+    wObtainedBadges = 0;
+    memset(wPokedexOwned, 0, sizeof(wPokedexOwned));
+    memset(wPokedexSeen,  0, sizeof(wPokedexSeen));
+    wPlayerMoney[0] = wPlayerMoney[1] = wPlayerMoney[2] = 0;
+    memset(wPlayerMonStatMods, STAT_STAGE_NORMAL, sizeof(wPlayerMonStatMods));
+    memset(wEnemyMonStatMods,  STAT_STAGE_NORMAL, sizeof(wEnemyMonStatMods));
+}
