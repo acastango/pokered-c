@@ -74,7 +74,7 @@ python tools/extract_sprites.py
 
 ## Built with
 
-Developed using [Claude Code](https://claude.ai/code) with [mnemo](https://github.com/mnemo-ai/mnemo) for persistent project memory across sessions.
+Developed using [Claude Code](https://claude.ai/code) with [monet-code](https://github.com/acastango/monet-code) for persistent project memory across sessions.
 
 ## Legal
 
