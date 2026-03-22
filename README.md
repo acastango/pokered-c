@@ -72,6 +72,10 @@ python tools/extract_sprites.py
 # … etc.
 ```
 
+## Built with
+
+Developed using [Claude Code](https://claude.ai/code) with [mnemo](https://github.com/mnemo-ai/mnemo) for persistent project memory across sessions.
+
 ## Legal
 
 This project contains no ROM data or proprietary Nintendo assets. It references the [pret/pokered](https://github.com/pret/pokered) open disassembly only for structure and layout information. Pokémon is a trademark of Nintendo / Game Freak.
