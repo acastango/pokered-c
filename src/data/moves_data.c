@@ -1,7 +1,7 @@
 /* moves_data.c -- Generated from pokered-master/data/moves/moves.asm */
 #include "moves_data.h"
 
-const move_t gMoves[NUM_MOVES] = {
+const move_t gMoves[NUM_MOVE_DEFS] = {
     [0] = { .anim=0x00, .effect=0x00, .power=  0, .type=0x00, .accuracy=  0, .pp= 0 },  /* NO_MOVE */
     [1] = { .anim=0x01, .effect=0x00, .power= 40, .type=0x00, .accuracy=255, .pp=35 },  /* POUND */
     [2] = { .anim=0x02, .effect=0x00, .power= 50, .type=0x00, .accuracy=255, .pp=25 },  /* KARATE_CHOP */

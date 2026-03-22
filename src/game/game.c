@@ -26,6 +26,7 @@
 #include "menu.h"
 #include "bag_menu.h"
 #include "inventory.h"
+#include "pokemon.h"
 #include "../data/font_data.h"
 #include "../data/event_data.h"
 #include "../data/wild_data.h"
@@ -66,6 +67,17 @@ void GameInit(void) {
     NPC_Load();
     Map_BuildScrollView();
     NPC_BuildView(0, 0);
+
+    /* Give player a starter Bulbasaur (dex 1, level 5) if no save was loaded. */
+    if (wPartyCount == 0) {
+        Pokemon_InitMon(&wPartyMons[0], 1, 5);
+        wPartyCount = 1;
+        printf("[party] Started with %s Lv.%d (HP %d/%d, ATK %d, DEF %d, SPD %d, SPC %d)\n",
+               Pokemon_GetName(1), wPartyMons[0].level,
+               wPartyMons[0].base.hp, wPartyMons[0].max_hp,
+               wPartyMons[0].atk, wPartyMons[0].def,
+               wPartyMons[0].spd, wPartyMons[0].spc);
+    }
 }
 
 /* Wild encounter message: "Wild <POKEMON>!" placeholder */

@@ -57,6 +57,7 @@ set(SOURCES
     src/game/text.c
     src/game/menu.c
     src/game/inventory.c
+    src/game/pokemon.c
     src/game/bag_menu.c
     src/data/sprite_data.c
     src/data/font_data.c

@@ -144,13 +144,13 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define TILEANIM_WATER          1
 #define TILEANIM_WATER_FLOWER   2
 
-/* ---- Growth rates ---------------------------------------- */
-#define GROWTH_MEDIUM_FAST      0
-#define GROWTH_SOMEWHAT_FAST    3
-#define GROWTH_MEDIUM_SLOW      4
-#define GROWTH_FAST             5
-#define GROWTH_SLOW             1   /* actually index varies */
-#define GROWTH_SLOW2            2
+/* ---- Growth rates (pokered data/growth_rates.asm order) -- */
+#define GROWTH_MEDIUM_FAST      0   /* n³                         — Caterpie, Rattata, … */
+#define GROWTH_SLIGHTLY_FAST    1   /* 3n³/4 + 10n² - 30          — Pikachu, Clefairy, … */
+#define GROWTH_SLIGHTLY_SLOW    2   /* 3n³/4 + 20n² - 70          — Nidoranm/f, Slowpoke, … */
+#define GROWTH_MEDIUM_SLOW      3   /* 6n³/5 - 15n² + 100n - 140  — Bulbasaur, Charmander, … */
+#define GROWTH_FAST             4   /* 4n³/5                       — Gastly, Machop, … */
+#define GROWTH_SLOW             5   /* 5n³/4                       — Arcanine, Lapras, … */
 
 /* ---- Evolution types ------------------------------------- */
 #define EVOLVE_LEVEL        1

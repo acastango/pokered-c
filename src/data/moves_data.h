@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "game/types.h"
 
-#define NUM_MOVES 166
+#define NUM_MOVE_DEFS 166   /* total entries in gMoves[] — distinct from NUM_MOVES (4 per mon) */
 
 /* Indexed by move ID (0..165) */
-extern const move_t gMoves[NUM_MOVES];
+extern const move_t gMoves[NUM_MOVE_DEFS];

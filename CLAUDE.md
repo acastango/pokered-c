@@ -1,3 +1,8 @@
+# on translating and developing the gen 1 battle engine from the source
+Make sure to translate as closely as possible as you can for any type of battle mechanic - it'll be key. Gen 1 has a lot of weird quirks, but if you copy directly in terms of values, behavior, and function, we shouldn't have to worry about it too much. 
+
+ALWAYS refer to the source code for battle related tasks. Always.
+
 # mnemo instructions
 
 This project uses mnemo for persistent memory. These rules are mandatory.
