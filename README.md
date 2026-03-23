@@ -1,4 +1,4 @@
-# pokered-sdl2
+# pokered-c
 
 A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern platforms, built with SDL2.
 
