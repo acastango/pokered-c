@@ -47,14 +47,15 @@ uint32_t CalcExpForLevel(uint8_t growth_rate, uint8_t level) {
  * Stat EXP: all 0 (freshly obtained mon).                                   *
  * HP: set to max_hp (full health).                                           *
  * PP: look up base PP from gMoves table; no PP Ups applied.                  */
-void Pokemon_InitMon(party_mon_t *mon, uint8_t dex, uint8_t level) {
+void Pokemon_InitMon(party_mon_t *mon, uint8_t species, uint8_t level) {
+    uint8_t dex = gSpeciesToDex[species];
     if (dex == 0 || dex > NUM_POKEMON) return;
     const base_stats_t *bs = &gBaseStats[dex];
 
     memset(mon, 0, sizeof(*mon));
 
     /* Box fields */
-    mon->base.species    = dex;          /* stored as dex number in this port */
+    mon->base.species    = species;      /* internal species ID, matching original ASM */
     mon->base.box_level  = level;
     mon->base.type1      = bs->type1;
     mon->base.type2      = bs->type2;

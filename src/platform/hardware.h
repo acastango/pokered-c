@@ -154,21 +154,180 @@ extern uint8_t wGrassMons[NUM_WILD_SLOTS * 2];  /* level, species pairs */
 extern uint8_t wWaterMons[NUM_WILD_SLOTS * 2];
 
 /* ---- WRAM: Battle state ---------------------------------- */
-extern uint8_t  wIsInBattle;            /* 0=none, 1=trainer, 2=wild */
-extern uint8_t  wBattleType;
+extern uint8_t  wIsInBattle;            /* -1=lost, 0=none, 1=wild, 2=trainer */
+extern uint8_t  wBattleType;            /* 0=normal, 1=old man, 2=safari */
 extern uint8_t  wCurEnemyLevel;
 extern uint8_t  wCurPartySpecies;
 extern uint8_t  wEnemyMonSpecies;
 extern uint8_t  wTrainerClass;
+
+/* hWhoseTurn: 0 = player's turn, 1 = enemy's turn (HRAM in original, global here) */
+extern uint8_t  hWhoseTurn;
+
+/* Battle copies of the active mons (wBattleMon / wEnemyMon in pokered wram.asm) */
+extern battle_mon_t wBattleMon;
+extern battle_mon_t wEnemyMon;
+
+/* Current-move vars — filled by GetCurrentMove before damage calculation.
+ * Layout mirrors pokered wram.asm:
+ *   wPlayerMoveNum, wPlayerMoveEffect, wPlayerMovePower,
+ *   wPlayerMoveType, wPlayerMoveAccuracy (scaled by CalcHitChance),
+ *   wPlayerMoveMaxPP  (and identical set for enemy) */
+extern uint8_t  wPlayerMoveNum;
+extern uint8_t  wPlayerMoveEffect;
+extern uint8_t  wPlayerMovePower;
+extern uint8_t  wPlayerMoveType;
+extern uint8_t  wPlayerMoveAccuracy;    /* scaled hit chance after CalcHitChance */
+extern uint8_t  wPlayerMoveMaxPP;
+
+extern uint8_t  wEnemyMoveNum;
+extern uint8_t  wEnemyMoveEffect;
+extern uint8_t  wEnemyMovePower;
+extern uint8_t  wEnemyMoveType;
+extern uint8_t  wEnemyMoveAccuracy;
+extern uint8_t  wEnemyMoveMaxPP;
+/* wMoveType — temporary copy of the active move's type used during
+ * AdjustDamageForMoveType (core.asm:5086/5100).  Set from wPlayerMoveType
+ * or wEnemyMoveType depending on hWhoseTurn. */
+extern uint8_t  wMoveType;
+
+/* Battle status flag bytes (see BSTAT1_x / BSTAT2_x / BSTAT3_x bit positions) */
+extern uint8_t  wPlayerBattleStatus1;
+extern uint8_t  wPlayerBattleStatus2;
+extern uint8_t  wPlayerBattleStatus3;
+extern uint8_t  wEnemyBattleStatus1;
+extern uint8_t  wEnemyBattleStatus2;
+extern uint8_t  wEnemyBattleStatus3;
+
+/* Per-turn counters */
+extern uint8_t  wPlayerConfusedCounter;
+extern uint8_t  wPlayerToxicCounter;
+extern uint8_t  wPlayerDisabledMove;    /* high nibble=which move (1-4), low=turns left */
+extern uint8_t  wEnemyConfusedCounter;
+extern uint8_t  wEnemyToxicCounter;
+extern uint8_t  wEnemyDisabledMove;
+
+/* Stat modifier arrays: wPlayerMonStatMods[MOD_*] and wEnemyMonStatMods[MOD_*]
+ * Range 1-13 (7 = normal).  Indices: 0=Atk, 1=Def, 2=Spd, 3=Spc, 4=Acc, 5=Eva */
 extern uint8_t  wPlayerMonStatMods[NUM_STAT_MODS];
 extern uint8_t  wEnemyMonStatMods[NUM_STAT_MODS];
-extern uint8_t  wCriticalHitOrOHKO;
+
+/* wPlayerMonNumber — which party slot (0-5) the active player mon is in.
+ * Set when a player mon enters battle (wPlayerMonNumber in pokered wram.asm:246). */
+extern uint8_t  wPlayerMonNumber;
+
+/* wCalculateWhoseStats — controls CalculateModifiedStats target:
+ * 0 = recalculate player wBattleMon stats;  non-zero = enemy wEnemyMon stats.
+ * (wCalculateWhoseStats in pokered wram.asm:1597) */
+extern uint8_t  wCalculateWhoseStats;
+
+/* Unmodified (pre-stage) battle stats — stored from party mon at switch-in.
+ * CalculateModifiedStats reads these, applies the stage ratios, and writes back
+ * to wBattleMon/wEnemyMon.  Order: ATK, DEF, SPD, SPC (matches battle_struct). */
+extern uint16_t wPlayerMonUnmodifiedAttack;
+extern uint16_t wPlayerMonUnmodifiedDefense;
+extern uint16_t wPlayerMonUnmodifiedSpeed;
+extern uint16_t wPlayerMonUnmodifiedSpecial;
+extern uint16_t wEnemyMonUnmodifiedAttack;
+extern uint16_t wEnemyMonUnmodifiedDefense;
+extern uint16_t wEnemyMonUnmodifiedSpeed;
+extern uint16_t wEnemyMonUnmodifiedSpecial;
+
+/* CalcStat — defined in wram.c; used by GetDamageVarsFor*Attack crit bypass */
+extern uint16_t CalcStat(uint8_t base, uint8_t dv, uint16_t stat_exp,
+                          uint8_t level, int is_hp);
+
+extern uint8_t  wCriticalHitOrOHKO;    /* 0=normal, 1=crit, 2=OHKO hit, 0xFF=OHKO miss */
 extern uint16_t wDamage;
-extern uint8_t  wDamageMultipliers;
+extern uint8_t  wDamageMultipliers;     /* bits 0-6=effectiveness (×10), bit7=STAB */
 extern uint8_t  wMoveMissed;
 extern uint8_t  wPlayerSelectedMove;
 extern uint8_t  wEnemySelectedMove;
 extern uint8_t  wRepelRemainingSteps;
+
+/* ---- WRAM: Extended battle state (Phase 5 turn execution) ---------- */
+/* wActionResultOrTookBattleTurn — non-zero if the player's turn was already
+ * consumed (used an item, tried to run, switched) so ExecutePlayerMove skips. */
+extern uint8_t  wActionResultOrTookBattleTurn;
+
+/* wMonIsDisobedient — set to 1 by CheckForDisobedience when a traded mon
+ * disobeys and uses a random move instead of the selected one. */
+extern uint8_t  wMonIsDisobedient;
+
+/* wInHandlePlayerMonFainted — prevents RemoveFaintedPlayerMon from playing
+ * the cry and faint text when called from HandleEnemyMonFainted (simultaneous
+ * faint: enemy mon detected first, player mon detected second). */
+extern uint8_t  wInHandlePlayerMonFainted;
+
+/* wPlayerUsedMove / wEnemyUsedMove — last move number actually executed.
+ * Cleared when asleep or frozen so Mirror Move doesn't copy those turns. */
+extern uint8_t  wPlayerUsedMove;
+extern uint8_t  wEnemyUsedMove;
+
+/* ---- WRAM: Extended battle state (Phase 4 effects engine) ---------- */
+/* wLinkState — 0=not linked, LINK_STATE_BATTLING=0x04 in a link battle.
+ * StatModifierDownEffect checks this to skip the 25% accuracy roll. */
+extern uint8_t  wLinkState;
+
+/* wEscapedFromBattle — set to 1 when a mon successfully uses Teleport/Roar/Whirlwind
+ * in a wild battle, signaling the main battle loop to end. */
+extern uint8_t  wEscapedFromBattle;
+
+/* wMoveDidntMiss — set to 1 by the main execute loop after a successful hit.
+ * ConditionalPrintButItFailed returns without printing if this is set. */
+extern uint8_t  wMoveDidntMiss;
+
+/* wChargeMoveNum — move ID stored at start of charge turn (ChargeEffect).
+ * Read by the text handler to print the correct charge-turn message. */
+extern uint8_t  wChargeMoveNum;
+
+/* Multi-hit counters (TwoToFiveAttacksEffect, TrappingEffect) */
+extern uint8_t  wPlayerNumAttacksLeft;  /* remaining hits in current multi-hit sequence */
+extern uint8_t  wEnemyNumAttacksLeft;
+extern uint8_t  wPlayerNumHits;         /* total hits landed (displayed at end) */
+extern uint8_t  wEnemyNumHits;
+
+/* Bide accumulated damage — 16-bit total damage absorbed during Bide turns.
+ * Released as wDamage when Bide fires (handled in core.asm, not effects.c). */
+extern uint16_t wPlayerBideAccumulatedDamage;
+extern uint16_t wEnemyBideAccumulatedDamage;
+
+/* Substitute HP — low byte of max_hp/4, as stored by SubstituteEffect.
+ * 0 = no substitute.  Assumes max_hp ≤ 1023 (fits in uint8_t). */
+extern uint8_t  wPlayerSubstituteHP;
+extern uint8_t  wEnemySubstituteHP;
+
+/* Minimized flag — set to 1 by StatModifierUpEffect when the move is Minimize.
+ * Used by evasion check in MoveHitTest. */
+extern uint8_t  wPlayerMonMinimized;
+extern uint8_t  wEnemyMonMinimized;
+
+/* Disabled move number — move ID of the currently disabled move (for display).
+ * Separate from wPlayerDisabledMove (which packs move slot + turn counter). */
+extern uint8_t  wPlayerDisabledMoveNumber;
+extern uint8_t  wEnemyDisabledMoveNumber;
+
+/* Move list indices — which slot (0-3) the currently selected move occupies.
+ * Used by MimicEffect to know which slot to overwrite. */
+extern uint8_t  wPlayerMoveListIndex;
+extern uint8_t  wEnemyMoveListIndex;
+
+/* wTotalPayDayMoney — 3-byte packed BCD accumulator for Pay Day coins.
+ * Layout: [0]=MSB (hundred-thousands/ten-thousands), [1]=middle,
+ * [2]=LSB (ones/tens).  Displayed at battle end. */
+extern uint8_t  wTotalPayDayMoney[3];
+
+/* wTransformedEnemyMonOriginalDVs — saved DVs of the enemy mon before Transform.
+ * Restored when the transformed mon switches out. */
+extern uint16_t wTransformedEnemyMonOriginalDVs;
+
+/* ---- WRAM: Battle loop state (Phase 6) ------------------ */
+/* wFirstMonsNotOutYet — 1 during battle setup; cleared at the start of the
+ * first turn (core.asm:138, MainInBattleLoop:292). */
+extern uint8_t  wFirstMonsNotOutYet;
+
+/* wBattleResult — outcome byte written by faint/victory handlers. */
+extern uint8_t  wBattleResult;
 
 /* ---- WRAM: Audio ---------------------------------------- */
 extern uint8_t  wAudioROMBank;

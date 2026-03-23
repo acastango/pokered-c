@@ -9,7 +9,11 @@ uint8_t hJoyPressed     = 0;
 uint8_t hJoyReleased    = 0;
 uint8_t wJoyIgnore      = 0;
 uint8_t hRandomAdd      = 0;
-uint8_t hRandomSub      = 0;
+uint8_t hRandomSub      = 0xFF; /* odd seed so hRandomAdd^hRandomSub is always odd;
+                                  * avoids Battle_RandomizeDamage's rrca loop never
+                                  * reaching >= 217 when both start at 0 (even XOR
+                                  * even = even → rrca < 128 < 217 forever).
+                                  * Tests call battle_reset() which overrides this. */
 uint8_t hFrameCounter   = 0;
 uint8_t hVBlankOccurred = 0;
 uint8_t hSCX            = 0;
@@ -103,12 +107,61 @@ uint8_t wGrassMons[NUM_WILD_SLOTS * 2] = {0};
 uint8_t wWaterMons[NUM_WILD_SLOTS * 2] = {0};
 
 /* ---- Battle state ---------------------------------------- */
+uint8_t  wPlayerMonNumber       = 0;   /* party slot of active player mon (wram.asm:246) */
+uint8_t  wCalculateWhoseStats   = 0;   /* 0=player, nonzero=enemy (wram.asm:1597) */
+
+/* Unmodified (pre-stage) battle stats — copy of party mon stats at switch-in */
+uint16_t wPlayerMonUnmodifiedAttack  = 0;
+uint16_t wPlayerMonUnmodifiedDefense = 0;
+uint16_t wPlayerMonUnmodifiedSpeed   = 0;
+uint16_t wPlayerMonUnmodifiedSpecial = 0;
+uint16_t wEnemyMonUnmodifiedAttack   = 0;
+uint16_t wEnemyMonUnmodifiedDefense  = 0;
+uint16_t wEnemyMonUnmodifiedSpeed    = 0;
+uint16_t wEnemyMonUnmodifiedSpecial  = 0;
+
 uint8_t  wIsInBattle            = 0;
 uint8_t  wBattleType            = 0;
 uint8_t  wCurEnemyLevel         = 0;
 uint8_t  wCurPartySpecies       = 0;
 uint8_t  wEnemyMonSpecies       = 0;
 uint8_t  wTrainerClass          = 0;
+
+uint8_t  hWhoseTurn             = 0;   /* 0=player, 1=enemy */
+
+battle_mon_t wBattleMon         = {0};
+battle_mon_t wEnemyMon          = {0};
+
+uint8_t  wPlayerMoveNum         = 0;
+uint8_t  wPlayerMoveEffect      = 0;
+uint8_t  wPlayerMovePower       = 0;
+uint8_t  wPlayerMoveType        = 0;
+uint8_t  wPlayerMoveAccuracy    = 0;
+uint8_t  wPlayerMoveMaxPP       = 0;
+
+uint8_t  wMoveType              = 0;   /* AdjustDamageForMoveType temp (core.asm:5086) */
+
+uint8_t  wEnemyMoveNum          = 0;
+uint8_t  wEnemyMoveEffect       = 0;
+uint8_t  wEnemyMovePower        = 0;
+uint8_t  wEnemyMoveType         = 0;
+uint8_t  wEnemyMoveAccuracy     = 0;
+uint8_t  wEnemyMoveMaxPP        = 0;
+
+uint8_t  wPlayerBattleStatus1   = 0;
+uint8_t  wPlayerBattleStatus2   = 0;
+uint8_t  wPlayerBattleStatus3   = 0;
+uint8_t  wEnemyBattleStatus1    = 0;
+uint8_t  wEnemyBattleStatus2    = 0;
+uint8_t  wEnemyBattleStatus3    = 0;
+
+uint8_t  wPlayerConfusedCounter = 0;
+uint8_t  wPlayerToxicCounter    = 0;
+uint8_t  wPlayerDisabledMove    = 0;
+uint8_t  wEnemyConfusedCounter  = 0;
+uint8_t  wEnemyToxicCounter     = 0;
+uint8_t  wEnemyDisabledMove     = 0;
+
 uint8_t  wPlayerMonStatMods[NUM_STAT_MODS] = {7,7,7,7,7,7};
 uint8_t  wEnemyMonStatMods[NUM_STAT_MODS]  = {7,7,7,7,7,7};
 uint8_t  wCriticalHitOrOHKO     = 0;
@@ -118,6 +171,37 @@ uint8_t  wMoveMissed            = 0;
 uint8_t  wPlayerSelectedMove    = 0;
 uint8_t  wEnemySelectedMove     = 0;
 uint8_t  wRepelRemainingSteps   = 0;
+
+/* ---- Extended battle state (Phase 4 effects engine) -------------- */
+uint8_t  wActionResultOrTookBattleTurn = 0; /* non-zero = turn already consumed (item/run/switch) */
+uint8_t  wMonIsDisobedient      = 0;   /* set by CheckForDisobedience when mon disobeys */
+uint8_t  wInHandlePlayerMonFainted = 0; /* guard: prevents double-faint cry/text */
+uint8_t  wPlayerUsedMove        = 0;   /* last move used by player (0 when asleep/frozen) */
+uint8_t  wEnemyUsedMove         = 0;   /* last move used by enemy */
+uint8_t  wLinkState             = 0;
+uint8_t  wEscapedFromBattle     = 0;
+uint8_t  wMoveDidntMiss         = 0;
+uint8_t  wChargeMoveNum         = 0;
+uint8_t  wPlayerNumAttacksLeft  = 0;
+uint8_t  wEnemyNumAttacksLeft   = 0;
+uint8_t  wPlayerNumHits         = 0;
+uint8_t  wEnemyNumHits          = 0;
+uint16_t wPlayerBideAccumulatedDamage = 0;
+uint16_t wEnemyBideAccumulatedDamage  = 0;
+uint8_t  wPlayerSubstituteHP    = 0;
+uint8_t  wEnemySubstituteHP     = 0;
+uint8_t  wPlayerMonMinimized    = 0;
+uint8_t  wEnemyMonMinimized     = 0;
+uint8_t  wPlayerDisabledMoveNumber = 0;
+uint8_t  wEnemyDisabledMoveNumber  = 0;
+uint8_t  wPlayerMoveListIndex   = 0;
+uint8_t  wEnemyMoveListIndex    = 0;
+uint8_t  wTotalPayDayMoney[3]   = {0,0,0};
+uint16_t wTransformedEnemyMonOriginalDVs = 0;
+
+/* ---- Battle loop state (Phase 6) --------------------------------- */
+uint8_t  wFirstMonsNotOutYet    = 0;   /* 1 during setup, cleared on first turn (core.asm:138) */
+uint8_t  wBattleResult          = 0;   /* outcome written by faint/victory handlers */
 
 /* ---- Audio ----------------------------------------------- */
 uint8_t  wAudioROMBank          = 0;
@@ -184,4 +268,32 @@ void WRAMClear(void) {
     wPlayerMoney[0] = wPlayerMoney[1] = wPlayerMoney[2] = 0;
     memset(wPlayerMonStatMods, STAT_STAGE_NORMAL, sizeof(wPlayerMonStatMods));
     memset(wEnemyMonStatMods,  STAT_STAGE_NORMAL, sizeof(wEnemyMonStatMods));
+    memset(&wBattleMon, 0, sizeof(wBattleMon));
+    memset(&wEnemyMon,  0, sizeof(wEnemyMon));
+    wPlayerBattleStatus1 = wPlayerBattleStatus2 = wPlayerBattleStatus3 = 0;
+    wEnemyBattleStatus1  = wEnemyBattleStatus2  = wEnemyBattleStatus3  = 0;
+    wPlayerMonNumber = 0;
+    wCalculateWhoseStats = 0;
+    wPlayerMonUnmodifiedAttack = wPlayerMonUnmodifiedDefense = 0;
+    wPlayerMonUnmodifiedSpeed  = wPlayerMonUnmodifiedSpecial = 0;
+    wEnemyMonUnmodifiedAttack  = wEnemyMonUnmodifiedDefense  = 0;
+    wEnemyMonUnmodifiedSpeed   = wEnemyMonUnmodifiedSpecial  = 0;
+    wMoveType = 0;
+    wDamageMultipliers = 0;
+    wLinkState = 0;
+    wEscapedFromBattle = 0;
+    wMoveDidntMiss = 0;
+    wChargeMoveNum = 0;
+    wPlayerNumAttacksLeft = wEnemyNumAttacksLeft = 0;
+    wPlayerNumHits = wEnemyNumHits = 0;
+    wPlayerBideAccumulatedDamage = wEnemyBideAccumulatedDamage = 0;
+    wPlayerSubstituteHP = wEnemySubstituteHP = 0;
+    wPlayerMonMinimized = wEnemyMonMinimized = 0;
+    wPlayerDisabledMoveNumber = wEnemyDisabledMoveNumber = 0;
+    wPlayerMoveListIndex = wEnemyMoveListIndex = 0;
+    memset(wTotalPayDayMoney, 0, sizeof(wTotalPayDayMoney));
+    wTransformedEnemyMonOriginalDVs = 0;
+    wDamage = 0;
+    wMoveMissed = 0;
+    wCriticalHitOrOHKO = 0;
 }

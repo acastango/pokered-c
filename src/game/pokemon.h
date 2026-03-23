@@ -8,10 +8,11 @@
 #include <stdint.h>
 #include "types.h"
 
-/* Initialize mon from Pokédex number (1-151) and level (1-100).
+/* Initialize mon from internal species ID and level (1-100).
+ * species: internal species ID (SPECIES_* constant), NOT a Pokédex number.
  * Fills species, types, catch_rate, starting moves, PP, DVs (all 0),
  * stat exp (all 0), exp for level, computed stats, current HP = max HP. */
-void Pokemon_InitMon(party_mon_t *mon, uint8_t dex, uint8_t level);
+void Pokemon_InitMon(party_mon_t *mon, uint8_t species, uint8_t level);
 
 /* Experience required to reach `level` under `growth_rate` (GROWTH_* constant).
  * Returns 0 for level < 2. */

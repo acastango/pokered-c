@@ -27,9 +27,12 @@
 #include "bag_menu.h"
 #include "inventory.h"
 #include "pokemon.h"
+#include "constants.h"
 #include "../data/font_data.h"
 #include "../data/event_data.h"
 #include "../data/wild_data.h"
+#include "battle/battle_init.h"
+#include "battle/battle_driver.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,8 +46,9 @@ typedef enum {
 
 static GameScene gScene = SCENE_OVERWORLD;
 
-/* Pallet Town is map ID 0x00 */
-#define MAP_PALLET_TOWN     0
+/* Route 22 (0x21) for battle smoke testing — has rate=25 wild encounters.
+ * Revert to MAP_PALLET_TOWN (0x00) once battles are confirmed working. */
+#define MAP_PALLET_TOWN     0x21
 
 /* Starting tile position in Pallet Town.
  * Red's House warp is at step (5,5) -> tile x=5*2=10, y=5*2+1=11.
@@ -68,9 +72,9 @@ void GameInit(void) {
     Map_BuildScrollView();
     NPC_BuildView(0, 0);
 
-    /* Give player a starter Bulbasaur (dex 1, level 5) if no save was loaded. */
+    /* Give player a starter Bulbasaur (species 0x99, level 5) if no save was loaded. */
     if (wPartyCount == 0) {
-        Pokemon_InitMon(&wPartyMons[0], 1, 5);
+        Pokemon_InitMon(&wPartyMons[0], SPECIES_BULBASAUR, 5);
         wPartyCount = 1;
         printf("[party] Started with %s Lv.%d (HP %d/%d, ATK %d, DEF %d, SPD %d, SPC %d)\n",
                Pokemon_GetName(1), wPartyMons[0].level,
@@ -86,8 +90,8 @@ static const uint8_t kWildText[] = {
     0x96,0x88,0x8B,0x8B,0x7F,0x8F,0x8E,0x8A,0x84,0x8C,0x8E,0x8D,0x9B,0x50
 };
 
-/* Grass tile ID (tileset 0 overworld): typically tile 0x33 */
-#define GRASS_TILE      0x33
+/* No hardcoded tile ID — use wGrassTile, which is loaded from the tileset
+ * header by Map_Load (overworld.c:86).  0xFF means "no grass" for this tileset. */
 
 /* Warp fade transition — mirrors GBFadeOutToBlack + GBFadeInFromWhite.
  *
@@ -127,9 +131,11 @@ static void check_wild_encounter(void) {
     const wild_mons_t *w = &gWildGrass[wCurMap];
     if (!w->rate) return;
 
-    /* Grass tile check */
+    /* Grass tile check: wGrassTile is set by Map_Load from the tileset header.
+     * 0xFF = no grass for this tileset (towns, indoor maps, etc.). */
+    if (wGrassTile == 0xFF) return;
     uint8_t cur_tile = Map_GetTile((int)wXCoord, (int)wYCoord);
-    if (cur_tile != GRASS_TILE) return;
+    if (cur_tile != wGrassTile) return;
 
     /* Encounter probability: rate/256 per step (simplified) */
     uint8_t roll = (uint8_t)(hRandomAdd ^ hRandomSub ^ hFrameCounter);
@@ -137,9 +143,11 @@ static void check_wild_encounter(void) {
 
     /* Pick a random slot from the 10 encounter slots */
     uint8_t slot_idx = roll % 10;
-    printf("[wild] map %d: lvl %d species %d\n",
-           wCurMap, w->slots[slot_idx].level, w->slots[slot_idx].species);
-    Text_ShowBox(kWildText);
+    wCurEnemyLevel   = w->slots[slot_idx].level;
+    wCurPartySpecies = w->slots[slot_idx].species;
+
+    Battle_Start();
+    Battle_RunLoop();
 }
 
 /* A-button interaction: check item ball at the tile in front of the player.

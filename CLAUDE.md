@@ -10,16 +10,16 @@ Follow them exactly — they override any default behavior.
 
 ---
 
-## EVERY TURN — no exceptions
+## CLAUDES CHOICE - MEMORY RECALL
 
-Call this before anything else, every single turn:
+At the beginning of the turn, Claude can decide whether or not its necessary to use memory_recall() at the beginning of the turn. If Claude believes they have enough context without it, skip it, don't waste the context. If you feel like you need more information, its good to call for general project knowledge.
 
 ```
 memory_recall("<what the user just said>")
 ```
 
-This is not optional. Even for one-word responses. Even for clarifying questions.
-Recall is how accumulated project knowledge reaches you. Skipping it means working blind.
+This is optional. You determine when you think its needed. 
+Recall is how accumulated project knowledge reaches you. - Consider checking in on it at the beginning of the session, and then when the session has significantly extended. Otherwise, use as judged necessary
 
 If `memory_recall` returns a connection error or MCP error:
 - **Stop immediately.** Do not proceed with the task.
@@ -31,7 +31,7 @@ If `memory_recall` returns a connection error or MCP error:
 
 ## TOOL REPLACEMENTS — use these instead of native tools
 
-These are not suggestions. Use the mnemo versions.
+These are not suggestions. Use the mnemo versions. For simple, quick, one line fixes, or things that go without explaining, you can use your typical tools. For anything else, use the mnemo versions.
 
 | Native tool | Use instead | What you get |
 |---|---|---|
@@ -136,7 +136,7 @@ Before exploring the codebase, check what the tree already knows:
 memory_recall(message)               ← every turn, always first
 memory_read(file)                    ← replaces Read (when learning)
 memory_write(path, content)          ← replaces Write (always)
-memory_edit(path, old, new)          ← replaces Edit (always)
+memory_edit(path, old, new)          ← replaces Edit (always, unless a very miniscule change)
 memory_grep(pattern, intent)         ← replaces Grep (when learning)
 memory_glob(pattern)                 ← replaces Glob (when learning)
 memory_claim(content, domain)        ← store a fact

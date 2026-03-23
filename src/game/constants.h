@@ -73,6 +73,157 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define NUM_POKEMON         151
 #define NUM_WILD_SLOTS      10
 
+/* ---- Internal species IDs (constants/pokemon_constants.asm) ----------
+ * These are the IDs stored in party/battle struct species fields and in
+ * wCurPartySpecies.  They are NOT Pokédex numbers.
+ * Use gSpeciesToDex[species] to get the dex for gBaseStats[] lookups.
+ * Use gDexToSpecies[dex]    to go the other way. */
+#define SPECIES_RHYDON      0x01
+#define SPECIES_KANGASKHAN  0x02
+#define SPECIES_NIDORAN_M   0x03
+#define SPECIES_CLEFAIRY    0x04
+#define SPECIES_SPEAROW     0x05
+#define SPECIES_VOLTORB     0x06
+#define SPECIES_NIDOKING    0x07
+#define SPECIES_SLOWBRO     0x08
+#define SPECIES_IVYSAUR     0x09
+#define SPECIES_EXEGGUTOR   0x0A
+#define SPECIES_LICKITUNG   0x0B
+#define SPECIES_EXEGGCUTE   0x0C
+#define SPECIES_GRIMER      0x0D
+#define SPECIES_GENGAR      0x0E
+#define SPECIES_NIDORAN_F   0x0F
+#define SPECIES_NIDOQUEEN   0x10
+#define SPECIES_CUBONE      0x11
+#define SPECIES_RHYHORN     0x12
+#define SPECIES_LAPRAS      0x13
+#define SPECIES_ARCANINE    0x14
+#define SPECIES_MEW         0x15
+#define SPECIES_GYARADOS    0x16
+#define SPECIES_SHELLDER    0x17
+#define SPECIES_TENTACOOL   0x18
+#define SPECIES_GASTLY      0x19
+#define SPECIES_SCYTHER     0x1A
+#define SPECIES_STARYU      0x1B
+#define SPECIES_BLASTOISE   0x1C
+#define SPECIES_PINSIR      0x1D
+#define SPECIES_TANGELA     0x1E
+#define SPECIES_GROWLITHE   0x21
+#define SPECIES_ONIX        0x22
+#define SPECIES_FEAROW      0x23
+#define SPECIES_PIDGEY      0x24
+#define SPECIES_SLOWPOKE    0x25
+#define SPECIES_KADABRA     0x26
+#define SPECIES_GRAVELER    0x27
+#define SPECIES_CHANSEY     0x28
+#define SPECIES_MACHOKE     0x29
+#define SPECIES_MR_MIME     0x2A
+#define SPECIES_HITMONLEE   0x2B
+#define SPECIES_HITMONCHAN  0x2C
+#define SPECIES_ARBOK       0x2D
+#define SPECIES_PARASECT    0x2E
+#define SPECIES_PSYDUCK     0x2F
+#define SPECIES_DROWZEE     0x30
+#define SPECIES_GOLEM       0x31
+#define SPECIES_MAGMAR      0x33
+#define SPECIES_ELECTABUZZ  0x35
+#define SPECIES_MAGNETON    0x36
+#define SPECIES_KOFFING     0x37
+#define SPECIES_MANKEY      0x39
+#define SPECIES_SEEL        0x3A
+#define SPECIES_DIGLETT     0x3B
+#define SPECIES_TAUROS      0x3C
+#define SPECIES_FARFETCHD   0x40
+#define SPECIES_VENONAT     0x41
+#define SPECIES_DRAGONITE   0x42
+#define SPECIES_DODUO       0x46
+#define SPECIES_POLIWAG     0x47
+#define SPECIES_JYNX        0x48
+#define SPECIES_MOLTRES     0x49
+#define SPECIES_ARTICUNO    0x4A
+#define SPECIES_ZAPDOS      0x4B
+#define SPECIES_DITTO       0x4C
+#define SPECIES_MEOWTH      0x4D
+#define SPECIES_KRABBY      0x4E
+#define SPECIES_VULPIX      0x52
+#define SPECIES_NINETALES   0x53
+#define SPECIES_PIKACHU     0x54
+#define SPECIES_RAICHU      0x55
+#define SPECIES_DRATINI     0x58
+#define SPECIES_DRAGONAIR   0x59
+#define SPECIES_KABUTO      0x5A
+#define SPECIES_KABUTOPS    0x5B
+#define SPECIES_HORSEA      0x5C
+#define SPECIES_SEADRA      0x5D
+#define SPECIES_SANDSHREW   0x60
+#define SPECIES_SANDSLASH   0x61
+#define SPECIES_OMANYTE     0x62
+#define SPECIES_OMASTAR     0x63
+#define SPECIES_JIGGLYPUFF  0x64
+#define SPECIES_WIGGLYTUFF  0x65
+#define SPECIES_EEVEE       0x66
+#define SPECIES_FLAREON     0x67
+#define SPECIES_JOLTEON     0x68
+#define SPECIES_VAPOREON    0x69
+#define SPECIES_WEEDLE      0x70
+#define SPECIES_KAKUNA      0x71
+#define SPECIES_BEEDRILL    0x72
+#define SPECIES_DODRIO      0x74
+#define SPECIES_PRIMEAPE    0x75
+#define SPECIES_DUGTRIO     0x76
+#define SPECIES_VENOMOTH    0x77
+#define SPECIES_DEWGONG     0x78
+#define SPECIES_CATERPIE    0x7B
+#define SPECIES_METAPOD     0x7C
+#define SPECIES_BUTTERFREE  0x7D
+#define SPECIES_MACHAMP     0x7E
+#define SPECIES_GOLDUCK     0x80
+#define SPECIES_HYPNO       0x81
+#define SPECIES_GOLBAT      0x82
+#define SPECIES_MEWTWO      0x83
+#define SPECIES_SNORLAX     0x84
+#define SPECIES_MAGIKARP    0x85
+#define SPECIES_MUK         0x88
+#define SPECIES_KINGLER     0x8A
+#define SPECIES_CLOYSTER    0x8B
+#define SPECIES_ELECTRODE   0x8D
+#define SPECIES_CLEFABLE    0x8E
+#define SPECIES_WEEZING     0x8F
+#define SPECIES_PERSIAN     0x90
+#define SPECIES_MAROWAK     0x91
+#define SPECIES_HAUNTER     0x93
+#define SPECIES_ABRA        0x94
+#define SPECIES_ALAKAZAM    0x95
+#define SPECIES_PIDGEOTTO   0x96
+#define SPECIES_PIDGEOT     0x97
+#define SPECIES_STARMIE     0x98
+#define SPECIES_BULBASAUR   0x99
+#define SPECIES_VENUSAUR    0x9A
+#define SPECIES_TENTACRUEL  0x9B
+#define SPECIES_GOLDEEN     0x9D
+#define SPECIES_SEAKING     0x9E
+#define SPECIES_PONYTA      0xA3
+#define SPECIES_RAPIDASH    0xA4
+#define SPECIES_RATTATA     0xA5
+#define SPECIES_RATICATE    0xA6
+#define SPECIES_NIDORINO    0xA7
+#define SPECIES_NIDORINA    0xA8
+#define SPECIES_GEODUDE     0xA9
+#define SPECIES_PORYGON     0xAA
+#define SPECIES_AERODACTYL  0xAB
+#define SPECIES_MAGNEMITE   0xAD
+#define SPECIES_CHARMANDER  0xB0
+#define SPECIES_SQUIRTLE    0xB1
+#define SPECIES_CHARMELEON  0xB2
+#define SPECIES_WARTORTLE   0xB3
+#define SPECIES_CHARIZARD   0xB4
+#define SPECIES_ODDISH      0xB9
+#define SPECIES_GLOOM       0xBA
+#define SPECIES_VILEPLUME   0xBB
+#define SPECIES_BELLSPROUT  0xBC
+#define SPECIES_WEEPINBELL  0xBD
+#define SPECIES_VICTREEBEL  0xBE
+
 /* ---- Name lengths ---------------------------------------- */
 #define NAME_LENGTH         11      /* mon/player name buffer (includes terminator) */
 #define PLAYER_NAME_LENGTH  8
@@ -190,6 +341,41 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define MAX_NEUTRAL_DAMAGE  999
 #define MAX_PREDEF          112
 
+/* wPlayerBattleStatus1 / wEnemyBattleStatus1 bit positions
+ * (from constants/battle_constants.asm) */
+#define BSTAT1_STORING_ENERGY       0   /* Bide */
+#define BSTAT1_THRASHING_ABOUT      1   /* Thrash/Petal Dance */
+#define BSTAT1_ATTACKING_MULTIPLE   2   /* multi-hit moves */
+#define BSTAT1_FLINCHED             3
+#define BSTAT1_CHARGING_UP          4   /* SolarBeam, Fly */
+#define BSTAT1_USING_TRAPPING       5   /* Wrap, Bind, etc. */
+#define BSTAT1_INVULNERABLE         6   /* during Fly/Dig */
+#define BSTAT1_CONFUSED             7
+
+/* wPlayerBattleStatus2 / wEnemyBattleStatus2 bit positions */
+#define BSTAT2_USING_X_ACCURACY     0
+#define BSTAT2_PROTECTED_BY_MIST    1
+#define BSTAT2_GETTING_PUMPED       2   /* Focus Energy (bug: halves crit rate) */
+/* bit 3 unused */
+#define BSTAT2_HAS_SUBSTITUTE       4
+#define BSTAT2_NEEDS_TO_RECHARGE    5   /* Hyper Beam */
+#define BSTAT2_USING_RAGE           6
+#define BSTAT2_SEEDED               7   /* Leech Seed */
+
+/* wPlayerBattleStatus3 / wEnemyBattleStatus3 bit positions */
+#define BSTAT3_BADLY_POISONED       0   /* Toxic */
+#define BSTAT3_HAS_LIGHT_SCREEN     1
+#define BSTAT3_HAS_REFLECT          2
+#define BSTAT3_TRANSFORMED          3
+
+/* StatModifierRatios array indices (within wPlayerMonStatMods / wEnemyMonStatMods) */
+#define MOD_ATTACK   0
+#define MOD_DEFENSE  1
+#define MOD_SPEED    2
+#define MOD_SPECIAL  3
+#define MOD_ACCURACY 4
+#define MOD_EVASION  5
+
 /* ---- Save ------------------------------------------------ */
 #define HOF_TEAM_CAPACITY   50
 /* Checksum: ~(sum of all bytes in sMainData section) */
@@ -221,8 +407,8 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define TX_SCRIPT_POKECENTER_NURSE          0xFF
 
 /* ---- Move effects ---------------------------------------- */
+/* Complete list from constants/move_effect_constants.asm */
 #define EFFECT_NONE                     0x00
-#define EFFECT_SLEEP                    0x20
 #define EFFECT_POISON_SIDE1             0x02
 #define EFFECT_DRAIN_HP                 0x03
 #define EFFECT_BURN_SIDE                0x04
@@ -239,6 +425,26 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define EFFECT_EVASION_UP1              0x0F
 #define EFFECT_PAY_DAY                  0x10
 #define EFFECT_SWIFT                    0x11
+#define EFFECT_ATTACK_DOWN1             0x12
+#define EFFECT_DEFENSE_DOWN1            0x13
+#define EFFECT_SPEED_DOWN1              0x14
+#define EFFECT_SPECIAL_DOWN1            0x15
+#define EFFECT_ACCURACY_DOWN1           0x16
+#define EFFECT_EVASION_DOWN1            0x17
+#define EFFECT_CONVERSION               0x18
+#define EFFECT_HAZE                     0x19
+#define EFFECT_BIDE                     0x1A
+#define EFFECT_THRASH                   0x1B
+#define EFFECT_SWITCH_TELEPORT          0x1C
+#define EFFECT_TWO_TO_FIVE_ATTACKS      0x1D
+#define EFFECT_1E                       0x1E   /* unused */
+#define EFFECT_FLINCH_SIDE1             0x1F
+#define EFFECT_SLEEP                    0x20
+#define EFFECT_POISON_SIDE2             0x21
+#define EFFECT_BURN_SIDE2               0x22
+#define EFFECT_FREEZE_SIDE2             0x23   /* unused in US version (Blizzard in JP) */
+#define EFFECT_PARALYZE_SIDE2           0x24
+#define EFFECT_FLINCH_SIDE2             0x25
 #define EFFECT_OHKO                     0x26
 #define EFFECT_CHARGE                   0x27
 #define EFFECT_SUPER_FANG               0x28
@@ -255,12 +461,24 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define EFFECT_DEFENSE_UP2              0x33
 #define EFFECT_SPEED_UP2                0x34
 #define EFFECT_SPECIAL_UP2              0x35
+#define EFFECT_ACCURACY_UP2             0x36
+#define EFFECT_EVASION_UP2              0x37
 #define EFFECT_HEAL                     0x38
 #define EFFECT_TRANSFORM                0x39
+#define EFFECT_ATTACK_DOWN2             0x3A
+#define EFFECT_DEFENSE_DOWN2            0x3B
+#define EFFECT_SPEED_DOWN2              0x3C
+#define EFFECT_SPECIAL_DOWN2            0x3D
+#define EFFECT_ACCURACY_DOWN2           0x3E
+#define EFFECT_EVASION_DOWN2            0x3F
 #define EFFECT_LIGHT_SCREEN             0x40
 #define EFFECT_REFLECT                  0x41
 #define EFFECT_POISON                   0x42
 #define EFFECT_PARALYZE                 0x43
+#define EFFECT_ATTACK_DOWN_SIDE         0x44
+#define EFFECT_DEFENSE_DOWN_SIDE        0x45
+#define EFFECT_SPEED_DOWN_SIDE          0x46
+#define EFFECT_SPECIAL_DOWN_SIDE        0x47
 #define EFFECT_CONFUSION_SIDE           0x4C
 #define EFFECT_TWINEEDLE                0x4D
 #define EFFECT_SUBSTITUTE               0x4F
@@ -271,3 +489,86 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define EFFECT_LEECH_SEED               0x54
 #define EFFECT_SPLASH                   0x55
 #define EFFECT_DISABLE                  0x56
+
+/* wDamageMultipliers bit flag for STAB (core.asm:5125, AdjustDamageForMoveType) */
+#define BIT_STAB_DAMAGE     7   /* set when attacker's type matches move type */
+
+/* Physical/Special split threshold (type_constants.asm):
+ * Move types < 0x14 are Physical; types >= 0x14 (FIRE and above) are Special. */
+#define TYPE_SPECIAL_THRESHOLD  0x14
+
+/* Stat IDs used by GetDamageVarsFor*Attack crit bypass and GetEnemyMonStat
+ * (battle_constants.asm STAT_* — 1-indexed, matching the ASM constants). */
+#define STAT_ATTACK         1
+#define STAT_DEFENSE        2
+#define STAT_SPEED          3
+#define STAT_SPECIAL_STAT   4   /* STAT_SPECIAL_STAT to avoid clash with MOD_SPECIAL */
+#define NUM_STATS           4   /* ATK, DEF, SPD, SPC — excludes accuracy/evasion */
+
+/* ---- High-critical-hit move IDs (data/battle/critical_hit_moves.asm) --- */
+/* Used by CriticalHitTest to apply an 8x crit rate multiplier. */
+#define MOVE_KARATE_CHOP    0x02
+#define MOVE_RAZOR_LEAF     0x4B
+#define MOVE_CRABHAMMER     0x98
+#define MOVE_SLASH          0xA3
+
+/* ---- Move IDs used by effects engine (constants/move_constants.asm) --- */
+#define MOVE_RAZOR_WIND     0x0D
+#define MOVE_WHIRLWIND      0x12
+#define MOVE_FLY            0x13
+#define MOVE_BIND           0x14
+#define MOVE_SAND_ATTACK    0x1C
+#define MOVE_WRAP           0x23
+#define MOVE_TAIL_WHIP      0x27
+#define MOVE_TWINEEDLE      0x29
+#define MOVE_LEER           0x2B
+#define MOVE_GROWL          0x2D
+#define MOVE_ROAR           0x2E
+#define MOVE_SOLARBEAM      0x4C
+#define MOVE_PETAL_DANCE    0x50
+#define MOVE_STRING_SHOT    0x51
+#define MOVE_FIRE_SPIN      0x53
+#define MOVE_DIG            0x5B
+#define MOVE_TOXIC          0x5C
+#define MOVE_TELEPORT       0x64
+#define MOVE_MINIMIZE       0x6B
+#define MOVE_SMOKESCREEN    0x6C
+#define MOVE_CLAMP          0x80
+#define MOVE_SKULL_BASH     0x82
+#define MOVE_SKY_ATTACK     0x8F
+#define MOVE_REST           0x9C
+#define MOVE_STRUGGLE       0xA5
+
+/* ---- Serial / link state (serial_constants.asm) ---- */
+#define LINK_STATE_BATTLING 0x04   /* wLinkState value when in a link battle */
+
+/* ---- Battle effectiveness initial value (battle_constants.asm) ----
+ * wDamageMultipliers is initialised to EFFECTIVE (10) each turn.
+ * Low 7 bits = effectiveness value (0/5/10/20); bit 7 = STAB flag. */
+#define DAMAGE_MULT_EFFECTIVE   10
+
+/* ---- Additional move IDs (constants/move_constants.asm) ---- */
+#define MOVE_THRASH             0x25   /* 37 */
+#define MOVE_SONICBOOM          0x31   /* 49 */
+#define MOVE_COUNTER            0x44   /* 68 */
+#define MOVE_SEISMIC_TOSS       0x45   /* 69 */
+#define MOVE_DRAGON_RAGE        0x52   /* 82 */
+#define MOVE_QUICK_ATTACK       0x62   /* 98 */
+#define MOVE_RAGE               0x63   /* 99 */
+#define MOVE_NIGHT_SHADE        0x65   /* 101 */
+#define MOVE_BIDE               0x75   /* 117 */
+#define MOVE_PSYWAVE            0x95   /* 149 */
+#define CANNOT_MOVE             0xFF   /* wPlayerSelectedMove when mon can't act */
+
+/* ---- Unused effect slot (move_effect_constants.asm) ---- */
+#define EFFECT_01               0x01   /* $01 — unused, appears in ResidualEffects2 */
+
+/* ---- Fixed special-damage values (battle_constants.asm) ---- */
+#define SONICBOOM_DAMAGE        20
+#define DRAGON_RAGE_DAMAGE      40
+
+/* ---- Badge bit positions in wObtainedBadges (ram_constants.asm) ---- */
+#define BIT_CASCADEBADGE        1
+#define BIT_RAINBOWBADGE        3
+#define BIT_MARSHBADGE          5
+#define BIT_EARTHBADGE          7

@@ -59,6 +59,12 @@ set(SOURCES
     src/game/inventory.c
     src/game/pokemon.c
     src/game/bag_menu.c
+    src/game/battle/battle_damage.c
+    src/game/battle/battle_effects.c
+    src/game/battle/battle_core.c
+    src/game/battle/battle_loop.c
+    src/game/battle/battle_init.c
+    src/game/battle/battle_driver.c
     src/data/sprite_data.c
     src/data/font_data.c
     src/data/player_sprite.c
@@ -107,6 +113,10 @@ set(TEST_GAME_SOURCES
     src/data/sprite_data.c
     src/data/font_data.c
     src/data/player_sprite.c
+    src/game/battle/battle_damage.c
+    src/game/battle/battle_effects.c
+    src/game/battle/battle_core.c
+    src/game/battle/battle_loop.c
 )
 set(TEST_SOURCES
     tests/main.c
@@ -117,6 +127,10 @@ set(TEST_SOURCES
     tests/test_player.c
     tests/test_text.c
     tests/test_wild.c
+    tests/test_battle_damage.c
+    tests/test_battle_effects.c
+    tests/test_battle_core.c
+    tests/test_battle_loop.c
 )
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})
 target_include_directories(pokered_tests PRIVATE src tests)
