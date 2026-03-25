@@ -4,7 +4,7 @@ A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
-**Status:** Overworld fully playable. Full Gen 1 battle engine implemented. Major UI screens complete.
+**Status:** Overworld fully playable. Full Gen 1 battle engine implemented (Mechanics still to be fully tested for acute accuracy, trainer battles not fully implemented). Major UI screens complete (Some buggy, like PokeMart).
 
 ## What's implemented
 
@@ -47,6 +47,23 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - Level-up movesets and evolution chains
 - All trainer parties
 - Pokémon cry definitions
+
+## What's missing
+
+### Trainer Battles
+-Trainer alert and battle start not yet implemented
+-Trainer Battle transition screens not yet implemented
+-Trainer AI not yet implemented
+
+### Evolution
+
+-Pokemon don't evolve yet
+-Data is in the game, not hooked into an event yet
+
+### Scripts
+-Story Scripts haven't been attempted yet
+-Story Flags not yet set up fully
+-After trainer battles, this.
 
 ## Prerequisites
 
