@@ -29,3 +29,6 @@ powershell
 *.user
 Thumbs.db
 .DS_Store
+
+# Packed archives (mnemo snapshots, source zips)
+*.zip

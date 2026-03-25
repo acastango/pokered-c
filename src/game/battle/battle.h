@@ -12,7 +12,17 @@
  *   Battle_CalcHitChance   — core.asm:5348 CalcHitChance
  */
 #include <stdint.h>
+#include <stdio.h>
 #include "../../platform/hardware.h"
+#include "../../data/moves_data.h"
+#include "../../data/base_stats.h"
+#include "../pokemon.h"
+
+/* ---- Battle debug log ---- */
+#define BLOG(fmt, ...) fprintf(stderr, "[BATTLE] " fmt "\n", ##__VA_ARGS__)
+#define BMON_P()  Pokemon_GetName(gSpeciesToDex[wBattleMon.species])
+#define BMON_E()  Pokemon_GetName(gSpeciesToDex[wEnemyMon.species])
+#define BMOVE(id) ((unsigned)(id) < NUM_MOVE_DEFS && gMoveNames[(id)] ? gMoveNames[(id)] : "???")
 
 /* StatModifierRatios — data/battle/stat_modifiers.asm
  * stages[stage-1] = {numerator, denominator}  (stage 1-13)

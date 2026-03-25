@@ -12,6 +12,9 @@
  * Tile_IsPassable()    returns 1 if tile_id is in the current tileset's pass list.
  */
 void    Map_Load(uint8_t map_id);
+/* Re-upload the current tileset GFX to tile_gfx[].  Call after battle to
+ * restore slots 0-N overwritten by Font_LoadHudTiles during battle. */
+void    Map_ReloadGfx(void);
 void    Map_BuildView(void);
 void    Map_BuildScrollView(void);
 void    Map_UpdateCamera(void);
@@ -19,6 +22,7 @@ uint8_t Map_GetTile(int tx, int ty);
 int     Tile_IsPassable(uint8_t tile_id);
 int     Connection_Check(int dx, int dy);  /* dx/dy: step direction (-1,0,+1) */
 void    Map_PreBuildScrollStep(int dx, int dy); /* pre-fill scroll buffer from old map before a connection transition */
+void    Map_ResetScrollState(void);  /* clear scroll-transition flags; call on battle return to force full rebuild */
 
 /* 24x22 scroll tile buffer (SCREEN_WIDTH+4 wide, SCREEN_HEIGHT+4 tall).
  * Origin = (gCamX-2, gCamY-2) — two extra tiles on each edge.

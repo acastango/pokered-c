@@ -41,10 +41,10 @@ typedef struct {
 static const song_t kSongs[] = {
     /* MUSIC_NONE */           { { NULL,            NULL,            NULL            } },
     /* MUSIC_PALLET_TOWN */    { { &kPalletTown_Ch1,&kPalletTown_Ch2,&kPalletTown_Ch3} },
-    /* MUSIC_POKECENTER */     { { NULL,            NULL,            NULL            } },
+    /* MUSIC_POKECENTER */     { { &kPokecenter_Ch1,&kPokecenter_Ch2,&kPokecenter_Ch3} },
     /* MUSIC_GYM */            { { NULL,            NULL,            NULL            } },
-    /* MUSIC_CITIES1 */        { { NULL,            NULL,            NULL            } },
-    /* MUSIC_CITIES2 */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_CITIES1 */        { { &kCities1_Ch1,   &kCities1_Ch2,   &kCities1_Ch3   } },
+    /* MUSIC_CITIES2 */        { { &kCities2_Ch1,   &kCities2_Ch2,   &kCities2_Ch3   } },
     /* MUSIC_CELADON */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_CINNABAR */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_VERMILION */      { { NULL,            NULL,            NULL            } },
@@ -52,28 +52,35 @@ static const song_t kSongs[] = {
     /* MUSIC_SS_ANNE */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_ROUTES1 */        { { &kRoutes1_Ch1,   &kRoutes1_Ch2,   &kRoutes1_Ch3   } },
     /* MUSIC_ROUTES2 */        { { NULL,            NULL,            NULL            } },
-    /* MUSIC_ROUTES3 */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_ROUTES3 */        { { &kRoutes3_Ch1,   &kRoutes3_Ch2,   &kRoutes3_Ch3   } },
     /* MUSIC_ROUTES4 */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_INDIGO_PLATEAU */ { { NULL,            NULL,            NULL            } },
     /* MUSIC_OAKS_LAB */       { { &kOaksLab_Ch1,   &kOaksLab_Ch2,   &kOaksLab_Ch3   } },
     /* MUSIC_DUNGEON1 */       { { NULL,            NULL,            NULL            } },
-    /* MUSIC_DUNGEON2 */       { { NULL,            NULL,            NULL            } },
-    /* MUSIC_DUNGEON3 */       { { NULL,            NULL,            NULL            } },
+    /* MUSIC_DUNGEON2 */       { { &kDungeon2_Ch1,  &kDungeon2_Ch2,  &kDungeon2_Ch3  } },
+    /* MUSIC_DUNGEON3 */       { { &kDungeon3_Ch1,  &kDungeon3_Ch2,  &kDungeon3_Ch3  } },
     /* MUSIC_POKEMON_TOWER */  { { NULL,            NULL,            NULL            } },
     /* MUSIC_SILPH_CO */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_SAFARI_ZONE */    { { NULL,            NULL,            NULL            } },
     /* MUSIC_TITLE */          { { NULL,            NULL,            NULL            } },
-    /* MUSIC_JIGGLYPUFF */     { { NULL,            NULL,            NULL            } },
+    /* MUSIC_JIGGLYPUFF */     { { NULL,                NULL,                NULL                } },
+    /* MUSIC_WILD_BATTLE */         { { &kWildBattle_Ch1,        &kWildBattle_Ch2,        &kWildBattle_Ch3        } },
+    /* MUSIC_DEFEATED_WILD_MON */   { { &kDefeatedWildMon_Ch1,   &kDefeatedWildMon_Ch2,   &kDefeatedWildMon_Ch3   } },
+    /* MUSIC_DEFEATED_TRAINER */    { { &kDefeatedTrainer_Ch1,   &kDefeatedTrainer_Ch2,   &kDefeatedTrainer_Ch3   } },
+    /* MUSIC_DEFEATED_GYM_LEADER */ { { &kDefeatedGymLeader_Ch1, &kDefeatedGymLeader_Ch2, &kDefeatedGymLeader_Ch3 } },
+    /* MUSIC_PKMN_HEALED */        { { &kPkmnHealed_Ch1,        &kPkmnHealed_Ch2,        &kPkmnHealed_Ch3        } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 
 /* ---- Helpers ------------------------------------------------------ */
 static void fire_note(int ch, const note_evt_t *n) {
     if (n->freq > 0) {
+        /* Ch3 (wave channel): load correct wave pattern before triggering */
+        if (ch == 2) Audio_SetWaveInstrument(n->duty);
         /* NRx1: duty (bits 7-6) + max sound length */
         Audio_WriteReg(ch, 1, (uint8_t)((n->duty << 6) | 0x3F));
-        /* NRx2: initial volume (bits 7-4), no envelope */
-        Audio_WriteReg(ch, 2, (uint8_t)(n->volume << 4));
+        /* NRx2: initial volume (bits 7-4) | dir (bit 3) | pace (bits 2-0) */
+        Audio_WriteReg(ch, 2, n->env_byte);
         /* NRx3: freq low byte */
         Audio_WriteReg(ch, 3, (uint8_t)(n->freq & 0xFF));
         /* NRx4: freq high 3 bits + trigger */
@@ -101,7 +108,7 @@ void Music_Play(uint8_t music_id) {
             continue;
         }
         gSeq[c].data  = d;
-        gSeq[c].pos   = d->loop_start >= 0 ? d->loop_start : 0;
+        gSeq[c].pos   = 0;  /* always start from the beginning (intro + loop) */
         gSeq[c].delay = 0;
         /* Fire first note immediately */
         fire_note(c, &d->notes[gSeq[c].pos]);
@@ -160,9 +167,18 @@ void Music_SuspendChannel(int c) {
 
 void Music_ResumeChannel(int c) {
     g_suspended_mask &= ~(1 << c);
-    /* Re-fire the current note so music resumes seamlessly */
     if (gSeq[c].data)
+        /* Re-fire the current note so music resumes seamlessly */
         fire_note(c, &gSeq[c].data->notes[gSeq[c].pos]);
+    else
+        /* No music on this channel — mute so the SFX note doesn't ring out */
+        Audio_WriteReg(c, 2, 0x00);
+}
+
+int Music_IsPlaying(void) {
+    for (int c = 0; c < 3; c++)
+        if (gSeq[c].data) return 1;
+    return 0;
 }
 
 uint8_t Music_GetMapID(uint8_t map_id) {

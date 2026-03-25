@@ -18,7 +18,7 @@
 typedef void (*test_fn_t)(void);
 typedef struct { const char *suite; const char *name; test_fn_t fn; } test_entry_t;
 
-#define MAX_TESTS 256
+#define MAX_TESTS 512
 extern test_entry_t  g_tests[MAX_TESTS];
 extern int           g_test_count;
 extern int           g_pass, g_fail;

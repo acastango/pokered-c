@@ -57,6 +57,13 @@ static void battle_reset(void) {
     /* X-Accuracy on both sides: guarantee hits */
     wPlayerBattleStatus2 |= (1u << BSTAT2_USING_X_ACCURACY);
     wEnemyBattleStatus2  |= (1u << BSTAT2_USING_X_ACCURACY);
+
+    /* Party setup: HandleEnemyMonFainted checks AnyPartyAlive.
+     * Mirror wBattleMon into party slot 0 so the check passes.
+     * wIsInBattle = 1 (wild) means no enemy replacement is attempted. */
+    wIsInBattle          = 1;
+    wPartyCount          = 1;
+    wPartyMons[0].base.hp = 200;
 }
 
 /* ================================================================

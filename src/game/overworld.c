@@ -68,6 +68,13 @@ void Map_UpdateCamera(void) {
 
 /* ---- Public API ------------------------------------------ */
 
+void Map_ReloadGfx(void) {
+    if (cur_map && cur_tileset && cur_tileset->gfx)
+        Display_LoadTileset(cur_tileset->gfx, cur_tileset->gfx_tiles);
+}
+
+
+
 void Map_Load(uint8_t map_id) {
     if (map_id >= NUM_MAPS) return;
     Warp_Reset();   /* clear post-warp cooldown on every map load */
@@ -184,6 +191,16 @@ void Map_BuildView(void) {
  *   to frame 0's pre-built buffer, and gScrollPxX/Y advance smoothly to 0. */
 static int gScrollViewReady    = 0;
 static int gConnTransRemaining = 0;
+
+void Map_ResetScrollState(void) {
+    /* Force Map_BuildScrollView to do a full rebuild on the next call.
+     * Required after battle: if gScrollViewReady or gConnTransRemaining
+     * were non-zero when the encounter triggered, the cleanup call to
+     * Map_BuildScrollView would skip the rebuild and leave battle-UI
+     * tile data in gScrollTileMap. */
+    gScrollViewReady    = 0;
+    gConnTransRemaining = 0;
+}
 
 /* Saved old-map state for the connection transition rebuild. */
 static const map_info_t       *conn_save_map      = NULL;

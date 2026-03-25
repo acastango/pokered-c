@@ -21,3 +21,11 @@ void Text_ShowASCII(const char *str);     /* ASCII: \n=line \f=paragraph @=end *
 int  Text_IsOpen(void);
 void Text_Update(void);
 void Text_Close(void);
+/* One-shot flag: next Text_Close() will not erase the text box tiles.
+ * Mirrors the original game where text_end leaves tiles in VRAM so the
+ * dialog box stays visible while the move animation plays over it. */
+void Text_KeepTilesOnClose(void);
+/* Draw the empty dialog box border into gScrollTileMap without starting text.
+ * Matches DisplayTextBoxID(MESSAGE_BOX) in pokered, called before the battle
+ * intro slide so the box frame is visible throughout the animation. */
+void Text_DrawEmptyBox(void);

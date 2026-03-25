@@ -59,15 +59,31 @@ set(SOURCES
     src/game/inventory.c
     src/game/pokemon.c
     src/game/bag_menu.c
+    src/game/party_menu.c
+    src/game/pokecenter.c
+    src/game/pokemart.c
+    src/game/summary_screen.c
     src/game/battle/battle_damage.c
     src/game/battle/battle_effects.c
     src/game/battle/battle_core.c
     src/game/battle/battle_loop.c
     src/game/battle/battle_init.c
+    src/game/battle/battle_exp.c
     src/game/battle/battle_driver.c
+    src/game/battle/battle_catch.c
+    src/game/battle/battle_items.c
+    src/game/battle/battle_switch.c
+    src/game/battle/battle_trainer.c
+    src/game/battle/battle_ui.c
+    src/game/battle_transition.c
+    src/data/evos_moves_data.c
+    src/data/trainer_data.c
     src/data/sprite_data.c
+    src/data/party_icon_data.c
     src/data/font_data.c
     src/data/player_sprite.c
+    src/data/pokemon_sprites.c
+    src/data/cry_data.c
     src/game/music.c
 )
 
@@ -102,6 +118,9 @@ set(TEST_GAME_SOURCES
     src/game/music.c
     src/game/npc.c
     src/game/text.c
+    src/game/inventory.c
+    src/game/pokecenter.c
+    src/game/pokemart.c
     src/data/base_stats.c
     src/data/moves_data.c
     src/data/type_chart.c
@@ -113,10 +132,20 @@ set(TEST_GAME_SOURCES
     src/data/sprite_data.c
     src/data/font_data.c
     src/data/player_sprite.c
+    src/data/pokemon_sprites.c
     src/game/battle/battle_damage.c
     src/game/battle/battle_effects.c
     src/game/battle/battle_core.c
     src/game/battle/battle_loop.c
+    src/game/battle/battle_exp.c
+    src/game/battle/battle_init.c
+    src/game/battle/battle_catch.c
+    src/game/battle/battle_items.c
+    src/game/battle/battle_switch.c
+    src/game/battle/battle_trainer.c
+    src/game/pokemon.c
+    src/data/evos_moves_data.c
+    src/data/trainer_data.c
 )
 set(TEST_SOURCES
     tests/main.c
@@ -131,6 +160,11 @@ set(TEST_SOURCES
     tests/test_battle_effects.c
     tests/test_battle_core.c
     tests/test_battle_loop.c
+    tests/test_battle_catch.c
+    tests/test_battle_items.c
+    tests/test_battle_switch.c
+    tests/test_battle_trainer.c
+    tests/test_battle_init.c
 )
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})
 target_include_directories(pokered_tests PRIVATE src tests)

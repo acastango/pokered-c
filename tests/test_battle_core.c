@@ -551,3 +551,56 @@ TEST(HandlePoisonBurnLeechSeed, poison_and_leech_both_trigger) {
     EXPECT_EQ((int)wBattleMon.hp, 140);
     EXPECT_EQ((int)wEnemyMon.hp, 60);
 }
+
+/* ================================================================
+ * PP decrement (DecrementPP, core.asm:3133 / 5540)
+ * ================================================================ */
+
+/* Enemy PP decrements by 1 after executing a move */
+TEST(DecrementPP, enemy_pp_decrements) {
+    battle_reset();
+    hWhoseTurn = 1;
+    wEnemyMon.pp[0]    = 10;
+    wEnemyMoveListIndex = 0;
+    wEnemyBattleStatus2 |= (1u << BSTAT2_USING_X_ACCURACY);
+    Battle_ExecuteEnemyMove();
+    EXPECT_EQ((int)wEnemyMon.pp[0], 9);
+}
+
+/* Player PP decrements by 1 after executing a move.
+ * wPlayerMoveListIndex defaults to 0 (set by UI at battle time). */
+TEST(DecrementPP, player_pp_decrements) {
+    battle_reset();
+    hWhoseTurn = 0;
+    wBattleMon.pp[0]     = 10;
+    wPlayerMoveListIndex  = 0;
+    wPlayerBattleStatus2 |= (1u << BSTAT2_USING_X_ACCURACY);
+    Battle_ExecutePlayerMove();
+    EXPECT_EQ((int)wBattleMon.pp[0], 9);
+}
+
+/* PP_UP bits (bits 6-7) must not be touched by decrement */
+TEST(DecrementPP, pp_up_bits_preserved) {
+    battle_reset();
+    hWhoseTurn = 1;
+    /* PP_UP = 1 (bit6 set), current PP = 5 → byte = 0x45 */
+    wEnemyMon.pp[0]    = (1u << 6) | 5;
+    wEnemyMoveListIndex = 0;
+    wEnemyBattleStatus2 |= (1u << BSTAT2_USING_X_ACCURACY);
+    Battle_ExecuteEnemyMove();
+    /* Expect PP_UP=1 still set, current PP=4 → byte = 0x44 */
+    EXPECT_EQ((int)(wEnemyMon.pp[0] >> 6), 1);   /* PP_UP preserved */
+    EXPECT_EQ((int)(wEnemyMon.pp[0] & 0x3F), 4); /* PP decremented */
+}
+
+/* Struggle must NOT decrement PP */
+TEST(DecrementPP, struggle_no_decrement) {
+    battle_reset();
+    hWhoseTurn = 1;
+    wEnemyMon.pp[0]     = 5;
+    wEnemyMoveListIndex  = 0;
+    wEnemySelectedMove   = MOVE_STRUGGLE;
+    wEnemyBattleStatus2 |= (1u << BSTAT2_USING_X_ACCURACY);
+    Battle_ExecuteEnemyMove();
+    EXPECT_EQ((int)wEnemyMon.pp[0], 5);
+}

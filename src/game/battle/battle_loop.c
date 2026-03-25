@@ -15,6 +15,72 @@
 #include "../../platform/hardware.h"
 
 /* ============================================================
+ * Battle_TurnPrepare / Battle_TurnPlayerFirst
+ * First half of MainInBattleLoop (core.asm:280-412).
+ * ============================================================ */
+static int s_turn_player_first = 1;
+
+battle_result_t Battle_TurnPrepare(void) {
+    wFirstMonsNotOutYet = 0;
+
+    /* Top-of-loop HP checks (core.asm:281-289) */
+    if (wBattleMon.hp == 0) {
+        Battle_HandlePlayerMonFainted();
+        return BATTLE_RESULT_PLAYER_FAINTED;
+    }
+    if (wEnemyMon.hp == 0) {
+        Battle_HandleEnemyMonFainted();
+        return BATTLE_RESULT_ENEMY_FAINTED;
+    }
+
+    /* Clear flinch bits when player not locked (core.asm:294-303) */
+    if (!(wPlayerBattleStatus2 & ((1u << BSTAT2_NEEDS_TO_RECHARGE) |
+                                   (1u << BSTAT2_USING_RAGE))) &&
+        !(wPlayerBattleStatus1 & ((1u << BSTAT1_THRASHING_ABOUT) |
+                                   (1u << BSTAT1_CHARGING_UP)))) {
+        wEnemyBattleStatus1  &= ~(1u << BSTAT1_FLINCHED);
+        wPlayerBattleStatus1 &= ~(1u << BSTAT1_FLINCHED);
+    }
+
+    /* Enemy trapping move: player cannot act (core.asm:316-322) */
+    if (wEnemyBattleStatus1 & (1u << BSTAT1_USING_TRAPPING))
+        wPlayerSelectedMove = CANNOT_MOVE;
+
+    /* Select enemy move (core.asm:339) */
+    Battle_SelectEnemyMove();
+
+    BLOG("--- Turn: %s Lv%d %d/%d HP vs %s Lv%d %d/%d HP",
+         BMON_P(), wBattleMon.level, wBattleMon.hp, wBattleMon.max_hp,
+         BMON_E(), wEnemyMon.level,  wEnemyMon.hp,  wEnemyMon.max_hp);
+    BLOG("    Player -> %-12s | Enemy -> %s",
+         BMOVE(wPlayerSelectedMove), BMOVE(wEnemySelectedMove));
+
+    /* Move order determination (core.asm:370-412) */
+    {
+        int p_quick   = (wPlayerSelectedMove == MOVE_QUICK_ATTACK);
+        int e_quick   = (wEnemySelectedMove  == MOVE_QUICK_ATTACK);
+        int p_counter = (wPlayerSelectedMove == MOVE_COUNTER);
+        int e_counter = (wEnemySelectedMove  == MOVE_COUNTER);
+
+        if      (p_quick   && !e_quick)   s_turn_player_first = 1;
+        else if (e_quick   && !p_quick)   s_turn_player_first = 0;
+        else if (p_counter && !e_counter) s_turn_player_first = 0;
+        else if (e_counter && !p_counter) s_turn_player_first = 1;
+        else {
+            if      (wBattleMon.spd > wEnemyMon.spd) s_turn_player_first = 1;
+            else if (wEnemyMon.spd > wBattleMon.spd) s_turn_player_first = 0;
+            else    s_turn_player_first = (BattleRandom() < 128);
+        }
+    }
+
+    return BATTLE_RESULT_CONTINUE;
+}
+
+int Battle_TurnPlayerFirst(void) {
+    return s_turn_player_first;
+}
+
+/* ============================================================
  * Battle_SelectEnemyMove — SelectEnemyMove (core.asm:2915)
  *
  * Link battle logic omitted (wLinkState == LINK_STATE_BATTLING path).
@@ -92,75 +158,14 @@ void Battle_CheckNumAttacksLeft(void) {
  * Battle_RunTurn — MainInBattleLoop state logic (core.asm:280)
  *
  * One full turn: order determination, execute, residual, faint check.
+ * Calls Battle_TurnPrepare internally; kept for battle_driver / tests.
  * ============================================================ */
 battle_result_t Battle_RunTurn(void) {
-    /* Mark that we have started a turn (core.asm:292) */
-    wFirstMonsNotOutYet = 0;
-
-    /* HP=0 checks at loop entry (core.asm:281-289):
-     * Faint handlers clear state; caller handles mon replacement. */
-    if (wBattleMon.hp == 0) {
-        Battle_HandlePlayerMonFainted();
-        return BATTLE_RESULT_PLAYER_FAINTED;
-    }
-    if (wEnemyMon.hp == 0) {
-        Battle_HandleEnemyMonFainted();
-        return BATTLE_RESULT_ENEMY_FAINTED;
-    }
-
-    /* Clear flinch bits when player is not locked into a move (core.asm:294-303) */
-    if (!(wPlayerBattleStatus2 & ((1u << BSTAT2_NEEDS_TO_RECHARGE) |
-                                   (1u << BSTAT2_USING_RAGE))) &&
-        !(wPlayerBattleStatus1 & ((1u << BSTAT1_THRASHING_ABOUT) |
-                                   (1u << BSTAT1_CHARGING_UP)))) {
-        wEnemyBattleStatus1 &= ~(1u << BSTAT1_FLINCHED);
-        wPlayerBattleStatus1 &= ~(1u << BSTAT1_FLINCHED);
-    }
-
-    /* Enemy trapping move: player cannot act (core.asm:316-322) */
-    if (wEnemyBattleStatus1 & (1u << BSTAT1_USING_TRAPPING)) {
-        wPlayerSelectedMove = CANNOT_MOVE;
-    }
-
-    /* Select enemy move (core.asm:339) */
-    Battle_SelectEnemyMove();
-
-    /* ---- Move order determination (core.asm:370-412) ---- */
-    int player_first;
-    {
-        int p_quick   = (wPlayerSelectedMove == MOVE_QUICK_ATTACK);
-        int e_quick   = (wEnemySelectedMove  == MOVE_QUICK_ATTACK);
-        int p_counter = (wPlayerSelectedMove == MOVE_COUNTER);
-        int e_counter = (wEnemySelectedMove  == MOVE_COUNTER);
-
-        if (p_quick && !e_quick) {
-            /* Player Quick Attack, enemy doesn't → player first */
-            player_first = 1;
-        } else if (e_quick && !p_quick) {
-            /* Enemy Quick Attack, player doesn't → enemy first */
-            player_first = 0;
-        } else if (p_counter && !e_counter) {
-            /* Player Counter, enemy doesn't → Counter goes last → enemy first */
-            player_first = 0;
-        } else if (e_counter && !p_counter) {
-            /* Enemy Counter, player doesn't → player first */
-            player_first = 1;
-        } else {
-            /* Both same priority (both QA, both Counter, or neither) → speed */
-            if (wBattleMon.spd > wEnemyMon.spd) {
-                player_first = 1;
-            } else if (wEnemyMon.spd > wBattleMon.spd) {
-                player_first = 0;
-            } else {
-                /* Equal speed: 50/50 via BattleRandom (core.asm:404-407).
-                 * Link battle clock inversion omitted. */
-                player_first = (BattleRandom() < 128);
-            }
-        }
-    }
+    battle_result_t prep = Battle_TurnPrepare();
+    if (prep != BATTLE_RESULT_CONTINUE) return prep;
 
     /* ---- Execute in order (core.asm:413-468) ---- */
-    if (!player_first) {
+    if (!s_turn_player_first) {
         /* .enemyMovesFirst (core.asm:413) */
         hWhoseTurn = 1;
         Battle_ExecuteEnemyMove();

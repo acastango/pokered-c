@@ -33,6 +33,10 @@ static SDL_Color obp1_palette[4];
 /* Raw framebuffer: 160×144 RGBA */
 static uint32_t fb[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 
+/* Screen-shake pixel offset (set by Display_SetShakeOffset, applied post-render) */
+static int g_shake_ox = 0;
+static int g_shake_oy = 0;
+
 /* BG color-index buffer: tracks the 2bpp palette index (0-3) written to each
  * screen pixel by the BG tile pass.  Used to implement OAM_FLAG_PRIORITY:
  * sprites with bit 7 set only draw where BG index == 0 (transparent/white),
@@ -64,8 +68,10 @@ int Display_Init(void) {
     );
     if (!window) return -1;
 
-    renderer = SDL_CreateRenderer(window, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    /* No PRESENTVSYNC — audio timing is driven by SDL_Delay in main.c.
+     * With vsync on, a 120/144 Hz monitor would make the audio sequencer
+     * update at 120/144 Hz and all music would play 2-2.4× too fast. */
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) return -1;
 
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
@@ -104,6 +110,34 @@ void Display_SetPalette(uint8_t bgp, uint8_t obp0, uint8_t obp1) {
     decode_palette(bgp,  bg_palette);
     decode_palette(obp0, obp0_palette);
     decode_palette(obp1, obp1_palette);
+}
+
+void Display_SetBGP(uint8_t bgp) {
+    decode_palette(bgp, bg_palette);
+}
+
+void Display_SetShakeOffset(int ox, int oy) {
+    g_shake_ox = ox;
+    g_shake_oy = oy;
+}
+
+/* Apply g_shake_ox/g_shake_oy by physically shifting the framebuffer.
+ * Matches the GB window-layer shift from rWX/rWY used in battle animations.
+ * Called after all BG and sprite rendering, before SDL_UpdateTexture. */
+static void apply_shake_to_fb(void) {
+    if (g_shake_ox == 0 && g_shake_oy == 0) return;
+    static uint32_t tmp[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
+    for (int y = 0; y < SCREEN_HEIGHT_PX; y++) {
+        for (int x = 0; x < SCREEN_WIDTH_PX; x++) {
+            int sx = x - g_shake_ox;
+            int sy = y - g_shake_oy;
+            tmp[y * SCREEN_WIDTH_PX + x] =
+                (sx >= 0 && sx < SCREEN_WIDTH_PX && sy >= 0 && sy < SCREEN_HEIGHT_PX)
+                    ? fb[sy * SCREEN_WIDTH_PX + sx]
+                    : 0x000000FFu;  /* black fill at edges */
+        }
+    }
+    memcpy(fb, tmp, sizeof(uint32_t) * SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX);
 }
 
 /* Decode one 8×8 tile into fb at pixel (px, py) */
@@ -177,7 +211,8 @@ void Display_Render(void) {
         }
     }
 
-    /* 3. Upload framebuffer to GPU texture and present */
+    /* 3. Apply shake offset, upload to GPU and present */
+    apply_shake_to_fb();
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
@@ -245,6 +280,7 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
         }
     }
 
+    apply_shake_to_fb();
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);

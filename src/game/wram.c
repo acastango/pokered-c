@@ -126,6 +126,8 @@ uint8_t  wCurEnemyLevel         = 0;
 uint8_t  wCurPartySpecies       = 0;
 uint8_t  wEnemyMonSpecies       = 0;
 uint8_t  wTrainerClass          = 0;
+uint8_t  wLoneAttackNo          = 0;
+uint8_t  wRivalStarter          = 0;
 
 uint8_t  hWhoseTurn             = 0;   /* 0=player, 1=enemy */
 
@@ -202,6 +204,33 @@ uint16_t wTransformedEnemyMonOriginalDVs = 0;
 /* ---- Battle loop state (Phase 6) --------------------------------- */
 uint8_t  wFirstMonsNotOutYet    = 0;   /* 1 during setup, cleared on first turn (core.asm:138) */
 uint8_t  wBattleResult          = 0;   /* outcome written by faint/victory handlers */
+
+/* ---- Enemy party (trainer battles) -------------------------------- */
+uint8_t     wEnemyPartyCount      = 0;
+party_mon_t wEnemyMons[PARTY_LENGTH];
+uint8_t     wEnemyMonPartyPos     = 0;
+uint8_t     wNumRunAttempts       = 0;
+uint8_t     wForcePlayerToChooseMon = 0;
+uint8_t     wAICount              = 0;
+uint8_t     wAILayer2Encouragement = 0;
+uint16_t    wLastSwitchInEnemyMonHP = 0;
+
+/* ---- Experience / level-up system (experience.asm) --------------- */
+uint8_t  wPartySpecies[PARTY_LENGTH + 1] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+uint8_t  wPartyGainExpFlags             = 0;
+uint8_t  wPartyFoughtCurrentEnemyFlags  = 0;
+uint8_t  wWhichPokemon                  = 0;
+uint16_t wExpAmountGained               = 0;
+uint8_t  wGainBoostedExp                = 0;
+uint8_t  wBoostExpByExpAll              = 0;
+uint8_t  wCurSpecies                    = 0;
+
+/* ---- Evolution state (evos_moves.asm) -------------------- */
+uint8_t  wCanEvolveFlags    = 0;
+uint8_t  wEvolutionOccurred = 0;
+uint8_t  wEvoOldSpecies     = 0;
+uint8_t  wEvoNewSpecies     = 0;
+uint8_t  wForceEvolution    = 0;
 
 /* ---- Audio ----------------------------------------------- */
 uint8_t  wAudioROMBank          = 0;
@@ -296,4 +325,30 @@ void WRAMClear(void) {
     wDamage = 0;
     wMoveMissed = 0;
     wCriticalHitOrOHKO = 0;
+    wIsInBattle = 0;
+    wBattleType = 0;
+    wLoneAttackNo = 0;
+    wRivalStarter = 0;
+    wBattleResult = 0;
+    wFirstMonsNotOutYet = 0;
+    wActionResultOrTookBattleTurn = 0;
+    wInHandlePlayerMonFainted = 0;
+    wEscapedFromBattle = 0;
+    wMonIsDisobedient = 0;
+    wPlayerUsedMove = wEnemyUsedMove = 0;
+    wPartyGainExpFlags = 0;
+    wPartyFoughtCurrentEnemyFlags = 0;
+    wCanEvolveFlags = wEvolutionOccurred = 0;
+    wEvoOldSpecies = wEvoNewSpecies = wForceEvolution = 0;
+    memset(wPartyMons, 0, sizeof(wPartyMons));
+    memset(wPartySpecies, 0xFF, sizeof(wPartySpecies));
+    /* Enemy party */
+    wEnemyPartyCount = 0;
+    memset(wEnemyMons, 0, sizeof(wEnemyMons));
+    wEnemyMonPartyPos = 0;
+    wNumRunAttempts = 0;
+    wForcePlayerToChooseMon = 0;
+    wAICount = 0;
+    wAILayer2Encouragement = 0;
+    wLastSwitchInEnemyMonHP = 0;
 }

@@ -17,7 +17,7 @@
 #define TILE_PX             8       /* pixels per tile side */
 #define OAM_Y_OFS           16      /* OAM Y coordinate offset */
 #define OAM_X_OFS           8       /* OAM X coordinate offset */
-#define MAX_SPRITES         80      /* extended OAM: player(4) + 16 NPCs(64) + slack */
+#define MAX_SPRITES         110     /* battle: 49 enemy + 49 player + 6 player-balls + 6 enemy-balls = 110; overworld: player(0-3) + NPCs(4-67) + shadow(68-71) = 72 */
 
 /* ---- Block / map rendering ------------------------------- */
 #define BLOCK_WIDTH         4       /* tiles per block (horizontal) */
@@ -165,6 +165,11 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define SPECIES_FLAREON     0x67
 #define SPECIES_JOLTEON     0x68
 #define SPECIES_VAPOREON    0x69
+#define SPECIES_MACHOP      0x6A
+#define SPECIES_ZUBAT       0x6B
+#define SPECIES_EKANS       0x6C
+#define SPECIES_PARAS       0x6D
+#define SPECIES_POLIWHIRL   0x6E
 #define SPECIES_WEEDLE      0x70
 #define SPECIES_KAKUNA      0x71
 #define SPECIES_BEEDRILL    0x72
@@ -223,6 +228,67 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define SPECIES_BELLSPROUT  0xBC
 #define SPECIES_WEEPINBELL  0xBD
 #define SPECIES_VICTREEBEL  0xBE
+
+/* ---- Trainer class IDs (constants/trainer_constants.asm) -
+ * OPP_ID_OFFSET distinguishes trainer opponents from wild pokemon
+ * in wCurOpponent.  Trainer class N is stored as N + OPP_ID_OFFSET. */
+#define OPP_ID_OFFSET       200
+#define NUM_TRAINERS        47
+
+#define OPP_YOUNGSTER       (OPP_ID_OFFSET + 1)
+#define OPP_BUG_CATCHER     (OPP_ID_OFFSET + 2)
+#define OPP_LASS            (OPP_ID_OFFSET + 3)
+#define OPP_SAILOR          (OPP_ID_OFFSET + 4)
+#define OPP_JR_TRAINER_M    (OPP_ID_OFFSET + 5)
+#define OPP_JR_TRAINER_F    (OPP_ID_OFFSET + 6)
+#define OPP_POKEMANIAC      (OPP_ID_OFFSET + 7)
+#define OPP_SUPER_NERD      (OPP_ID_OFFSET + 8)
+#define OPP_HIKER           (OPP_ID_OFFSET + 9)
+#define OPP_BIKER           (OPP_ID_OFFSET + 10)
+#define OPP_BURGLAR         (OPP_ID_OFFSET + 11)
+#define OPP_ENGINEER        (OPP_ID_OFFSET + 12)
+#define OPP_JUGGLER_X       (OPP_ID_OFFSET + 13)   /* unused */
+#define OPP_FISHER          (OPP_ID_OFFSET + 14)
+#define OPP_SWIMMER         (OPP_ID_OFFSET + 15)
+#define OPP_CUEIST          (OPP_ID_OFFSET + 16)   /* Cue Ball */
+#define OPP_GAMER           (OPP_ID_OFFSET + 17)
+#define OPP_BEAUTY          (OPP_ID_OFFSET + 18)
+#define OPP_PSYCHIC_TR      (OPP_ID_OFFSET + 19)
+#define OPP_ROCKER          (OPP_ID_OFFSET + 20)
+#define OPP_JUGGLER         (OPP_ID_OFFSET + 21)
+#define OPP_TAMER           (OPP_ID_OFFSET + 22)
+#define OPP_BIRDKEEPER      (OPP_ID_OFFSET + 23)
+#define OPP_BLACKBELT       (OPP_ID_OFFSET + 24)
+#define OPP_RIVAL1          (OPP_ID_OFFSET + 25)
+#define OPP_PROF_OAK        (OPP_ID_OFFSET + 26)
+#define OPP_CHIEF           (OPP_ID_OFFSET + 27)   /* unused */
+#define OPP_SCIENTIST       (OPP_ID_OFFSET + 28)
+#define OPP_GIOVANNI        (OPP_ID_OFFSET + 29)
+#define OPP_ROCKET          (OPP_ID_OFFSET + 30)
+#define OPP_COOLTRAINER_M   (OPP_ID_OFFSET + 31)
+#define OPP_COOLTRAINER_F   (OPP_ID_OFFSET + 32)
+#define OPP_BRUNO           (OPP_ID_OFFSET + 33)
+#define OPP_BROCK           (OPP_ID_OFFSET + 34)
+#define OPP_MISTY           (OPP_ID_OFFSET + 35)
+#define OPP_LT_SURGE        (OPP_ID_OFFSET + 36)
+#define OPP_ERIKA           (OPP_ID_OFFSET + 37)
+#define OPP_KOGA            (OPP_ID_OFFSET + 38)
+#define OPP_BLAINE          (OPP_ID_OFFSET + 39)
+#define OPP_SABRINA         (OPP_ID_OFFSET + 40)
+#define OPP_GENTLEMAN       (OPP_ID_OFFSET + 41)
+#define OPP_RIVAL2          (OPP_ID_OFFSET + 42)
+#define OPP_RIVAL3          (OPP_ID_OFFSET + 43)
+#define OPP_LORELEI         (OPP_ID_OFFSET + 44)
+#define OPP_CHANNELER       (OPP_ID_OFFSET + 45)
+#define OPP_AGATHA          (OPP_ID_OFFSET + 46)
+#define OPP_LANCE           (OPP_ID_OFFSET + 47)
+
+/* Trainer DVs (constants/battle_constants.asm: ATKDEFDV_TRAINER=$98, SPDSPCDV_TRAINER=$88) */
+#define TRAINER_ATK_DV      9
+#define TRAINER_DEF_DV      8
+#define TRAINER_SPD_DV      8
+#define TRAINER_SPC_DV      8
+#define TRAINER_HP_DV       8
 
 /* ---- Name lengths ---------------------------------------- */
 #define NAME_LENGTH         11      /* mon/player name buffer (includes terminator) */
@@ -539,8 +605,64 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define MOVE_REST           0x9C
 #define MOVE_STRUGGLE       0xA5
 
+/* ---- Trainer signature / team move IDs (special_moves.asm) ---- */
+#define MOVE_BLIZZARD       0x3B
+#define MOVE_BUBBLEBEAM     0x3D
+#define MOVE_MEGA_DRAIN     0x48
+#define MOVE_THUNDERBOLT    0x55
+#define MOVE_FISSURE        0x5A
+#define MOVE_BARRIER        0x70
+#define MOVE_BIDE           0x75
+#define MOVE_FIRE_BLAST     0x7E
+#define MOVE_PSYWAVE        0x95
+
+/* ---- Starter species (player_starter.asm) ---- */
+#define STARTER1  SPECIES_CHARMANDER
+#define STARTER2  SPECIES_SQUIRTLE
+#define STARTER3  SPECIES_BULBASAUR
+
+/* ---- Item IDs (item_constants.asm) ---- */
+/* Pokéballs */
+#define ITEM_MASTER_BALL  0x01
+#define ITEM_ULTRA_BALL   0x02
+#define ITEM_GREAT_BALL   0x03
+#define ITEM_POKE_BALL    0x04
+#define ITEM_SAFARI_BALL  0x08
+/* Status-cure medicine */
+#define ITEM_ANTIDOTE     0x0B
+#define ITEM_BURN_HEAL    0x0C
+#define ITEM_ICE_HEAL     0x0D
+#define ITEM_AWAKENING    0x0E
+#define ITEM_PARLYZ_HEAL  0x0F
+/* HP-restore medicine */
+#define ITEM_FULL_RESTORE 0x10  /* heal to max HP + cure all status */
+#define ITEM_MAX_POTION   0x11  /* heal to max HP */
+#define ITEM_HYPER_POTION 0x12  /* +200 HP */
+#define ITEM_SUPER_POTION 0x13  /* +50 HP */
+#define ITEM_POTION       0x14  /* +20 HP */
+#define ITEM_FRESH_WATER  0x3C  /* +50 HP */
+#define ITEM_SODA_POP     0x3D  /* +60 HP */
+#define ITEM_LEMONADE     0x3E  /* +80 HP */
+/* Full cure / revives */
+#define ITEM_FULL_HEAL    0x34  /* cure all status */
+#define ITEM_REVIVE       0x35  /* restore to half max HP (fainted only) */
+#define ITEM_MAX_REVIVE   0x36  /* restore to max HP  (fainted only) */
+/* Battle-status items */
+#define ITEM_GUARD_SPEC   0x37  /* set PROTECTED_BY_MIST on player */
+#define ITEM_DIRE_HIT     0x3A  /* set GETTING_PUMPED (Focus Energy) on player */
+#define ITEM_X_ACCURACY   0x2E  /* set USING_X_ACCURACY on player */
+#define ITEM_X_ATTACK     0x41  /* raise player ATK stage +1 */
+#define ITEM_X_DEFEND     0x42  /* raise player DEF stage +1 */
+#define ITEM_X_SPEED      0x43  /* raise player SPD stage +1 */
+#define ITEM_X_SPECIAL    0x44  /* raise player SPC stage +1 */
+/* Escape item */
+#define ITEM_POKE_DOLL    0x33  /* flee wild battle */
+/* TM/HM threshold — IDs >= HM01 are TM/HMs, not usable via ItemUsePtrTable */
+#define ITEM_HM01         0xC4
+
 /* ---- Serial / link state (serial_constants.asm) ---- */
 #define LINK_STATE_BATTLING 0x04   /* wLinkState value when in a link battle */
+#define LINK_STATE_TRADING  0x32   /* wLinkState value when in a link trade (serial_constants.asm:27) */
 
 /* ---- Battle effectiveness initial value (battle_constants.asm) ----
  * wDamageMultipliers is initialised to EFFECTIVE (10) each turn.
@@ -568,7 +690,14 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define DRAGON_RAGE_DAMAGE      40
 
 /* ---- Badge bit positions in wObtainedBadges (ram_constants.asm) ---- */
+#define BIT_BOULDERBADGE        0   /* stat boost: ATK */
 #define BIT_CASCADEBADGE        1
+#define BIT_THUNDERBADGE        2   /* stat boost: DEF */
 #define BIT_RAINBOWBADGE        3
+#define BIT_SOULBADGE           4   /* stat boost: SPD */
 #define BIT_MARSHBADGE          5
+#define BIT_VOLCANOBADGE        6   /* stat boost: SPC */
 #define BIT_EARTHBADGE          7
+
+/* ---- Stat cap (battle_constants.asm) ---- */
+#define MAX_STAT_VALUE          999

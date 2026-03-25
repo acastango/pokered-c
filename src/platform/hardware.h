@@ -160,6 +160,12 @@ extern uint8_t  wCurEnemyLevel;
 extern uint8_t  wCurPartySpecies;
 extern uint8_t  wEnemyMonSpecies;
 extern uint8_t  wTrainerClass;
+/* wLoneAttackNo — 1-based index into LoneMoves table; written by gym scripts
+ * before battle. 0 = no lone move (most trainers). */
+extern uint8_t  wLoneAttackNo;
+/* wRivalStarter — SPECIES_* of the player's chosen starter (set at game start).
+ * Used by RIVAL3 to decide which signature move his 6th mon gets. */
+extern uint8_t  wRivalStarter;
 
 /* hWhoseTurn: 0 = player's turn, 1 = enemy's turn (HRAM in original, global here) */
 extern uint8_t  hWhoseTurn;
@@ -326,8 +332,84 @@ extern uint16_t wTransformedEnemyMonOriginalDVs;
  * first turn (core.asm:138, MainInBattleLoop:292). */
 extern uint8_t  wFirstMonsNotOutYet;
 
-/* wBattleResult — outcome byte written by faint/victory handlers. */
+/* wBattleResult — outcome byte written by faint/victory handlers.
+ * See BATTLE_OUTCOME_* constants in battle_loop.h. */
 extern uint8_t  wBattleResult;
+
+/* ---- WRAM: Enemy party (trainer battles) ---------------- */
+/* wEnemyPartyCount — number of trainer's Pokémon (0 = wild battle). */
+extern uint8_t     wEnemyPartyCount;
+
+/* wEnemyMons — enemy trainer's party (same layout as wPartyMons).
+ * For wild battles this is unused; wEnemyMon is set directly from wild data. */
+extern party_mon_t wEnemyMons[PARTY_LENGTH];
+
+/* wEnemyMonPartyPos — which slot in wEnemyMons is currently active.
+ * Updated by Battle_EnemySendOut_State when a new enemy mon enters. */
+extern uint8_t     wEnemyMonPartyPos;
+
+/* wNumRunAttempts — incremented each time the player tries to run.
+ * Reset to 0 at battle start.  Used by TryRunningFromBattle flee formula. */
+extern uint8_t     wNumRunAttempts;
+
+/* wForcePlayerToChooseMon — set to 1 when the active player mon fainted
+ * and a trainer enemy was also replaced (simultaneous faint path in
+ * HandleEnemyMonFainted).  Driver/UI must prompt for a new mon. */
+extern uint8_t     wForcePlayerToChooseMon;
+
+/* wAICount — AI state counter (wMiscBattleData in pokered wram.asm).
+ * Used by the trainer AI move-selection layers. */
+extern uint8_t     wAICount;
+
+/* wAILayer2Encouragement — AI layer 2 encouragement flag.
+ * Cleared by ReplaceFaintedEnemyMon after each switch-in. */
+extern uint8_t     wAILayer2Encouragement;
+
+/* wLastSwitchInEnemyMonHP — HP of the enemy mon at the time it switched in.
+ * Saved by Battle_EnemySendOut_State; used by the trainer AI. */
+extern uint16_t    wLastSwitchInEnemyMonHP;
+
+/* ---- WRAM: Experience / level-up system (experience.asm) ---------- */
+/* wPartySpecies — species ID per party slot (PARTY_LENGTH+1 bytes, 0xFF terminator).
+ * Mirrors wPartySpecies in wram.asm (used by GainExperience to look up growth rate). */
+extern uint8_t  wPartySpecies[PARTY_LENGTH + 1];
+
+/* wPartyGainExpFlags — 6-bit flag (bit n = party slot n gained exp this turn).
+ * Set when a mon is sent out; read by GainExperience; cleared+reset at end. */
+extern uint8_t  wPartyGainExpFlags;
+
+/* wPartyFoughtCurrentEnemyFlags — tracks which mons attacked this enemy. */
+extern uint8_t  wPartyFoughtCurrentEnemyFlags;
+
+/* wWhichPokemon — party slot index loop variable in GainExperience. */
+extern uint8_t  wWhichPokemon;
+
+/* wExpAmountGained — exp gained this turn (for display, 2 bytes). */
+extern uint16_t wExpAmountGained;
+
+/* wGainBoostedExp — 1 if exp was boosted (traded mon or trainer battle). */
+extern uint8_t  wGainBoostedExp;
+
+/* wBoostExpByExpAll — 1 if Exp. All is active (not yet implemented). */
+extern uint8_t  wBoostExpByExpAll;
+
+/* wCurSpecies — temp species ID used during level-up/exp calculations. */
+extern uint8_t  wCurSpecies;
+
+/* ---- WRAM: Evolution system (engine/pokemon/evos_moves.asm) -------------- */
+/* wCanEvolveFlags — 6-bit flag (bit n = party slot n can evolve after battle).
+ * Set in GainExperience after a level-up; read by EvolutionAfterBattle. */
+extern uint8_t  wCanEvolveFlags;
+
+/* wEvolutionOccurred — set to 1 if at least one mon evolved this battle. */
+extern uint8_t  wEvolutionOccurred;
+
+/* wEvoOldSpecies / wEvoNewSpecies — species before/after evolution. */
+extern uint8_t  wEvoOldSpecies;
+extern uint8_t  wEvoNewSpecies;
+
+/* wForceEvolution — nonzero suppresses level-based evo check (used by stones). */
+extern uint8_t  wForceEvolution;
 
 /* ---- WRAM: Audio ---------------------------------------- */
 extern uint8_t  wAudioROMBank;

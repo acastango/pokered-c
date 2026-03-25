@@ -33,54 +33,78 @@
 #include "../data/wild_data.h"
 #include "battle/battle_init.h"
 #include "battle/battle_driver.h"
+#include "battle/battle_ui.h"
+#include "battle_transition.h"
+#include "party_menu.h"
+#include "pokecenter.h"
+#include "pokemart.h"
+#include "music.h"
+#include "../platform/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* ---- Scene state ------------------------------------------------- */
 typedef enum {
     SCENE_OVERWORLD = 0,
-    SCENE_BATTLE,       /* future */
+    SCENE_BTRANS,       /* battle transition animation */
+    SCENE_BATTLE,
     SCENE_MENU,         /* future */
 } GameScene;
 
 static GameScene gScene = SCENE_OVERWORLD;
 
-/* Route 22 (0x21) for battle smoke testing — has rate=25 wild encounters.
- * Revert to MAP_PALLET_TOWN (0x00) once battles are confirmed working. */
-#define MAP_PALLET_TOWN     0x21
+/* Debug spawn: Viridian City (map 1), in front of the mart. */
+#define MAP_PALLET_TOWN     0x01
 
-/* Starting tile position in Pallet Town.
- * Red's House warp is at step (5,5) -> tile x=5*2=10, y=5*2+1=11.
- * Player exits 2 tiles south = (10, 13) — keeps Y odd. */
-#define PLAYER_START_X      10
-#define PLAYER_START_Y      13
+#define PLAYER_START_X      58
+#define PLAYER_START_Y      41
 
 void GameInit(void) {
     extern void WRAMClear(void);
     WRAMClear();
 
-    if (Save_Load() == 0)
-        printf("[save] Save loaded OK\n");
-    else
+    int save_ok = (Save_Load() == 0);
+    if (save_ok)
+        printf("[save] Save loaded OK — map %d @ (%d,%d)\n", wCurMap, wXCoord, wYCoord);
+    else {
         printf("[save] No save, starting new game\n");
+        wCurMap = MAP_PALLET_TOWN;
+        wXCoord = PLAYER_START_X;
+        wYCoord = PLAYER_START_Y;
+    }
 
-    Map_Load(MAP_PALLET_TOWN);
+    Map_Load(wCurMap);
     Font_Load();
-    Player_Init(PLAYER_START_X, PLAYER_START_Y);
+    Player_Init(wXCoord, wYCoord);
     NPC_Load();
     Map_BuildScrollView();
     NPC_BuildView(0, 0);
 
-    /* Give player a starter Bulbasaur (species 0x99, level 5) if no save was loaded. */
-    if (wPartyCount == 0) {
-        Pokemon_InitMon(&wPartyMons[0], SPECIES_BULBASAUR, 5);
-        wPartyCount = 1;
-        printf("[party] Started with %s Lv.%d (HP %d/%d, ATK %d, DEF %d, SPD %d, SPC %d)\n",
-               Pokemon_GetName(1), wPartyMons[0].level,
-               wPartyMons[0].base.hp, wPartyMons[0].max_hp,
-               wPartyMons[0].atk, wPartyMons[0].def,
-               wPartyMons[0].spd, wPartyMons[0].spc);
+    /* Give player starters if no save was loaded (new game only). */
+    if (!save_ok && wPartyCount == 0) {
+        wPlayerID = 12345;   /* test trainer ID — would be randomised in a full game */
+
+        Pokemon_InitMon(&wPartyMons[0], SPECIES_BULBASAUR,  6);
+        /* Give Bulbasaur Absorb (move 71) for drain testing — replaces Growl slot */
+        wPartyMons[0].base.moves[1] = 71;
+        wPartyMons[0].base.pp[1]    = 20;
+        Pokemon_InitMon(&wPartyMons[1], SPECIES_CHARMANDER, 6);
+        Pokemon_InitMon(&wPartyMons[2], SPECIES_SQUIRTLE,   6);
+        wPartyCount = 3;
+
+        /* Debug: max money for testing */
+        wPlayerMoney[0] = 0x99;
+        wPlayerMoney[1] = 0x99;
+        wPlayerMoney[2] = 0x99;
+
+        /* Copy player name to OT field for each starter
+         * (mirrors SetPartyMonOT / CopyPlayerNameToStringBuffer in pokered) */
+        for (int i = 0; i < 3; i++)
+            memcpy(wPartyMonOT[i], wPlayerName, NAME_LENGTH);
+
+        printf("[party] Started with Bulbasaur (Tackle/Absorb), Charmander, Squirtle (all Lv.6)\n");
     }
 }
 
@@ -146,8 +170,26 @@ static void check_wild_encounter(void) {
     wCurEnemyLevel   = w->slots[slot_idx].level;
     wCurPartySpecies = w->slots[slot_idx].species;
 
-    Battle_Start();
-    Battle_RunLoop();
+    /* Start battle music immediately (mirrors pokered: PlaySound before BattleTransition). */
+    Music_Play(MUSIC_WILD_BATTLE);
+
+    /* Find first non-fainted party mon level for transition type selection. */
+    int player_level = 5;
+    for (int i = 0; i < wPartyCount; i++) {
+        if (wPartyMons[i].base.hp > 0) {
+            player_level = wPartyMons[i].level;
+            break;
+        }
+    }
+
+    /* Clear NPC sprites only — preserve player OAM (slots 0-3).
+     * Mirrors the original: wShadowOAMSprite04 onward is cleared but
+     * wShadowOAMSprite00 (player) is never touched, so the player sprite
+     * stays visible throughout the flash and animation phases. */
+    memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+
+    BattleTransition_Start(0, wCurEnemyLevel, player_level, 0);
+    gScene = SCENE_BTRANS;
 }
 
 /* A-button interaction: check item ball at the tile in front of the player.
@@ -202,14 +244,20 @@ static void check_npc_interact(void) {
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->npcs) return;
 
-    /* Search within ±1 tile of the facing tile.
-     * Use NPC_FindAtTile so WALK NPCs are found at their current position. */
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
+    /* Search within ±2 coords of the facing tile.
+     * Our tile coords are doubled (asm_x*2), so ±2 = 1 asm tile in each direction.
+     * This range is needed for counter NPCs (e.g. nurse): the player stands at the
+     * counter tile (1 asm tile away from the nurse), so the facing tile is the
+     * counter, not the nurse — ±2 bridges that extra tile. */
+    for (int dy = -2; dy <= 2; dy++) {
+        for (int dx = -2; dx <= 2; dx++) {
             int i = NPC_FindAtTile(fx + dx, fy + dy);
             if (i < 0 || i >= ev->num_npcs) continue;
             NPC_FacePlayer(i);
-            if (ev->npcs[i].text) Text_ShowASCII(ev->npcs[i].text);
+            if (ev->npcs[i].script)
+                ev->npcs[i].script();
+            else if (ev->npcs[i].text)
+                Text_ShowASCII(ev->npcs[i].text);
             return;
         }
     }
@@ -256,6 +304,76 @@ void GameTick(void) {
         return;
     }
 
+    /* ---- Party menu (overworld context) --------------------------- *
+     * Opened via START → POKéMON.  After close, restore map GFX.   *
+     * Skip during battle: BattleUI_Tick handles the menu from       *
+     * BUI_PARTY_SELECT so the overworld GFX restore doesn't fire.  */
+    if (PartyMenu_IsOpen() && gScene != SCENE_BATTLE) {
+        PartyMenu_Tick();
+        if (!PartyMenu_IsOpen()) {
+            /* Party menu closed — restore overworld graphics */
+            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            Map_ReloadGfx();
+            Font_Load();
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
+        return;
+    }
+
+    /* ---- Pokémart buy/sell sequence ------------------------------- *
+     * Runs at 60 Hz (before overworld gate).  Text_IsOpen() check at  *
+     * the top already handles frames where dialog is open.             */
+    if (Pokemart_IsActive()) {
+        Pokemart_Tick();
+        return;
+    }
+
+    /* ---- Pokémon Center healing sequence -------------------------- *
+     * Runs at 60 Hz (before overworld gate).  Text_IsOpen() check at  *
+     * the top already handles frames where dialog is open.             */
+    if (Pokecenter_IsActive()) {
+        Pokecenter_Tick();
+        return;
+    }
+
+    /* ---- Battle transition (non-blocking) ------------------------- */
+    if (gScene == SCENE_BTRANS) {
+        if (BattleTransition_Tick()) {
+            /* Transition complete — launch battle. */
+            Battle_Start();
+            BattleUI_Enter();
+            gScene = SCENE_BATTLE;
+        }
+        return;
+    }
+
+    /* ---- Battle scene (non-blocking) ------------------------------ */
+    if (gScene == SCENE_BATTLE) {
+        BattleUI_Tick();
+        if (!BattleUI_IsActive()) {
+            /* Battle ended — restore overworld GFX and state.
+             * Font_LoadHudTiles() overwrote tile_gfx slots 2-24 during battle;
+             * Map_ReloadGfx() restores the tileset so the map renders correctly.
+             * Map_ResetScrollState() ensures the next Map_BuildScrollView does a
+             * full rebuild even if gScrollViewReady was set when battle triggered.
+             * gStepJustCompleted cleared so check_wild_encounter doesn't fire
+             * immediately on the first overworld frame after battle. */
+            gScene = SCENE_OVERWORLD;
+            gStepJustCompleted = 0;
+            memset(wShadowOAM, 0, sizeof(wShadowOAM));
+            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            Map_ReloadGfx();
+            Map_ResetScrollState();
+            Font_Load();   /* restore font/box tiles (120-126, 128-255) */
+            Music_Play(Music_GetMapID(wCurMap));
+            Player_SyncOAM();
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
+        return;
+    }
+
     /* ---- Tile animation: runs at 60 Hz (every VBlank), before the gate.
      * Mirrors UpdateMovingBgTiles called from the VBlank ISR in the original. */
     Anim_UpdateTiles();
@@ -295,6 +413,7 @@ void GameTick(void) {
                 NPC_BuildView(0, 0);
                 Player_SyncOAM();
                 Display_SetPalette(0xE4, 0xD0, 0xE0);  /* snap to normal */
+                Music_Play(Music_GetMapID(wCurMap));     /* start new map's music */
                 gWarpPhase = WARP_NONE;
             }
         }
@@ -304,6 +423,7 @@ void GameTick(void) {
 
     /* START: open pause menu (only when player is idle, no warp in progress) */
     if ((hJoyPressed & PAD_START) && !Player_IsMoving() && gWarpPhase == WARP_NONE) {
+        Audio_PlaySFX_StartMenu();
         Menu_Open();
         return;
     }
@@ -311,9 +431,13 @@ void GameTick(void) {
     check_item_pickup();
     if (Text_IsOpen()) return;
     check_npc_interact();
-    /* Flush OAM positions immediately so NPC_FacePlayer's tile/flag changes
-     * (including FlippedOAM column-swap for right-facing) are applied before
-     * the dialog box renders.  Player must be idle to press A, so scroll is 0. */
+    /* If the NPC script just activated the mart or pokecenter, stop overworld
+     * processing immediately.  They will call NPC_HideInRect before any
+     * NPC_BuildView runs, so stopping here prevents the end-of-tick
+     * NPC_BuildView from undoing the selective hide on this same frame. */
+    if (Pokemart_IsActive() || Pokecenter_IsActive()) return;
+    /* Flush OAM positions so NPC_FacePlayer's tile/flag changes are applied
+     * before the dialog box renders. Player is idle so scroll is 0. */
     NPC_BuildView(0, 0);
     if (Text_IsOpen()) return;
     check_sign_interact();
@@ -338,7 +462,16 @@ void GameTick(void) {
     }
 
     NPC_Update();
-    check_wild_encounter();
-    Map_BuildScrollView();
-    NPC_BuildView(gScrollPxX, gScrollPxY);
+    /* Encounter check mirrors CheckForBattleAfterStep: only fires on step completion,
+     * not every frame.  This prevents immediate re-trigger after a battle ends. */
+    if (gStepJustCompleted) {
+        gStepJustCompleted = 0;
+        check_wild_encounter();
+    }
+    /* check_wild_encounter may have flipped gScene to SCENE_BATTLE.
+     * Skip the map rebuild in that case — the battle UI owns the tilemap now. */
+    if (gScene == SCENE_OVERWORLD) {
+        Map_BuildScrollView();
+        NPC_BuildView(gScrollPxX, gScrollPxY);
+    }
 }

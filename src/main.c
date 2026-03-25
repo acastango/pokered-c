@@ -89,7 +89,9 @@ int main(int argc, char *argv[]) {
     Input_Init();
     GameInit();
 
-    const uint32_t FRAME_MS = 1000 / 60;  /* 16ms — matches original ~60 Hz VBlank rate */
+    const uint32_t FRAME_MS = 1000 / 60;  /* 16ms floor — vsync is OFF in display.c so
+                                            * SDL_Delay is the sole frame-rate governor.
+                                            * Gives ~62.5 Hz; close enough to GB's 59.73 Hz. */
     uint32_t frame = 0;
     int running = 1;
 

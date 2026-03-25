@@ -15,4 +15,9 @@ void Display_LoadTile(uint8_t tile_id, const uint8_t *gfx);       /* load BG til
 void Display_GetTile(uint8_t tile_id, uint8_t out[16]);           /* read BG tile GFX */
 void Display_LoadSpriteTile(uint8_t tile_id, const uint8_t *gfx); /* load sprite (OBJ) tile */
 void Display_SetPalette(uint8_t bgp, uint8_t obp0, uint8_t obp1);
+void Display_SetBGP(uint8_t bgp);  /* change background palette only — sprites unaffected */
+/* Screen-shake offset: shifts the rendered framebuffer by (ox, oy) pixels.
+ * Matches the GB window-register offset used by PlayApplyingAttackAnimation.
+ * Call Display_SetShakeOffset(0,0) to clear. */
+void Display_SetShakeOffset(int ox, int oy);
 void Display_Quit(void);

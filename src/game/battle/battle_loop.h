@@ -23,6 +23,36 @@ typedef enum {
     BATTLE_RESULT_ESCAPED        = 3,  /* wEscapedFromBattle set          */
 } battle_result_t;
 
+/* wBattleResult outcome values — written by Battle_HandleEnemyMonFainted and
+ * Battle_HandlePlayerBlackOut.  Checked by battle_driver.c after RunTurn
+ * returns BATTLE_RESULT_ENEMY_FAINTED / BATTLE_RESULT_PLAYER_FAINTED.
+ *
+ * 0 (NONE) means the battle is still in progress (enemy was replaced, or the
+ * result has not yet been determined — driver should loop again). */
+#define BATTLE_OUTCOME_NONE             0   /* battle ongoing / enemy replaced */
+#define BATTLE_OUTCOME_WILD_VICTORY     1   /* wild mon fainted, no replacement */
+#define BATTLE_OUTCOME_TRAINER_VICTORY  2   /* all trainer mons defeated */
+#define BATTLE_OUTCOME_BLACKOUT         3   /* all player mons fainted     */
+
+/* Battle_TurnPrepare — first half of MainInBattleLoop (core.asm:280-412).
+ *
+ * Performs all setup for a new turn WITHOUT executing any moves:
+ *   1. HP=0 check → calls faint handler if needed.
+ *   2. Clears flinch bits when player not locked into a move.
+ *   3. Sets wPlayerSelectedMove=CANNOT_MOVE if enemy is trapping.
+ *   4. Calls Battle_SelectEnemyMove.
+ *   5. Determines move order (Quick Attack > Counter > speed > random tie)
+ *      and stores result for Battle_TurnPlayerFirst().
+ *
+ * Returns BATTLE_RESULT_CONTINUE when ready to execute moves.
+ * Returns BATTLE_RESULT_PLAYER_FAINTED / BATTLE_RESULT_ENEMY_FAINTED if a
+ * faint was detected at the top-of-loop HP check (unusual but handled). */
+battle_result_t Battle_TurnPrepare(void);
+
+/* Battle_TurnPlayerFirst — returns 1 if the player moves first this turn.
+ * Valid only after a successful Battle_TurnPrepare() call. */
+int Battle_TurnPlayerFirst(void);
+
 /* Battle_SelectEnemyMove — port of SelectEnemyMove (core.asm:2915).
  *
  * Sets wEnemySelectedMove.  Returns immediately (keeping current value)

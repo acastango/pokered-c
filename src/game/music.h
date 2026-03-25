@@ -27,6 +27,11 @@
 #define MUSIC_SAFARI_ZONE     22
 #define MUSIC_TITLE           23
 #define MUSIC_JIGGLYPUFF      24
+#define MUSIC_WILD_BATTLE          25
+#define MUSIC_DEFEATED_WILD_MON    26
+#define MUSIC_DEFEATED_TRAINER     27
+#define MUSIC_DEFEATED_GYM_LEADER  28
+#define MUSIC_PKMN_HEALED          29
 
 /* Play a music track (stops any current music first).
  * music_id: one of MUSIC_* above; MUSIC_NONE stops playback. */
@@ -40,6 +45,10 @@ void Music_Update(void);
  * ResumeChannel re-fires the current note so music continues seamlessly. */
 void Music_SuspendChannel(int ch);
 void Music_ResumeChannel(int ch);
+
+/* Returns 1 if any music channel is still playing (useful for waiting on
+ * one-shot jingles like MUSIC_PKMN_HEALED before restoring map music). */
+int Music_IsPlaying(void);
 
 /* Look up which music ID belongs to a given map ID. */
 uint8_t Music_GetMapID(uint8_t map_id);

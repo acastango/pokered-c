@@ -14,7 +14,7 @@
  *   On close, Map_BuildScrollView() + NPC_BuildView() rebuild the buffer.
  *
  * Items (no Pokédex):
- *   0  POKéMON  → stub
+ *   0  POKéMON  → party_menu
  *   1  ITEM     → stub
  *   2  [player] → stub (trainer info)
  *   3  SAVE     → Save_Write()
@@ -23,10 +23,12 @@
  */
 #include "menu.h"
 #include "bag_menu.h"
+#include "party_menu.h"
 #include "overworld.h"       /* gScrollTileMap, SCROLL_MAP_W, Map_BuildScrollView */
 #include "npc.h"             /* NPC_BuildView */
 #include "../data/font_data.h"
 #include "../platform/hardware.h"
+#include "../platform/audio.h"
 #include "../platform/save.h"
 #include <string.h>
 #include <stdio.h>
@@ -159,14 +161,19 @@ void Menu_Tick(void) {
 
     /* B or START: close */
     if (hJoyPressed & (PAD_B | PAD_START)) {
+        Audio_PlaySFX_PressAB();
         menu_close();
         return;
     }
 
     /* A: dispatch */
     if (hJoyPressed & PAD_A) {
+        Audio_PlaySFX_PressAB();
         switch (gMenuCursor) {
-            case 0:  /* POKéMON — stub */
+            case 0:  /* POKéMON → party menu */
+                menu_close();
+                PartyMenu_Open(0 /* cancelable */);
+                return;
             case 2:  /* [player]— stub */
             case 4:  /* OPTION  — stub */
                 break;

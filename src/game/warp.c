@@ -27,6 +27,7 @@
 #include "player.h"
 #include "npc.h"
 #include "../platform/hardware.h"
+#include "../platform/audio.h"
 #include "../data/event_data.h"
 #include "../data/map_data.h"
 #include "../game/constants.h"
@@ -265,6 +266,14 @@ int Warp_Check(void) {
         if (is_outdoor_map()) {
             wLastMap = wCurMap;
         }
+
+        /* Play map-change sound — mirrors PlayMapChangeSound in home/overworld.asm.
+         * Original checks tile at screen (8,8): if it's 0x0B (OVERWORLD door tile)
+         * → SFX_GO_INSIDE, otherwise → SFX_GO_OUTSIDE. */
+        if (warp_tile == 0x0B)
+            Audio_PlaySFX_GoInside();
+        else
+            Audio_PlaySFX_GoOutside();
 
         /* Store destination — actual map load is deferred to Warp_Execute()
          * (called at peak black) so the fade-out still uses the old tileset. */

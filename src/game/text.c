@@ -33,6 +33,7 @@
 #include "../platform/audio.h"
 #include "../data/font_data.h"
 #include "../game/constants.h"
+#include "overworld.h"   /* gScrollTileMap, SCROLL_MAP_W — tiles go here, not wTileMap */
 #include <string.h>
 
 /* Control character codes from pokered charmap.asm */
@@ -81,6 +82,14 @@ static int            letter_timer = 0;   /* frames remaining before next char *
 static int            cur_col    = TEXT_COL0;
 static int            cur_row    = TEXT_ROW1;
 
+/* Cursor blink state — mirrors HandleDownArrowBlinkTiming (home/window.asm:225).
+ * Two nested counters: inner decrements each frame, outer decrements when inner
+ * wraps.  When outer hits 0 the cursor toggles and both counters reset.
+ * ON phase: ~24 frames visible.  OFF phase: ~8 frames hidden. */
+static int            blink_timer1  = 0;   /* inner counter (counts down each frame) */
+static int            blink_timer2  = 0;   /* outer counter (counts down each inner wrap) */
+static int            blink_on      = 0;   /* 1 = cursor currently shown */
+
 /* ---- Internal helpers --------------------------------------- */
 
 static int ascii_to_tile(unsigned char c) {
@@ -100,19 +109,24 @@ static int ascii_to_tile(unsigned char c) {
     if (c == ')')              return Font_CharToTile(0x9B);
     if (c == '/')              return Font_CharToTile(0xF3);
     if (c == '!')              return Font_CharToTile(0xE7);
+    if (c == 0xA5)             return Font_CharToTile(0xF0); /* ¥ (ISO-8859-1 0xA5 → pokered CHAR_YEN) */
     return BLANK_TILE_SLOT;
 }
 
 static void set_tile(int col, int row, uint8_t tile_id) {
-    wTileMap[row * SCREEN_WIDTH + col] = tile_id;
+    gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)] = tile_id;
 }
 
 static uint8_t get_tile(int col, int row) {
-    return wTileMap[row * SCREEN_WIDTH + col];
+    return gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)];
 }
 
 static void show_cursor(void) {
     set_tile(SCREEN_WIDTH - 2, TEXT_ROW2, (uint8_t)Font_CharToTile(CURSOR_CHAR));
+    /* Reset blink state: cursor starts ON, full ON-phase timers. */
+    blink_on     = 1;
+    blink_timer1 = 8;
+    blink_timer2 = 4;
 }
 
 static void hide_cursor(void) {
@@ -140,6 +154,10 @@ static void draw_box_border(void) {
     for (int c = 1; c < SCREEN_WIDTH - 1; c++)
         set_tile(c,          bot, (uint8_t)Font_CharToTile(0x7A)); /* ─ */
     set_tile(SCREEN_WIDTH-1, bot, (uint8_t)Font_CharToTile(0x7E)); /* ┘ */
+}
+
+void Text_DrawEmptyBox(void) {
+    draw_box_border();
 }
 
 static void clear_text_rows(void) {
@@ -316,6 +334,17 @@ void Text_Update(void) {
 
     /* ---- Waiting for A press (pause / scroll / end) ---- */
     if (wait_input != 0) {
+        /* Blink cursor: mirrors HandleDownArrowBlinkTiming.
+         * ON phase: timer1 starts at 8, timer2 at 4 → ~32 frames visible.
+         * OFF phase: timer1 starts at 4, timer2 at 2 → ~8 frames hidden. */
+        if (--blink_timer1 <= 0) {
+            blink_timer1 = blink_on ? 8 : 4;
+            if (--blink_timer2 <= 0) {
+                blink_on = !blink_on;
+                if (blink_on) { show_cursor(); blink_timer1 = 8; blink_timer2 = 4; }
+                else          { hide_cursor(); blink_timer1 = 4; blink_timer2 = 2; }
+            }
+        }
         if (!(hJoyPressed & PAD_A)) return;
         Audio_PlaySFX_PressAB();
 
@@ -357,6 +386,12 @@ void Text_Update(void) {
      * for LINE on row 1), and letter_timer stays 0 so we retry next frame */
 }
 
+static int s_keep_tiles_on_close = 0;
+
+void Text_KeepTilesOnClose(void) {
+    s_keep_tiles_on_close = 1;
+}
+
 void Text_Close(void) {
     text_open    = 0;
     wait_input   = 0;
@@ -365,7 +400,10 @@ void Text_Close(void) {
     ascii_ptr    = NULL;
     ascii_mode   = 0;
 
-    for (int r = BOX_ROW; r < BOX_ROW + BOX_ROWS; r++)
-        for (int c = 0; c < SCREEN_WIDTH; c++)
-            set_tile(c, r, 0);
+    if (!s_keep_tiles_on_close) {
+        for (int r = BOX_ROW; r < BOX_ROW + BOX_ROWS; r++)
+            for (int c = 0; c < SCREEN_WIDTH; c++)
+                set_tile(c, r, 0);
+    }
+    s_keep_tiles_on_close = 0;
 }

@@ -7,3 +7,7 @@
 
 /* Indexed by move ID (0..165) */
 extern const move_t gMoves[NUM_MOVE_DEFS];
+
+/* Move names, indexed by move ID (0..165).  Index 0 = "------" (no move).
+ * Source: pokered-master/data/moves/names.asm */
+extern const char * const gMoveNames[NUM_MOVE_DEFS];

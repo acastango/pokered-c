@@ -32,8 +32,16 @@ void Player_GetFacingTile(int *out_x, int *out_y);
 /* Returns 1 while the player is mid-step (walk animation in progress). */
 int Player_IsMoving(void);
 
+/* Set to 1 on the frame a step finishes; read and cleared by game.c. */
+extern int gStepJustCompleted;
+
 /* Refresh player OAM after an out-of-band position change (warp map swap). */
 void Player_SyncOAM(void);
+
+/* Mirror Gen 1 UpdatePlayerSprite tile check: zero player OAM (slots 0-3)
+ * if the lower-left tile of the player's sprite footprint is a UI tile
+ * (slot >= 96).  Call after drawing UI boxes (mart, pokecenter). */
+void Player_HideIfOverUI(void);
 
 /* Suppress joypad input for n overworld ticks (mirrors wJoyIgnore /
  * IgnoreInputForHalfSecond in EnterMap).  Called by Warp_Execute to

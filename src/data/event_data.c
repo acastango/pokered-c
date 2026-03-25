@@ -1,5 +1,7 @@
 /* event_data.c -- Generated from pokered-master map object files. */
 #include "event_data.h"
+#include "../game/pokecenter.h"
+#include "../game/pokemart.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {  10,  11, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -8,9 +10,9 @@ static const map_warp_t kWarps_PalletTown[] = {
 };
 
 static const npc_event_t kNpcs_PalletTown[] = {
-    {  16,  11, 0x03, 0, "OAK: Hey! Wait!\nDon't go out!@" },  /* SPRITE_OAK, STAY, TEXT_PALLETTOWN_OAK */
-    {   6,  17, 0x0d, 1, "I'm raising\nPOKEMON too!\fWhen they get\nstrong, they can\nprotect me!" },  /* SPRITE_GIRL, WALK, TEXT_PALLETTOWN_GIRL */
-    {  22,  29, 0x2f, 1, "Technology is\nincredible!\fYou can now store\nand recall items\nand POKEMON as\ndata via PC!" },  /* SPRITE_FISHER, WALK, TEXT_PALLETTOWN_FISHER */
+    {  16,  11, 0x03, 0, "OAK: Hey! Wait!\nDon't go out!@", NULL },  /* SPRITE_OAK, STAY, TEXT_PALLETTOWN_OAK */
+    {   6,  17, 0x0d, 1, "I'm raising\nPOKEMON too!\fWhen they get\nstrong, they can\nprotect me!", NULL },  /* SPRITE_GIRL, WALK, TEXT_PALLETTOWN_GIRL */
+    {  22,  29, 0x2f, 1, "Technology is\nincredible!\fYou can now store\nand recall items\nand POKEMON as\ndata via PC!", NULL },  /* SPRITE_FISHER, WALK, TEXT_PALLETTOWN_FISHER */
 };
 
 static const sign_event_t kSigns_PalletTown[] = {
@@ -29,13 +31,13 @@ static const map_warp_t kWarps_ViridianCity[] = {
 };
 
 static const npc_event_t kNpcs_ViridianCity[] = {
-    {  26,  41, 0x04, 1, "Those POKE BALLs\nat your waist!\nYou have POKEMON!\fIt's great that\nyou can carry and\nuse POKEMON any\ntime, anywhere!" },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANCITY_YOUNGSTER1 */
-    {  60,  17, 0x0b, 0, "This POKEMON GYM\nis always closed.\fI wonder who the\nLEADER is?" },  /* SPRITE_GAMBLER, STAY, TEXT_VIRIDIANCITY_GAMBLER1 */
-    {  60,  51, 0x04, 1, "You want to know\nabout the 2 kinds\nof caterpillar\nPOKEMON?" },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANCITY_YOUNGSTER2 */
-    {  34,  19, 0x0d, 0, "Oh Grandpa! Don't\nbe so mean!\nHe hasn't had his\ncoffee yet." },  /* SPRITE_GIRL, STAY, TEXT_VIRIDIANCITY_GIRL */
-    {  36,  19, 0x48, 0, "You can't go\nthrough here!\fThis is private\nproperty!" },  /* SPRITE_GAMBLER_ASLEEP, STAY, TEXT_VIRIDIANCITY_OLD_MAN_SLEEPY */
-    {  12,  47, 0x2f, 0, "{PLAYER} received\nTM42!@" },  /* SPRITE_FISHER, STAY, TEXT_VIRIDIANCITY_FISHER */
-    {  34,  11, 0x0b, 1, "Ahh, I've had my\ncoffee now and I\nfeel great!\fSure you can go\nthrough!\fAre you in a\nhurry?" },  /* SPRITE_GAMBLER, WALK, TEXT_VIRIDIANCITY_OLD_MAN */
+    {  26,  41, 0x04, 1, "Those POKE BALLs\nat your waist!\nYou have POKEMON!\fIt's great that\nyou can carry and\nuse POKEMON any\ntime, anywhere!", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANCITY_YOUNGSTER1 */
+    {  60,  17, 0x0b, 0, "This POKEMON GYM\nis always closed.\fI wonder who the\nLEADER is?", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_VIRIDIANCITY_GAMBLER1 */
+    {  60,  51, 0x04, 1, "You want to know\nabout the 2 kinds\nof caterpillar\nPOKEMON?", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANCITY_YOUNGSTER2 */
+    {  34,  19, 0x0d, 0, "Oh Grandpa! Don't\nbe so mean!\nHe hasn't had his\ncoffee yet.", NULL },  /* SPRITE_GIRL, STAY, TEXT_VIRIDIANCITY_GIRL */
+    {  36,  19, 0x48, 0, "You can't go\nthrough here!\fThis is private\nproperty!", NULL },  /* SPRITE_GAMBLER_ASLEEP, STAY, TEXT_VIRIDIANCITY_OLD_MAN_SLEEPY */
+    {  12,  47, 0x2f, 0, "{PLAYER} received\nTM42!@", NULL },  /* SPRITE_FISHER, STAY, TEXT_VIRIDIANCITY_FISHER */
+    {  34,  11, 0x0b, 1, "Ahh, I've had my\ncoffee now and I\nfeel great!\fSure you can go\nthrough!\fAre you in a\nhurry?", NULL },  /* SPRITE_GAMBLER, WALK, TEXT_VIRIDIANCITY_OLD_MAN */
 };
 
 static const sign_event_t kSigns_ViridianCity[] = {
@@ -58,11 +60,11 @@ static const map_warp_t kWarps_PewterCity[] = {
 };
 
 static const npc_event_t kNpcs_PewterCity[] = {
-    {  16,  31, 0x06, 0, "It's rumored that\nCLEFAIRYs came\nfrom the moon!\fThey appeared \nafter MOON STONE\nfell on MT.MOON." },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_PEWTERCITY_COOLTRAINER_F */
-    {  34,  51, 0x07, 0, "There aren't many\nserious POKEMON\ntrainers here!\fThey're all like\nBUG CATCHERs,\nbut PEWTER GYM's\nBROCK is totally\ninto it!" },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_PEWTERCITY_COOLTRAINER_M */
-    {  54,  35, 0x0c, 0, "Did you check out\nthe MUSEUM?" },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERCITY_SUPER_NERD1 */
-    {  52,  51, 0x0c, 1, "Psssst!\nDo you know what\nI'm doing?" },  /* SPRITE_SUPER_NERD, WALK, TEXT_PEWTERCITY_SUPER_NERD2 */
-    {  70,  33, 0x04, 0, "You're a trainer\nright? BROCK's\nlooking for new\nchallengers!\nFollow me!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_PEWTERCITY_YOUNGSTER */
+    {  16,  31, 0x06, 0, "It's rumored that\nCLEFAIRYs came\nfrom the moon!\fThey appeared \nafter MOON STONE\nfell on MT.MOON.", NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_PEWTERCITY_COOLTRAINER_F */
+    {  34,  51, 0x07, 0, "There aren't many\nserious POKEMON\ntrainers here!\fThey're all like\nBUG CATCHERs,\nbut PEWTER GYM's\nBROCK is totally\ninto it!", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_PEWTERCITY_COOLTRAINER_M */
+    {  54,  35, 0x0c, 0, "Did you check out\nthe MUSEUM?", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERCITY_SUPER_NERD1 */
+    {  52,  51, 0x0c, 1, "Psssst!\nDo you know what\nI'm doing?", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_PEWTERCITY_SUPER_NERD2 */
+    {  70,  33, 0x04, 0, "You're a trainer\nright? BROCK's\nlooking for new\nchallengers!\nFollow me!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_PEWTERCITY_YOUNGSTER */
 };
 
 static const sign_event_t kSigns_PewterCity[] = {
@@ -89,17 +91,17 @@ static const map_warp_t kWarps_CeruleanCity[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanCity[] = {
-    {  40,   5, 0x02, 0, "{RIVAL}: Yo!\n{PLAYER}!\fYou're still\nstruggling along\nback here?\fI'm doing great!\nI caught a bunch\nof strong and\nsmart POKEMON!\fHere, let me see\nwhat you caught,\n{PLAYER}!" },  /* SPRITE_BLUE, STAY, TEXT_CERULEANCITY_RIVAL */
-    {  60,  17, 0x18, 0, "Hey! Stay out!\nIt's not your\nyard! Huh? Me?\fI'm an innocent\nbystander! Don't\nyou believe me?" },  /* SPRITE_ROCKET, STAY, TEXT_CERULEANCITY_ROCKET */
-    {  62,  41, 0x07, 0, "You're a trainer\ntoo? Collecting,\nfighting, it's a\ntough life." },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_CERULEANCITY_COOLTRAINER_M */
-    {  30,  37, 0x0c, 1, "That bush in\nfront of the shop\nis in the way.\fThere might be a\nway around." },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANCITY_SUPER_NERD1 */
-    {  18,  43, 0x0c, 1, "You're making an\nencyclopedia on\nPOKEMON? That\nsounds amusing." },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANCITY_SUPER_NERD2 */
-    {  56,  25, 0x31, 0, "The people here\nwere robbed.\fIt's obvious that\nTEAM ROCKET is\nbehind this most\nheinous crime!\fEven our POLICE\nforce has trouble\nwith the ROCKETs!" },  /* SPRITE_GUARD, STAY, TEXT_CERULEANCITY_GUARD1 */
-    {  58,  53, 0x06, 0, "OK! SLOWBRO!\nUse SONICBOOM!\nCome on, SLOWBRO\npay attention!" },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CERULEANCITY_COOLTRAINER_F1 */
-    {  56,  53, 0x05, 0, "SLOWBRO took a\nsnooze..." },  /* SPRITE_MONSTER, STAY, TEXT_CERULEANCITY_SLOWBRO */
-    {  18,  55, 0x06, 1, "I want a bright\nred BICYCLE!\fI'll keep it at\nhome, so it won't\nget dirty!" },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CERULEANCITY_COOLTRAINER_F2 */
-    {   8,  25, 0x0c, 0, "This is CERULEAN\nCAVE! Horribly\nstrong POKEMON\nlive in there!\fThe POKEMON LEAGUE\nchampion is the\nonly person who\nis allowed in!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CERULEANCITY_SUPER_NERD3 */
-    {  54,  25, 0x31, 0, "The people here\nwere robbed.\fIt's obvious that\nTEAM ROCKET is\nbehind this most\nheinous crime!\fEven our POLICE\nforce has trouble\nwith the ROCKETs!" },  /* SPRITE_GUARD, STAY, TEXT_CERULEANCITY_GUARD2 */
+    {  40,   5, 0x02, 0, "{RIVAL}: Yo!\n{PLAYER}!\fYou're still\nstruggling along\nback here?\fI'm doing great!\nI caught a bunch\nof strong and\nsmart POKEMON!\fHere, let me see\nwhat you caught,\n{PLAYER}!", NULL },  /* SPRITE_BLUE, STAY, TEXT_CERULEANCITY_RIVAL */
+    {  60,  17, 0x18, 0, "Hey! Stay out!\nIt's not your\nyard! Huh? Me?\fI'm an innocent\nbystander! Don't\nyou believe me?", NULL },  /* SPRITE_ROCKET, STAY, TEXT_CERULEANCITY_ROCKET */
+    {  62,  41, 0x07, 0, "You're a trainer\ntoo? Collecting,\nfighting, it's a\ntough life.", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_CERULEANCITY_COOLTRAINER_M */
+    {  30,  37, 0x0c, 1, "That bush in\nfront of the shop\nis in the way.\fThere might be a\nway around.", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANCITY_SUPER_NERD1 */
+    {  18,  43, 0x0c, 1, "You're making an\nencyclopedia on\nPOKEMON? That\nsounds amusing.", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANCITY_SUPER_NERD2 */
+    {  56,  25, 0x31, 0, "The people here\nwere robbed.\fIt's obvious that\nTEAM ROCKET is\nbehind this most\nheinous crime!\fEven our POLICE\nforce has trouble\nwith the ROCKETs!", NULL },  /* SPRITE_GUARD, STAY, TEXT_CERULEANCITY_GUARD1 */
+    {  58,  53, 0x06, 0, "OK! SLOWBRO!\nUse SONICBOOM!\nCome on, SLOWBRO\npay attention!", NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CERULEANCITY_COOLTRAINER_F1 */
+    {  56,  53, 0x05, 0, "SLOWBRO took a\nsnooze...", NULL },  /* SPRITE_MONSTER, STAY, TEXT_CERULEANCITY_SLOWBRO */
+    {  18,  55, 0x06, 1, "I want a bright\nred BICYCLE!\fI'll keep it at\nhome, so it won't\nget dirty!", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CERULEANCITY_COOLTRAINER_F2 */
+    {   8,  25, 0x0c, 0, "This is CERULEAN\nCAVE! Horribly\nstrong POKEMON\nlive in there!\fThe POKEMON LEAGUE\nchampion is the\nonly person who\nis allowed in!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CERULEANCITY_SUPER_NERD3 */
+    {  54,  25, 0x31, 0, "The people here\nwere robbed.\fIt's obvious that\nTEAM ROCKET is\nbehind this most\nheinous crime!\fEven our POLICE\nforce has trouble\nwith the ROCKETs!", NULL },  /* SPRITE_GUARD, STAY, TEXT_CERULEANCITY_GUARD2 */
 };
 
 static const sign_event_t kSigns_CeruleanCity[] = {
@@ -121,9 +123,9 @@ static const map_warp_t kWarps_LavenderTown[] = {
 };
 
 static const npc_event_t kNpcs_LavenderTown[] = {
-    {  30,  19, 0x08, 1, "Do you believe in\nGHOSTs?" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_LAVENDERTOWN_LITTLE_GIRL */
-    {  18,  21, 0x07, 0, "This town is known\nas the grave site\nof POKEMON.\fMemorial services\nare held in\nPOKEMON TOWER." },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_LAVENDERTOWN_COOLTRAINER_M */
-    {  16,  15, 0x0c, 1, "GHOSTs appeared\nin POKEMON TOWER.\fI think they're\nthe spirits of\nPOKEMON that the\nROCKETs killed." },  /* SPRITE_SUPER_NERD, WALK, TEXT_LAVENDERTOWN_SUPER_NERD */
+    {  30,  19, 0x08, 1, "Do you believe in\nGHOSTs?", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_LAVENDERTOWN_LITTLE_GIRL */
+    {  18,  21, 0x07, 0, "This town is known\nas the grave site\nof POKEMON.\fMemorial services\nare held in\nPOKEMON TOWER.", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_LAVENDERTOWN_COOLTRAINER_M */
+    {  16,  15, 0x0c, 1, "GHOSTs appeared\nin POKEMON TOWER.\fI think they're\nthe spirits of\nPOKEMON that the\nROCKETs killed.", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_LAVENDERTOWN_SUPER_NERD */
 };
 
 static const sign_event_t kSigns_LavenderTown[] = {
@@ -148,12 +150,12 @@ static const map_warp_t kWarps_VermilionCity[] = {
 };
 
 static const npc_event_t kNpcs_VermilionCity[] = {
-    {  38,  15, 0x0f, 1, "We're careful\nabout pollution!\fWe've heard GRIMER\nmultiplies in\ntoxic sludge!" },  /* SPRITE_BEAUTY, WALK, TEXT_VERMILIONCITY_BEAUTY */
-    {  28,  13, 0x0b, 0, "Did you see S.S.\nANNE moored in\nthe harbor?" },  /* SPRITE_GAMBLER, STAY, TEXT_VERMILIONCITY_GAMBLER1 */
-    {  38,  61, 0x13, 0, "Welcome to S.S.\nANNE!" },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONCITY_SAILOR1 */
-    {  60,  15, 0x0b, 0, "I'm putting up a\nbuilding on this\nplot of land.\fMy POKEMON is\ntamping the land." },  /* SPRITE_GAMBLER, STAY, TEXT_VERMILIONCITY_GAMBLER2 */
-    {  58,  19, 0x05, 1, "MACHOP: Guoh!\nGogogoh!@" },  /* SPRITE_MONSTER, WALK, TEXT_VERMILIONCITY_MACHOP */
-    {  50,  55, 0x13, 1, "S.S.ANNE is a\nfamous luxury\ncruise ship.\fWe visit VERMILION\nonce a year." },  /* SPRITE_SAILOR, WALK, TEXT_VERMILIONCITY_SAILOR2 */
+    {  38,  15, 0x0f, 1, "We're careful\nabout pollution!\fWe've heard GRIMER\nmultiplies in\ntoxic sludge!", NULL },  /* SPRITE_BEAUTY, WALK, TEXT_VERMILIONCITY_BEAUTY */
+    {  28,  13, 0x0b, 0, "Did you see S.S.\nANNE moored in\nthe harbor?", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_VERMILIONCITY_GAMBLER1 */
+    {  38,  61, 0x13, 0, "Welcome to S.S.\nANNE!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONCITY_SAILOR1 */
+    {  60,  15, 0x0b, 0, "I'm putting up a\nbuilding on this\nplot of land.\fMy POKEMON is\ntamping the land.", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_VERMILIONCITY_GAMBLER2 */
+    {  58,  19, 0x05, 1, "MACHOP: Guoh!\nGogogoh!@", NULL },  /* SPRITE_MONSTER, WALK, TEXT_VERMILIONCITY_MACHOP */
+    {  50,  55, 0x13, 1, "S.S.ANNE is a\nfamous luxury\ncruise ship.\fWe visit VERMILION\nonce a year.", NULL },  /* SPRITE_SAILOR, WALK, TEXT_VERMILIONCITY_SAILOR2 */
 };
 
 static const sign_event_t kSigns_VermilionCity[] = {
@@ -183,15 +185,15 @@ static const map_warp_t kWarps_CeladonCity[] = {
 };
 
 static const npc_event_t kNpcs_CeladonCity[] = {
-    {  16,  35, 0x08, 1, "I got my KOFFING\nin CINNABAR!\fIt's nice, but it\nbreathes poison\nwhen it's angry!" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONCITY_LITTLE_GIRL */
-    {  22,  57, 0x25, 0, "Heheh! This GYM\nis great! It's\nfull of women!" },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS1 */
-    {  28,  39, 0x0d, 1, "The GAME CORNER\nis bad for our\ncity's image!" },  /* SPRITE_GIRL, WALK, TEXT_CELADONCITY_GIRL */
-    {  50,  45, 0x25, 0, "Moan! I blew it\nall at the slots!\fI knew I should\nhave cashed in my\ncoins for prizes!" },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS2 */
-    {  44,  33, 0x25, 0, "Hello, there!\fI've seen you,\nbut I never had a\nchance to talk!\fHere's a gift for\ndropping by!" },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS3 */
-    {  64,  25, 0x2f, 0, "This is my trusted\npal, POLIWRATH!\fIt evolved from\nPOLIWHIRL when I\nused WATER STONE!" },  /* SPRITE_FISHER, STAY, TEXT_CELADONCITY_FISHER */
-    {  60,  25, 0x05, 0, "POLIWRATH: Ribi\nribit!@" },  /* SPRITE_MONSTER, STAY, TEXT_CELADONCITY_POLIWRATH */
-    {  64,  59, 0x18, 1, "What are you\nstaring at?" },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET1 */
-    {  84,  29, 0x18, 1, "Keep out of TEAM\nROCKET's way!" },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET2 */
+    {  16,  35, 0x08, 1, "I got my KOFFING\nin CINNABAR!\fIt's nice, but it\nbreathes poison\nwhen it's angry!", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONCITY_LITTLE_GIRL */
+    {  22,  57, 0x25, 0, "Heheh! This GYM\nis great! It's\nfull of women!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS1 */
+    {  28,  39, 0x0d, 1, "The GAME CORNER\nis bad for our\ncity's image!", NULL },  /* SPRITE_GIRL, WALK, TEXT_CELADONCITY_GIRL */
+    {  50,  45, 0x25, 0, "Moan! I blew it\nall at the slots!\fI knew I should\nhave cashed in my\ncoins for prizes!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS2 */
+    {  44,  33, 0x25, 0, "Hello, there!\fI've seen you,\nbut I never had a\nchance to talk!\fHere's a gift for\ndropping by!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS3 */
+    {  64,  25, 0x2f, 0, "This is my trusted\npal, POLIWRATH!\fIt evolved from\nPOLIWHIRL when I\nused WATER STONE!", NULL },  /* SPRITE_FISHER, STAY, TEXT_CELADONCITY_FISHER */
+    {  60,  25, 0x05, 0, "POLIWRATH: Ribi\nribit!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_CELADONCITY_POLIWRATH */
+    {  64,  59, 0x18, 1, "What are you\nstaring at?", NULL },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET1 */
+    {  84,  29, 0x18, 1, "Keep out of TEAM\nROCKET's way!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET2 */
 };
 
 static const sign_event_t kSigns_CeladonCity[] = {
@@ -219,15 +221,15 @@ static const map_warp_t kWarps_FuchsiaCity[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaCity[] = {
-    {  20,  25, 0x04, 1, "Did you try the\nSAFARI GAME? Some\nPOKEMON can only\nbe caught there." },  /* SPRITE_YOUNGSTER, WALK, TEXT_FUCHSIACITY_YOUNGSTER1 */
-    {  56,  35, 0x0b, 1, "SAFARI ZONE has a\nzoo in front of\nthe entrance.\fOut back is the\nSAFARI GAME for\ncatching POKEMON." },  /* SPRITE_GAMBLER, WALK, TEXT_FUCHSIACITY_GAMBLER */
-    {  60,  29, 0x2f, 0, "ERIK: Where's\nSARA? I said I'd\nmeet her here." },  /* SPRITE_FISHER, STAY, TEXT_FUCHSIACITY_ERIK */
-    {  48,  17, 0x04, 0, "That item ball in\nthere is really a\nPOKEMON." },  /* SPRITE_YOUNGSTER, STAY, TEXT_FUCHSIACITY_YOUNGSTER2 */
-    {  62,  11, 0x38, 1, "!" },  /* SPRITE_FAIRY, WALK, TEXT_FUCHSIACITY_CHANSEY */
-    {  24,  13, 0x05, 1, "!" },  /* SPRITE_MONSTER, WALK, TEXT_FUCHSIACITY_KANGASKHAN */
-    {  60,  25, 0x05, 1, "!" },  /* SPRITE_MONSTER, WALK, TEXT_FUCHSIACITY_SLOWPOKE */
-    {  16,  35, 0x3c, 1, "!" },  /* SPRITE_SEEL, WALK, TEXT_FUCHSIACITY_LAPRAS */
-    {  12,  11, 0x3e, 0, "!" },  /* SPRITE_FOSSIL, STAY, TEXT_FUCHSIACITY_FOSSIL */
+    {  20,  25, 0x04, 1, "Did you try the\nSAFARI GAME? Some\nPOKEMON can only\nbe caught there.", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_FUCHSIACITY_YOUNGSTER1 */
+    {  56,  35, 0x0b, 1, "SAFARI ZONE has a\nzoo in front of\nthe entrance.\fOut back is the\nSAFARI GAME for\ncatching POKEMON.", NULL },  /* SPRITE_GAMBLER, WALK, TEXT_FUCHSIACITY_GAMBLER */
+    {  60,  29, 0x2f, 0, "ERIK: Where's\nSARA? I said I'd\nmeet her here.", NULL },  /* SPRITE_FISHER, STAY, TEXT_FUCHSIACITY_ERIK */
+    {  48,  17, 0x04, 0, "That item ball in\nthere is really a\nPOKEMON.", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_FUCHSIACITY_YOUNGSTER2 */
+    {  62,  11, 0x38, 1, "!", NULL },  /* SPRITE_FAIRY, WALK, TEXT_FUCHSIACITY_CHANSEY */
+    {  24,  13, 0x05, 1, "!", NULL },  /* SPRITE_MONSTER, WALK, TEXT_FUCHSIACITY_KANGASKHAN */
+    {  60,  25, 0x05, 1, "!", NULL },  /* SPRITE_MONSTER, WALK, TEXT_FUCHSIACITY_SLOWPOKE */
+    {  16,  35, 0x3c, 1, "!", NULL },  /* SPRITE_SEEL, WALK, TEXT_FUCHSIACITY_LAPRAS */
+    {  12,  11, 0x3e, 0, "!", NULL },  /* SPRITE_FOSSIL, STAY, TEXT_FUCHSIACITY_FOSSIL */
 };
 
 static const sign_event_t kSigns_FuchsiaCity[] = {
@@ -256,8 +258,8 @@ static const map_warp_t kWarps_CinnabarIsland[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarIsland[] = {
-    {  24,  11, 0x0d, 1, "CINNABAR GYM's\nBLAINE is an odd\nman who has lived\nhere for decades." },  /* SPRITE_GIRL, WALK, TEXT_CINNABARISLAND_GIRL */
-    {  28,  13, 0x0b, 0, "Scientists conduct\nexperiments in\nthe burned out\nbuilding." },  /* SPRITE_GAMBLER, STAY, TEXT_CINNABARISLAND_GAMBLER */
+    {  24,  11, 0x0d, 1, "CINNABAR GYM's\nBLAINE is an odd\nman who has lived\nhere for decades.", NULL },  /* SPRITE_GIRL, WALK, TEXT_CINNABARISLAND_GIRL */
+    {  28,  13, 0x0b, 0, "Scientists conduct\nexperiments in\nthe burned out\nbuilding.", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_CINNABARISLAND_GAMBLER */
 };
 
 static const sign_event_t kSigns_CinnabarIsland[] = {
@@ -285,21 +287,21 @@ static const map_warp_t kWarps_SaffronCity[] = {
 };
 
 static const npc_event_t kNpcs_SaffronCity[] = {
-    {  14,  13, 0x18, 0, "What do you want?\nGet lost!" },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET1 */
-    {  40,  17, 0x18, 1, "BOSS said he'll\ntake this town!" },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET2 */
-    {  68,   9, 0x18, 0, "Get out of the\nway!" },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET3 */
-    {  26,  25, 0x18, 0, "SAFFRON belongs\nto TEAM ROCKET!" },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET4 */
-    {  22,  51, 0x18, 1, "Being evil makes\nme feel so alive!" },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET5 */
-    {  64,  27, 0x18, 1, "Ow! Watch where\nyou're walking!" },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET6 */
-    {  36,  61, 0x18, 1, "With SILPH under\ncontrol, we can\nexploit POKEMON\naround the world!" },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET7 */
-    {  16,  29, 0x20, 1, "You beat TEAM\nROCKET all alone?\nThat's amazing!" },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFFRONCITY_SCIENTIST */
-    {  46,  47, 0x2c, 0, "Yeah! TEAM ROCKET\nis gone!\nIt's safe to go\nout again!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SAFFRONCITY_SILPH_WORKER_M */
-    {  34,  61, 0x1b, 1, "People should be\nflocking back to\nSAFFRON now." },  /* SPRITE_SILPH_WORKER_F, WALK, TEXT_SAFFRONCITY_SILPH_WORKER_F */
-    {  60,  25, 0x10, 0, "I flew here on my\nPIDGEOT when I\nread about SILPH.\fIt's already over?\nI missed the\nmedia action." },  /* SPRITE_GENTLEMAN, STAY, TEXT_SAFFRONCITY_GENTLEMAN */
-    {  62,  25, 0x09, 0, "PIDGEOT: Bi bibii!@" },  /* SPRITE_BIRD, STAY, TEXT_SAFFRONCITY_PIDGEOT */
-    {  36,  17, 0x21, 0, "I saw ROCKET\nBOSS escaping\nSILPH's building." },  /* SPRITE_ROCKER, STAY, TEXT_SAFFRONCITY_ROCKER */
-    {  36,  45, 0x18, 0, "I'm a security\nguard.\fSuspicious kids I\ndon't allow in!" },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET8 */
-    {  38,  45, 0x18, 0, "...\nSnore...\fHah! He's taking\na snooze!" },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET9 */
+    {  14,  13, 0x18, 0, "What do you want?\nGet lost!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET1 */
+    {  40,  17, 0x18, 1, "BOSS said he'll\ntake this town!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET2 */
+    {  68,   9, 0x18, 0, "Get out of the\nway!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET3 */
+    {  26,  25, 0x18, 0, "SAFFRON belongs\nto TEAM ROCKET!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET4 */
+    {  22,  51, 0x18, 1, "Being evil makes\nme feel so alive!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET5 */
+    {  64,  27, 0x18, 1, "Ow! Watch where\nyou're walking!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET6 */
+    {  36,  61, 0x18, 1, "With SILPH under\ncontrol, we can\nexploit POKEMON\naround the world!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_SAFFRONCITY_ROCKET7 */
+    {  16,  29, 0x20, 1, "You beat TEAM\nROCKET all alone?\nThat's amazing!", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFFRONCITY_SCIENTIST */
+    {  46,  47, 0x2c, 0, "Yeah! TEAM ROCKET\nis gone!\nIt's safe to go\nout again!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SAFFRONCITY_SILPH_WORKER_M */
+    {  34,  61, 0x1b, 1, "People should be\nflocking back to\nSAFFRON now.", NULL },  /* SPRITE_SILPH_WORKER_F, WALK, TEXT_SAFFRONCITY_SILPH_WORKER_F */
+    {  60,  25, 0x10, 0, "I flew here on my\nPIDGEOT when I\nread about SILPH.\fIt's already over?\nI missed the\nmedia action.", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SAFFRONCITY_GENTLEMAN */
+    {  62,  25, 0x09, 0, "PIDGEOT: Bi bibii!@", NULL },  /* SPRITE_BIRD, STAY, TEXT_SAFFRONCITY_PIDGEOT */
+    {  36,  17, 0x21, 0, "I saw ROCKET\nBOSS escaping\nSILPH's building.", NULL },  /* SPRITE_ROCKER, STAY, TEXT_SAFFRONCITY_ROCKER */
+    {  36,  45, 0x18, 0, "I'm a security\nguard.\fSuspicious kids I\ndon't allow in!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET8 */
+    {  38,  45, 0x18, 0, "...\nSnore...\fHah! He's taking\na snooze!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_SAFFRONCITY_ROCKET9 */
 };
 
 static const sign_event_t kSigns_SaffronCity[] = {
@@ -316,8 +318,8 @@ static const sign_event_t kSigns_SaffronCity[] = {
 };
 
 static const npc_event_t kNpcs_Route1[] = {
-    {  10,  49, 0x04, 1, "Hi! I work at a\nPOKEMON MART.\fIt's a convenient\nshop, so please\nvisit us in\nVIRIDIAN CITY.\fI know, I'll give\nyou a sample!\nHere you go!" },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE1_YOUNGSTER1 */
-    {  30,  27, 0x04, 1, "See those ledges\nalong the road?\fIt's a bit scary,\nbut you can jump\nfrom them.\fYou can get back\nto PALLET TOWN\nquicker that way." },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE1_YOUNGSTER2 */
+    {  10,  49, 0x04, 1, "Hi! I work at a\nPOKEMON MART.\fIt's a convenient\nshop, so please\nvisit us in\nVIRIDIAN CITY.\fI know, I'll give\nyou a sample!\nHere you go!", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE1_YOUNGSTER1 */
+    {  30,  27, 0x04, 1, "See those ledges\nalong the road?\fIt's a bit scary,\nbut you can jump\nfrom them.\fYou can get back\nto PALLET TOWN\nquicker that way.", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE1_YOUNGSTER2 */
 };
 
 static const sign_event_t kSigns_Route1[] = {
@@ -344,15 +346,15 @@ static const item_event_t kItems_Route2[] = {
 };
 
 static const npc_event_t kNpcs_Route3[] = {
-    { 114,  23, 0x0c, 0, "Whew... I better\ntake a rest...\nGroan...\fThat tunnel from\nCERULEAN takes a\nlot out of you!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE3_SUPER_NERD */
-    {  20,  13, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER1 */
-    {  28,   9, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER2 */
-    {  32,  19, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F1 */
-    {  38,  11, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER3 */
-    {  46,   9, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F2 */
-    {  44,  19, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER4 */
-    {  48,  13, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER5 */
-    {  66,  21, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F3 */
+    { 114,  23, 0x0c, 0, "Whew... I better\ntake a rest...\nGroan...\fThat tunnel from\nCERULEAN takes a\nlot out of you!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE3_SUPER_NERD */
+    {  20,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER1 */
+    {  28,   9, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER2 */
+    {  32,  19, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F1 */
+    {  38,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER3 */
+    {  46,   9, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F2 */
+    {  44,  19, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER4 */
+    {  48,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER5 */
+    {  66,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F3 */
 };
 
 static const sign_event_t kSigns_Route3[] = {
@@ -366,8 +368,8 @@ static const map_warp_t kWarps_Route4[] = {
 };
 
 static const npc_event_t kNpcs_Route4[] = {
-    {  18,  17, 0x06, 1, "Ouch! I tripped\nover a rocky\nPOKEMON, GEODUDE!" },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_ROUTE4_COOLTRAINER_F1 */
-    { 126,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE4_COOLTRAINER_F2 */
+    {  18,  17, 0x06, 1, "Ouch! I tripped\nover a rocky\nPOKEMON, GEODUDE!", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_ROUTE4_COOLTRAINER_F1 */
+    { 126,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE4_COOLTRAINER_F2 */
 };
 
 static const sign_event_t kSigns_Route4[] = {
@@ -400,12 +402,12 @@ static const map_warp_t kWarps_Route6[] = {
 };
 
 static const npc_event_t kNpcs_Route6[] = {
-    {  20,  43, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M1 */
-    {  22,  43, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F1 */
-    {   0,  31, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER1 */
-    {  22,  63, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M2 */
-    {  22,  61, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F2 */
-    {  38,  53, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER2 */
+    {  20,  43, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M1 */
+    {  22,  43, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F1 */
+    {   0,  31, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER1 */
+    {  22,  63, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M2 */
+    {  22,  61, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F2 */
+    {  38,  53, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER2 */
 };
 
 static const sign_event_t kSigns_Route6[] = {
@@ -433,15 +435,15 @@ static const map_warp_t kWarps_Route8[] = {
 };
 
 static const npc_event_t kNpcs_Route8[] = {
-    {  16,  11, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD1 */
-    {  26,  19, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE8_GAMBLER1 */
-    {  84,  13, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD2 */
-    {  52,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F1 */
-    {  52,   9, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD3 */
-    {  52,  11, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F2 */
-    {  52,  13, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F3 */
-    {  92,  27, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE8_GAMBLER2 */
-    { 102,  25, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F4 */
+    {  16,  11, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD1 */
+    {  26,  19, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE8_GAMBLER1 */
+    {  84,  13, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD2 */
+    {  52,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F1 */
+    {  52,   9, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE8_SUPER_NERD3 */
+    {  52,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F2 */
+    {  52,  13, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F3 */
+    {  92,  27, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE8_GAMBLER2 */
+    { 102,  25, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F4 */
 };
 
 static const sign_event_t kSigns_Route8[] = {
@@ -449,15 +451,15 @@ static const sign_event_t kSigns_Route8[] = {
 };
 
 static const npc_event_t kNpcs_Route9[] = {
-    {  26,  21, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE9_COOLTRAINER_F1 */
-    {  48,  15, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE9_COOLTRAINER_M1 */
-    {  62,  15, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE9_COOLTRAINER_M2 */
-    {  96,  17, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE9_COOLTRAINER_F2 */
-    {  32,  31, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER1 */
-    {  86,   7, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER2 */
-    {  44,   5, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE9_YOUNGSTER1 */
-    {  90,  31, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER3 */
-    {  80,  17, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE9_YOUNGSTER2 */
+    {  26,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE9_COOLTRAINER_F1 */
+    {  48,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE9_COOLTRAINER_M1 */
+    {  62,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE9_COOLTRAINER_M2 */
+    {  96,  17, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE9_COOLTRAINER_F2 */
+    {  32,  31, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER1 */
+    {  86,   7, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER2 */
+    {  44,   5, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE9_YOUNGSTER1 */
+    {  90,  31, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER3 */
+    {  80,  17, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE9_YOUNGSTER2 */
 };
 
 static const sign_event_t kSigns_Route9[] = {
@@ -476,12 +478,12 @@ static const map_warp_t kWarps_Route10[] = {
 };
 
 static const npc_event_t kNpcs_Route10[] = {
-    {  20,  89, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE10_SUPER_NERD1 */
-    {   6, 115, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE10_HIKER1 */
-    {  28, 129, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE10_SUPER_NERD2 */
-    {  14,  51, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE10_COOLTRAINER_F1 */
-    {   6, 123, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE10_HIKER2 */
-    {  14, 109, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE10_COOLTRAINER_F2 */
+    {  20,  89, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE10_SUPER_NERD1 */
+    {   6, 115, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE10_HIKER1 */
+    {  28, 129, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE10_SUPER_NERD2 */
+    {  14,  51, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE10_COOLTRAINER_F1 */
+    {   6, 123, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE10_HIKER2 */
+    {  14, 109, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE10_COOLTRAINER_F2 */
 };
 
 static const sign_event_t kSigns_Route10[] = {
@@ -500,16 +502,16 @@ static const map_warp_t kWarps_Route11[] = {
 };
 
 static const npc_event_t kNpcs_Route11[] = {
-    {  20,  29, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER1 */
-    {  52,  19, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER2 */
-    {  26,  11, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER1 */
-    {  72,  23, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE11_SUPER_NERD1 */
-    {  44,   9, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER2 */
-    {  90,  15, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER3 */
-    {  66,   7, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER4 */
-    {  86,  11, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER3 */
-    {  90,  33, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE11_SUPER_NERD2 */
-    {  44,  25, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER4 */
+    {  20,  29, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER1 */
+    {  52,  19, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER2 */
+    {  26,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER1 */
+    {  72,  23, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE11_SUPER_NERD1 */
+    {  44,   9, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER2 */
+    {  90,  15, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER3 */
+    {  66,   7, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE11_GAMBLER4 */
+    {  86,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER3 */
+    {  90,  33, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE11_SUPER_NERD2 */
+    {  44,  25, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER4 */
 };
 
 static const sign_event_t kSigns_Route11[] = {
@@ -524,14 +526,14 @@ static const map_warp_t kWarps_Route12[] = {
 };
 
 static const npc_event_t kNpcs_Route12[] = {
-    {  20, 125, 0x43, 0, "A sleeping POKEMON\nblocks the way!" },  /* SPRITE_SNORLAX, STAY, TEXT_ROUTE12_SNORLAX */
-    {  28,  63, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER1 */
-    {  10,  79, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER2 */
-    {  22, 185, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE12_COOLTRAINER_M */
-    {  28, 153, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE12_SUPER_NERD */
-    {  24,  81, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER3 */
-    {  18, 105, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER4 */
-    {  12, 175, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER5 */
+    {  20, 125, 0x43, 0, "A sleeping POKEMON\nblocks the way!", NULL },  /* SPRITE_SNORLAX, STAY, TEXT_ROUTE12_SNORLAX */
+    {  28,  63, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER1 */
+    {  10,  79, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER2 */
+    {  22, 185, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE12_COOLTRAINER_M */
+    {  28, 153, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE12_SUPER_NERD */
+    {  24,  81, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER3 */
+    {  18, 105, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER4 */
+    {  12, 175, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER5 */
 };
 
 static const sign_event_t kSigns_Route12[] = {
@@ -545,16 +547,16 @@ static const item_event_t kItems_Route12[] = {
 };
 
 static const npc_event_t kNpcs_Route13[] = {
-    {  98,  21, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M1 */
-    {  96,  21, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F1 */
-    {  54,  19, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F2 */
-    {  46,  21, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F3 */
-    { 100,  11, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F4 */
-    {  24,   9, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M2 */
-    {  66,  13, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE13_BEAUTY1 */
-    {  64,  13, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE13_BEAUTY2 */
-    {  20,  15, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE13_BIKER */
-    {  14,  27, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M3 */
+    {  98,  21, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M1 */
+    {  96,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F1 */
+    {  54,  19, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F2 */
+    {  46,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F3 */
+    { 100,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE13_COOLTRAINER_F4 */
+    {  24,   9, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M2 */
+    {  66,  13, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE13_BEAUTY1 */
+    {  64,  13, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE13_BEAUTY2 */
+    {  20,  15, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE13_BIKER */
+    {  14,  27, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M3 */
 };
 
 static const sign_event_t kSigns_Route13[] = {
@@ -564,16 +566,16 @@ static const sign_event_t kSigns_Route13[] = {
 };
 
 static const npc_event_t kNpcs_Route14[] = {
-    {   8,   9, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M1 */
-    {  30,  13, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M2 */
-    {  24,  23, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M3 */
-    {  28,  31, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M4 */
-    {  30,  63, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M5 */
-    {  12,  99, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M6 */
-    {  10,  79, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER1 */
-    {   8,  61, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER2 */
-    {  30,  61, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER3 */
-    {   8,  63, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER4 */
+    {   8,   9, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M1 */
+    {  30,  13, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M2 */
+    {  24,  23, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M3 */
+    {  28,  31, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M4 */
+    {  30,  63, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M5 */
+    {  12,  99, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE14_COOLTRAINER_M6 */
+    {  10,  79, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER1 */
+    {   8,  61, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER2 */
+    {  30,  61, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER3 */
+    {   8,  63, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER4 */
 };
 
 static const sign_event_t kSigns_Route14[] = {
@@ -588,16 +590,16 @@ static const map_warp_t kWarps_Route15[] = {
 };
 
 static const npc_event_t kNpcs_Route15[] = {
-    {  82,  23, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F1 */
-    { 106,  21, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F2 */
-    {  62,  27, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE15_COOLTRAINER_M1 */
-    {  70,  27, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE15_COOLTRAINER_M2 */
-    { 106,  23, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE15_BEAUTY1 */
-    {  82,  21, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE15_BEAUTY2 */
-    {  96,  21, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE15_BIKER1 */
-    {  92,  21, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE15_BIKER2 */
-    {  74,  11, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F3 */
-    {  36,  27, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F4 */
+    {  82,  23, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F1 */
+    { 106,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F2 */
+    {  62,  27, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE15_COOLTRAINER_M1 */
+    {  70,  27, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE15_COOLTRAINER_M2 */
+    { 106,  23, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE15_BEAUTY1 */
+    {  82,  21, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_ROUTE15_BEAUTY2 */
+    {  96,  21, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE15_BIKER1 */
+    {  92,  21, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE15_BIKER2 */
+    {  74,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F3 */
+    {  36,  27, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F4 */
 };
 
 static const sign_event_t kSigns_Route15[] = {
@@ -621,13 +623,13 @@ static const map_warp_t kWarps_Route16[] = {
 };
 
 static const npc_event_t kNpcs_Route16[] = {
-    {  34,  25, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER1 */
-    {  28,  27, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER2 */
-    {  22,  25, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER3 */
-    {  18,  23, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER4 */
-    {  12,  21, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER5 */
-    {   6,  25, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER6 */
-    {  52,  21, 0x43, 0, "A sleeping POKEMON\nblocks the way!" },  /* SPRITE_SNORLAX, STAY, TEXT_ROUTE16_SNORLAX */
+    {  34,  25, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER1 */
+    {  28,  27, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER2 */
+    {  22,  25, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER3 */
+    {  18,  23, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER4 */
+    {  12,  21, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER5 */
+    {   6,  25, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE16_BIKER6 */
+    {  52,  21, 0x43, 0, "A sleeping POKEMON\nblocks the way!", NULL },  /* SPRITE_SNORLAX, STAY, TEXT_ROUTE16_SNORLAX */
 };
 
 static const sign_event_t kSigns_Route16[] = {
@@ -636,16 +638,16 @@ static const sign_event_t kSigns_Route16[] = {
 };
 
 static const npc_event_t kNpcs_Route17[] = {
-    {  24,  39, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER1 */
-    {  22,  33, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER2 */
-    {   8,  37, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER3 */
-    {  14,  65, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER4 */
-    {  28,  69, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER5 */
-    {  34, 117, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER6 */
-    {   4, 137, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER7 */
-    {  28, 197, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER8 */
-    {  10, 197, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER9 */
-    {  20, 237, 0x12, 0, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER10 */
+    {  24,  39, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER1 */
+    {  22,  33, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER2 */
+    {   8,  37, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER3 */
+    {  14,  65, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER4 */
+    {  28,  69, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER5 */
+    {  34, 117, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER6 */
+    {   4, 137, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER7 */
+    {  28, 197, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER8 */
+    {  10, 197, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER9 */
+    {  20, 237, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER10 */
 };
 
 static const sign_event_t kSigns_Route17[] = {
@@ -665,9 +667,9 @@ static const map_warp_t kWarps_Route18[] = {
 };
 
 static const npc_event_t kNpcs_Route18[] = {
-    {  72,  23, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M1 */
-    {  80,  31, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M2 */
-    {  84,  27, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M3 */
+    {  72,  23, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M1 */
+    {  80,  31, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M2 */
+    {  84,  27, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M3 */
 };
 
 static const sign_event_t kSigns_Route18[] = {
@@ -676,16 +678,16 @@ static const sign_event_t kSigns_Route18[] = {
 };
 
 static const npc_event_t kNpcs_Route19[] = {
-    {  16,  15, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE19_COOLTRAINER_M1 */
-    {  26,  15, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE19_COOLTRAINER_M2 */
-    {  26,  51, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER1 */
-    {   8,  55, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER2 */
-    {  32,  63, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER3 */
-    {  18,  23, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER4 */
-    {  16,  87, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER5 */
-    {  22,  87, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER6 */
-    {  18,  85, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER7 */
-    {  20,  89, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER8 */
+    {  16,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE19_COOLTRAINER_M1 */
+    {  26,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE19_COOLTRAINER_M2 */
+    {  26,  51, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER1 */
+    {   8,  55, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER2 */
+    {  32,  63, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER3 */
+    {  18,  23, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER4 */
+    {  16,  87, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER5 */
+    {  22,  87, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER6 */
+    {  18,  85, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER7 */
+    {  20,  89, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER8 */
 };
 
 static const sign_event_t kSigns_Route19[] = {
@@ -698,16 +700,16 @@ static const map_warp_t kWarps_Route20[] = {
 };
 
 static const npc_event_t kNpcs_Route20[] = {
-    { 174,  17, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER1 */
-    { 136,  23, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER2 */
-    {  90,  21, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER3 */
-    { 110,  29, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER4 */
-    {  76,  27, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER5 */
-    { 174,  27, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER6 */
-    {  68,  19, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE20_COOLTRAINER_M */
-    {  50,  15, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER7 */
-    {  48,  25, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER8 */
-    {  30,  17, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER9 */
+    { 174,  17, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER1 */
+    { 136,  23, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER2 */
+    {  90,  21, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER3 */
+    { 110,  29, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER4 */
+    {  76,  27, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER5 */
+    { 174,  27, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER6 */
+    {  68,  19, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE20_COOLTRAINER_M */
+    {  50,  15, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER7 */
+    {  48,  25, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER8 */
+    {  30,  17, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER9 */
 };
 
 static const sign_event_t kSigns_Route20[] = {
@@ -716,15 +718,15 @@ static const sign_event_t kSigns_Route20[] = {
 };
 
 static const npc_event_t kNpcs_Route21[] = {
-    {   8,  49, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER1 */
-    {  12,  51, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER2 */
-    {  20,  63, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER1 */
-    {  24,  61, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER2 */
-    {  32, 127, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER3 */
-    {  10, 143, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER4 */
-    {  30, 143, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER5 */
-    {  28, 113, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER3 */
-    {  34, 115, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER4 */
+    {   8,  49, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER1 */
+    {  12,  51, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER2 */
+    {  20,  63, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER1 */
+    {  24,  61, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER2 */
+    {  32, 127, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER3 */
+    {  10, 143, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER4 */
+    {  30, 143, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE21_SWIMMER5 */
+    {  28, 113, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER3 */
+    {  34, 115, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER4 */
 };
 
 static const map_warp_t kWarps_Route22[] = {
@@ -732,8 +734,8 @@ static const map_warp_t kWarps_Route22[] = {
 };
 
 static const npc_event_t kNpcs_Route22[] = {
-    {  50,  11, 0x02, 0, NULL },  /* SPRITE_BLUE, STAY, TEXT_ROUTE22_RIVAL1 */
-    {  50,  11, 0x02, 0, NULL },  /* SPRITE_BLUE, STAY, TEXT_ROUTE22_RIVAL2 */
+    {  50,  11, 0x02, 0, NULL, NULL },  /* SPRITE_BLUE, STAY, TEXT_ROUTE22_RIVAL1 */
+    {  50,  11, 0x02, 0, NULL, NULL },  /* SPRITE_BLUE, STAY, TEXT_ROUTE22_RIVAL2 */
 };
 
 static const sign_event_t kSigns_Route22[] = {
@@ -748,13 +750,13 @@ static const map_warp_t kWarps_Route23[] = {
 };
 
 static const npc_event_t kNpcs_Route23[] = {
-    {   8,  71, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD1 */
-    {  20, 113, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD2 */
-    {  16, 171, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE23_SWIMMER1 */
-    {  22, 193, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE23_SWIMMER2 */
-    {  24, 211, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD3 */
-    {  16, 239, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD4 */
-    {  16, 273, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD5 */
+    {   8,  71, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD1 */
+    {  20, 113, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD2 */
+    {  16, 171, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE23_SWIMMER1 */
+    {  22, 193, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE23_SWIMMER2 */
+    {  24, 211, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD3 */
+    {  16, 239, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD4 */
+    {  16, 273, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE23_GUARD5 */
 };
 
 static const sign_event_t kSigns_Route23[] = {
@@ -762,13 +764,13 @@ static const sign_event_t kSigns_Route23[] = {
 };
 
 static const npc_event_t kNpcs_Route24[] = {
-    {  22,  31, 0x07, 0, "Congratulations!\nYou beat our 5\ncontest trainers!@" },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M1 */
-    {  10,  41, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M2 */
-    {  22,  39, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M3 */
-    {  20,  45, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE24_COOLTRAINER_F1 */
-    {  22,  51, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE24_YOUNGSTER1 */
-    {  20,  57, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE24_COOLTRAINER_F2 */
-    {  22,  63, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE24_YOUNGSTER2 */
+    {  22,  31, 0x07, 0, "Congratulations!\nYou beat our 5\ncontest trainers!@", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M1 */
+    {  10,  41, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M2 */
+    {  22,  39, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE24_COOLTRAINER_M3 */
+    {  20,  45, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE24_COOLTRAINER_F1 */
+    {  22,  51, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE24_YOUNGSTER1 */
+    {  20,  57, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE24_COOLTRAINER_F2 */
+    {  22,  63, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE24_YOUNGSTER2 */
 };
 
 static const item_event_t kItems_Route24[] = {
@@ -780,15 +782,15 @@ static const map_warp_t kWarps_Route25[] = {
 };
 
 static const npc_event_t kNpcs_Route25[] = {
-    {  28,   5, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER1 */
-    {  36,  11, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER2 */
-    {  48,   9, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE25_COOLTRAINER_M */
-    {  36,  17, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE25_COOLTRAINER_F1 */
-    {  64,   7, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER3 */
-    {  74,   9, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE25_COOLTRAINER_F2 */
-    {  16,   9, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER1 */
-    {  46,  19, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER2 */
-    {  26,  15, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER3 */
+    {  28,   5, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER1 */
+    {  36,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER2 */
+    {  48,   9, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE25_COOLTRAINER_M */
+    {  36,  17, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE25_COOLTRAINER_F1 */
+    {  64,   7, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE25_YOUNGSTER3 */
+    {  74,   9, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE25_COOLTRAINER_F2 */
+    {  16,   9, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER1 */
+    {  46,  19, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER2 */
+    {  26,  15, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE25_HIKER3 */
 };
 
 static const sign_event_t kSigns_Route25[] = {
@@ -806,7 +808,7 @@ static const map_warp_t kWarps_RedsHouse1F[] = {
 };
 
 static const npc_event_t kNpcs_RedsHouse1F[] = {
-    {  10,   9, 0x33, 0, "MOM: Right.\nAll boys leave\nhome some day.\nIt said so on TV.\fPROF.OAK, next\ndoor, is looking\nfor you." },  /* SPRITE_MOM, STAY, TEXT_REDSHOUSE1F_MOM */
+    {  10,   9, 0x33, 0, "MOM: Right.\nAll boys leave\nhome some day.\nIt said so on TV.\fPROF.OAK, next\ndoor, is looking\nfor you.", NULL },  /* SPRITE_MOM, STAY, TEXT_REDSHOUSE1F_MOM */
 };
 
 static const sign_event_t kSigns_RedsHouse1F[] = {
@@ -823,9 +825,9 @@ static const map_warp_t kWarps_BluesHouse[] = {
 };
 
 static const npc_event_t kNpcs_BluesHouse[] = {
-    {   4,   7, 0x11, 0, NULL },  /* SPRITE_DAISY, STAY, TEXT_BLUESHOUSE_DAISY_SITTING */
-    {  12,   9, 0x11, 1, "POKEMON are living\nthings! If they\nget tired, give\nthem a rest!" },  /* SPRITE_DAISY, WALK, TEXT_BLUESHOUSE_DAISY_WALKING */
-    {   6,   7, 0x41, 0, "It's a big map!\nThis is useful!" },  /* SPRITE_POKEDEX, STAY, TEXT_BLUESHOUSE_TOWN_MAP */
+    {   4,   7, 0x11, 0, NULL, NULL },  /* SPRITE_DAISY, STAY, TEXT_BLUESHOUSE_DAISY_SITTING */
+    {  12,   9, 0x11, 1, "POKEMON are living\nthings! If they\nget tired, give\nthem a rest!", NULL },  /* SPRITE_DAISY, WALK, TEXT_BLUESHOUSE_DAISY_WALKING */
+    {   6,   7, 0x41, 0, "It's a big map!\nThis is useful!", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_BLUESHOUSE_TOWN_MAP */
 };
 
 static const map_warp_t kWarps_OaksLab[] = {
@@ -834,14 +836,14 @@ static const map_warp_t kWarps_OaksLab[] = {
 };
 
 static const npc_event_t kNpcs_OaksLab[] = {
-    {   8,   7, 0x02, 0, "{RIVAL}: Yo\n{PLAYER}! Gramps\nisn't around!" },  /* SPRITE_BLUE, STAY, TEXT_OAKSLAB_RIVAL */
-    {  10,   5, 0x03, 0, "OAK: Now, {PLAYER},\nwhich POKEMON do\nyou want?" },  /* SPRITE_OAK, STAY, TEXT_OAKSLAB_OAK1 */
-    {   4,   3, 0x41, 0, "It's encyclopedia-\nlike, but the\npages are blank!" },  /* SPRITE_POKEDEX, STAY, TEXT_OAKSLAB_POKEDEX1 */
-    {   6,   3, 0x41, 0, "It's encyclopedia-\nlike, but the\npages are blank!" },  /* SPRITE_POKEDEX, STAY, TEXT_OAKSLAB_POKEDEX2 */
-    {  10,  21, 0x03, 0, "?" },  /* SPRITE_OAK, STAY, TEXT_OAKSLAB_OAK2 */
-    {   2,  19, 0x0d, 1, "PROF.OAK is the\nauthority on\nPOKEMON!\fMany POKEMON\ntrainers hold him\nin high regard!" },  /* SPRITE_GIRL, WALK, TEXT_OAKSLAB_GIRL */
-    {   4,  21, 0x20, 0, "I study POKEMON as\nPROF.OAK's AIDE." },  /* SPRITE_SCIENTIST, STAY, TEXT_OAKSLAB_SCIENTIST1 */
-    {  16,  21, 0x20, 0, "I study POKEMON as\nPROF.OAK's AIDE." },  /* SPRITE_SCIENTIST, STAY, TEXT_OAKSLAB_SCIENTIST2 */
+    {   8,   7, 0x02, 0, "{RIVAL}: Yo\n{PLAYER}! Gramps\nisn't around!", NULL },  /* SPRITE_BLUE, STAY, TEXT_OAKSLAB_RIVAL */
+    {  10,   5, 0x03, 0, "OAK: Now, {PLAYER},\nwhich POKEMON do\nyou want?", NULL },  /* SPRITE_OAK, STAY, TEXT_OAKSLAB_OAK1 */
+    {   4,   3, 0x41, 0, "It's encyclopedia-\nlike, but the\npages are blank!", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_OAKSLAB_POKEDEX1 */
+    {   6,   3, 0x41, 0, "It's encyclopedia-\nlike, but the\npages are blank!", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_OAKSLAB_POKEDEX2 */
+    {  10,  21, 0x03, 0, "?", NULL },  /* SPRITE_OAK, STAY, TEXT_OAKSLAB_OAK2 */
+    {   2,  19, 0x0d, 1, "PROF.OAK is the\nauthority on\nPOKEMON!\fMany POKEMON\ntrainers hold him\nin high regard!", NULL },  /* SPRITE_GIRL, WALK, TEXT_OAKSLAB_GIRL */
+    {   4,  21, 0x20, 0, "I study POKEMON as\nPROF.OAK's AIDE.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_OAKSLAB_SCIENTIST1 */
+    {  16,  21, 0x20, 0, "I study POKEMON as\nPROF.OAK's AIDE.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_OAKSLAB_SCIENTIST2 */
 };
 
 static const map_warp_t kWarps_ViridianPokecenter[] = {
@@ -850,10 +852,10 @@ static const map_warp_t kWarps_ViridianPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_ViridianPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_VIRIDIANPOKECENTER_NURSE */
-    {  20,  11, 0x10, 1, "You can use that\nPC in the corner.\fThe receptionist\ntold me. So kind!" },  /* SPRITE_GENTLEMAN, WALK, TEXT_VIRIDIANPOKECENTER_GENTLEMAN */
-    {   8,   7, 0x07, 0, "There's a POKEMON\nCENTER in every\ntown ahead.\fThey don't charge\nany money either!" },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANPOKECENTER_COOLTRAINER_M */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_VIRIDIANPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_VIRIDIANPOKECENTER_NURSE */
+    {  20,  11, 0x10, 1, "You can use that\nPC in the corner.\fThe receptionist\ntold me. So kind!", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_VIRIDIANPOKECENTER_GENTLEMAN */
+    {   8,   7, 0x07, 0, "There's a POKEMON\nCENTER in every\ntown ahead.\fThey don't charge\nany money either!", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANPOKECENTER_COOLTRAINER_M */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_VIRIDIANPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_ViridianMart[] = {
@@ -862,9 +864,9 @@ static const map_warp_t kWarps_ViridianMart[] = {
 };
 
 static const npc_event_t kNpcs_ViridianMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_VIRIDIANMART_CLERK */
-    {  10,  11, 0x04, 1, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANMART_YOUNGSTER */
-    {   6,   7, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANMART_COOLTRAINER_M */
+    {   0,  11, 0x26, 0, NULL, ViridianMart_Start },  /* SPRITE_CLERK, STAY, TEXT_VIRIDIANMART_CLERK */
+    {  10,  11, 0x04, 1, NULL, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_VIRIDIANMART_YOUNGSTER */
+    {   6,   7, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANMART_COOLTRAINER_M */
 };
 
 static const map_warp_t kWarps_ViridianSchoolHouse[] = {
@@ -873,8 +875,8 @@ static const map_warp_t kWarps_ViridianSchoolHouse[] = {
 };
 
 static const npc_event_t kNpcs_ViridianSchoolHouse[] = {
-    {   6,  11, 0x1d, 0, "Whew! I'm trying\nto memorize all\nmy notes." },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_VIRIDIANSCHOOLHOUSE_BRUNETTE_GIRL */
-    {   8,   3, 0x06, 0, "Okay!\fBe sure to read\nthe blackboard\ncarefully!" },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VIRIDIANSCHOOLHOUSE_COOLTRAINER_F */
+    {   6,  11, 0x1d, 0, "Whew! I'm trying\nto memorize all\nmy notes.", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_VIRIDIANSCHOOLHOUSE_BRUNETTE_GIRL */
+    {   8,   3, 0x06, 0, "Okay!\fBe sure to read\nthe blackboard\ncarefully!", NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VIRIDIANSCHOOLHOUSE_COOLTRAINER_F */
 };
 
 static const map_warp_t kWarps_ViridianNicknameHouse[] = {
@@ -883,10 +885,10 @@ static const map_warp_t kWarps_ViridianNicknameHouse[] = {
 };
 
 static const npc_event_t kNpcs_ViridianNicknameHouse[] = {
-    {  10,   7, 0x34, 0, "Coming up with\nnicknames is fun,\nbut hard.\fSimple names are\nthe easiest to\nremember." },  /* SPRITE_BALDING_GUY, STAY, TEXT_VIRIDIANNICKNAMEHOUSE_BALDING_GUY */
-    {   2,   9, 0x08, 1, "My Daddy loves\nPOKEMON too." },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_VIRIDIANNICKNAMEHOUSE_LITTLE_GIRL */
-    {  10,  11, 0x09, 1, "SPEARY: Tetweet!" },  /* SPRITE_BIRD, WALK, TEXT_VIRIDIANNICKNAMEHOUSE_SPEAROW */
-    {   8,   1, 0x42, 0, "SPEAROW\nName: SPEARY" },  /* SPRITE_CLIPBOARD, STAY, TEXT_VIRIDIANNICKNAMEHOUSE_SPEARY_SIGN */
+    {  10,   7, 0x34, 0, "Coming up with\nnicknames is fun,\nbut hard.\fSimple names are\nthe easiest to\nremember.", NULL },  /* SPRITE_BALDING_GUY, STAY, TEXT_VIRIDIANNICKNAMEHOUSE_BALDING_GUY */
+    {   2,   9, 0x08, 1, "My Daddy loves\nPOKEMON too.", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_VIRIDIANNICKNAMEHOUSE_LITTLE_GIRL */
+    {  10,  11, 0x09, 1, "SPEARY: Tetweet!", NULL },  /* SPRITE_BIRD, WALK, TEXT_VIRIDIANNICKNAMEHOUSE_SPEAROW */
+    {   8,   1, 0x42, 0, "SPEAROW\nName: SPEARY", NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_VIRIDIANNICKNAMEHOUSE_SPEARY_SIGN */
 };
 
 static const map_warp_t kWarps_ViridianGym[] = {
@@ -895,16 +897,16 @@ static const map_warp_t kWarps_ViridianGym[] = {
 };
 
 static const npc_event_t kNpcs_ViridianGym[] = {
-    {   4,   3, 0x17, 0, "Fwahahaha! This is\nmy hideout!\fI planned to\nresurrect TEAM\nROCKET here!\fBut, you have\ncaught me again!\nSo be it! This\ntime, I'm not\nholding back!\fOnce more, you\nshall face\nGIOVANNI, the\ngreatest trainer!" },  /* SPRITE_GIOVANNI, STAY, TEXT_VIRIDIANGYM_GIOVANNI */
-    {  24,  15, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M1 */
-    {  22,  23, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER1 */
-    {  20,  15, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_VIRIDIANGYM_ROCKER1 */
-    {   6,  15, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER2 */
-    {  26,  11, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M2 */
-    {  20,   3, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER3 */
-    {   4,  33, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_VIRIDIANGYM_ROCKER2 */
-    {  12,  11, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M3 */
-    {  32,  31, 0x24, 0, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_VIRIDIANGYM_GYM_GUIDE */
+    {   4,   3, 0x17, 0, "Fwahahaha! This is\nmy hideout!\fI planned to\nresurrect TEAM\nROCKET here!\fBut, you have\ncaught me again!\nSo be it! This\ntime, I'm not\nholding back!\fOnce more, you\nshall face\nGIOVANNI, the\ngreatest trainer!", NULL },  /* SPRITE_GIOVANNI, STAY, TEXT_VIRIDIANGYM_GIOVANNI */
+    {  24,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M1 */
+    {  22,  23, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER1 */
+    {  20,  15, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_VIRIDIANGYM_ROCKER1 */
+    {   6,  15, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER2 */
+    {  26,  11, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M2 */
+    {  20,   3, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_VIRIDIANGYM_HIKER3 */
+    {   4,  33, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_VIRIDIANGYM_ROCKER2 */
+    {  12,  11, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VIRIDIANGYM_COOLTRAINER_M3 */
+    {  32,  31, 0x24, 0, NULL, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_VIRIDIANGYM_GYM_GUIDE */
 };
 
 static const item_event_t kItems_ViridianGym[] = {
@@ -918,7 +920,7 @@ static const map_warp_t kWarps_DiglettsCaveRoute2[] = {
 };
 
 static const npc_event_t kNpcs_DiglettsCaveRoute2[] = {
-    {   6,   7, 0x27, 0, "I went to ROCK\nTUNNEL, but it's\ndark and scary.\fIf a POKEMON's\nFLASH could light\nit up..." },  /* SPRITE_FISHING_GURU, STAY, TEXT_DIGLETTSCAVEROUTE2_FISHING_GURU */
+    {   6,   7, 0x27, 0, "I went to ROCK\nTUNNEL, but it's\ndark and scary.\fIf a POKEMON's\nFLASH could light\nit up...", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_DIGLETTSCAVEROUTE2_FISHING_GURU */
 };
 
 static const map_warp_t kWarps_ViridianForestNorthGate[] = {
@@ -929,8 +931,8 @@ static const map_warp_t kWarps_ViridianForestNorthGate[] = {
 };
 
 static const npc_event_t kNpcs_ViridianForestNorthGate[] = {
-    {   6,   5, 0x0c, 0, "Many POKEMON live\nonly in forests \nand caves.\fYou need to look\neverywhere to get\ndifferent kinds!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_VIRIDIANFORESTNORTHGATE_SUPER_NERD */
-    {   4,  11, 0x25, 0, "Have you noticed\nthe bushes on the\nroadside?\fThey can be cut\ndown by a special\nPOKEMON move." },  /* SPRITE_GRAMPS, STAY, TEXT_VIRIDIANFORESTNORTHGATE_GRAMPS */
+    {   6,   5, 0x0c, 0, "Many POKEMON live\nonly in forests \nand caves.\fYou need to look\neverywhere to get\ndifferent kinds!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VIRIDIANFORESTNORTHGATE_SUPER_NERD */
+    {   4,  11, 0x25, 0, "Have you noticed\nthe bushes on the\nroadside?\fThey can be cut\ndown by a special\nPOKEMON move.", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_VIRIDIANFORESTNORTHGATE_GRAMPS */
 };
 
 static const map_warp_t kWarps_Route2TradeHouse[] = {
@@ -939,8 +941,8 @@ static const map_warp_t kWarps_Route2TradeHouse[] = {
 };
 
 static const npc_event_t kNpcs_Route2TradeHouse[] = {
-    {   4,   9, 0x20, 0, "A fainted POKEMON\ncan't fight. But, \nit can still use \nmoves like CUT!" },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE2TRADEHOUSE_SCIENTIST */
-    {   8,   3, 0x37, 0, NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_ROUTE2TRADEHOUSE_GAMEBOY_KID */
+    {   4,   9, 0x20, 0, "A fainted POKEMON\ncan't fight. But, \nit can still use \nmoves like CUT!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE2TRADEHOUSE_SCIENTIST */
+    {   8,   3, 0x37, 0, NULL, NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_ROUTE2TRADEHOUSE_GAMEBOY_KID */
 };
 
 static const map_warp_t kWarps_Route2Gate[] = {
@@ -951,8 +953,8 @@ static const map_warp_t kWarps_Route2Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route2Gate[] = {
-    {   2,   9, 0x20, 0, "The HM FLASH\nlights even the\ndarkest dungeons." },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE2GATE_OAKS_AIDE */
-    {  10,   9, 0x04, 1, "Once a POKEMON\nlearns FLASH, you\ncan get through\nROCK TUNNEL." },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE2GATE_YOUNGSTER */
+    {   2,   9, 0x20, 0, "The HM FLASH\nlights even the\ndarkest dungeons.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE2GATE_OAKS_AIDE */
+    {  10,   9, 0x04, 1, "Once a POKEMON\nlearns FLASH, you\ncan get through\nROCK TUNNEL.", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE2GATE_YOUNGSTER */
 };
 
 static const map_warp_t kWarps_ViridianForestSouthGate[] = {
@@ -963,8 +965,8 @@ static const map_warp_t kWarps_ViridianForestSouthGate[] = {
 };
 
 static const npc_event_t kNpcs_ViridianForestSouthGate[] = {
-    {  16,   9, 0x0d, 0, "Are you going to\nVIRIDIAN FOREST?\nBe careful, it's\na natural maze!" },  /* SPRITE_GIRL, STAY, TEXT_VIRIDIANFORESTSOUTHGATE_GIRL */
-    {   4,   9, 0x08, 1, "RATTATA may be\nsmall, but its\nbite is wicked!\nDid you get one?" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_VIRIDIANFORESTSOUTHGATE_LITTLE_GIRL */
+    {  16,   9, 0x0d, 0, "Are you going to\nVIRIDIAN FOREST?\nBe careful, it's\na natural maze!", NULL },  /* SPRITE_GIRL, STAY, TEXT_VIRIDIANFORESTSOUTHGATE_GIRL */
+    {   4,   9, 0x08, 1, "RATTATA may be\nsmall, but its\nbite is wicked!\nDid you get one?", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_VIRIDIANFORESTSOUTHGATE_LITTLE_GIRL */
 };
 
 static const map_warp_t kWarps_ViridianForest[] = {
@@ -977,11 +979,11 @@ static const map_warp_t kWarps_ViridianForest[] = {
 };
 
 static const npc_event_t kNpcs_ViridianForest[] = {
-    {  32,  87, 0x04, 0, "I came here with\nsome friends!\fThey're out for\nPOKEMON fights!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER1 */
-    {  60,  67, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER2 */
-    {  60,  39, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER3 */
-    {   4,  37, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER4 */
-    {  54,  81, 0x04, 0, "I ran out of POKE\nBALLs to catch\nPOKEMON with!\fYou should carry\nextras!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER5 */
+    {  32,  87, 0x04, 0, "I came here with\nsome friends!\fThey're out for\nPOKEMON fights!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER1 */
+    {  60,  67, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER2 */
+    {  60,  39, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER3 */
+    {   4,  37, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER4 */
+    {  54,  81, 0x04, 0, "I ran out of POKE\nBALLs to catch\nPOKEMON with!\fYou should carry\nextras!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VIRIDIANFOREST_YOUNGSTER5 */
 };
 
 static const sign_event_t kSigns_ViridianForest[] = {
@@ -1008,11 +1010,11 @@ static const map_warp_t kWarps_Museum1F[] = {
 };
 
 static const npc_event_t kNpcs_Museum1F[] = {
-    {  24,   9, 0x20, 0, "Come again!" },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST1 */
-    {   2,   9, 0x0b, 0, "That is one\nmagnificent\nfossil!" },  /* SPRITE_GAMBLER, STAY, TEXT_MUSEUM1F_GAMBLER */
-    {  30,   5, 0x20, 0, "Ssh! I think that\nthis chunk of\nAMBER contains\nPOKEMON DNA!\fIt would be great\nif POKEMON could\nbe resurrected\nfrom it!\fBut, my colleagues\njust ignore me!\fSo I have a favor\nto ask!\fTake this to a\nPOKEMON LAB and\nget it examined!" },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST2 */
-    {  34,   9, 0x20, 0, "We are proud of 2\nfossils of very\nrare, prehistoric\nPOKEMON!" },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST3 */
-    {  32,   5, 0x45, 0, "The AMBER is\nclear and gold!" },  /* SPRITE_OLD_AMBER, STAY, TEXT_MUSEUM1F_OLD_AMBER */
+    {  24,   9, 0x20, 0, "Come again!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST1 */
+    {   2,   9, 0x0b, 0, "That is one\nmagnificent\nfossil!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_MUSEUM1F_GAMBLER */
+    {  30,   5, 0x20, 0, "Ssh! I think that\nthis chunk of\nAMBER contains\nPOKEMON DNA!\fIt would be great\nif POKEMON could\nbe resurrected\nfrom it!\fBut, my colleagues\njust ignore me!\fSo I have a favor\nto ask!\fTake this to a\nPOKEMON LAB and\nget it examined!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST2 */
+    {  34,   9, 0x20, 0, "We are proud of 2\nfossils of very\nrare, prehistoric\nPOKEMON!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM1F_SCIENTIST3 */
+    {  32,   5, 0x45, 0, "The AMBER is\nclear and gold!", NULL },  /* SPRITE_OLD_AMBER, STAY, TEXT_MUSEUM1F_OLD_AMBER */
 };
 
 static const map_warp_t kWarps_Museum2F[] = {
@@ -1020,11 +1022,11 @@ static const map_warp_t kWarps_Museum2F[] = {
 };
 
 static const npc_event_t kNpcs_Museum2F[] = {
-    {   2,  15, 0x04, 1, "MOON STONE?\fWhat's so special\nabout it?" },  /* SPRITE_YOUNGSTER, WALK, TEXT_MUSEUM2F_YOUNGSTER */
-    {   0,  11, 0x25, 0, "July 20, 1969!\fThe 1st lunar\nlanding!\fI bought a color\nTV to watch it!" },  /* SPRITE_GRAMPS, STAY, TEXT_MUSEUM2F_GRAMPS */
-    {  14,  11, 0x20, 0, "We have a space\nexhibit now." },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM2F_SCIENTIST */
-    {  22,  11, 0x1d, 0, "I want a PIKACHU!\nIt's so cute!\fI asked my Daddy\nto catch me one!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_MUSEUM2F_BRUNETTE_GIRL */
-    {  24,  11, 0x0e, 0, "Yeah, a PIKACHU\nsoon, I promise!" },  /* SPRITE_HIKER, STAY, TEXT_MUSEUM2F_HIKER */
+    {   2,  15, 0x04, 1, "MOON STONE?\fWhat's so special\nabout it?", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_MUSEUM2F_YOUNGSTER */
+    {   0,  11, 0x25, 0, "July 20, 1969!\fThe 1st lunar\nlanding!\fI bought a color\nTV to watch it!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_MUSEUM2F_GRAMPS */
+    {  14,  11, 0x20, 0, "We have a space\nexhibit now.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_MUSEUM2F_SCIENTIST */
+    {  22,  11, 0x1d, 0, "I want a PIKACHU!\nIt's so cute!\fI asked my Daddy\nto catch me one!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_MUSEUM2F_BRUNETTE_GIRL */
+    {  24,  11, 0x0e, 0, "Yeah, a PIKACHU\nsoon, I promise!", NULL },  /* SPRITE_HIKER, STAY, TEXT_MUSEUM2F_HIKER */
 };
 
 static const sign_event_t kSigns_Museum2F[] = {
@@ -1038,9 +1040,9 @@ static const map_warp_t kWarps_PewterGym[] = {
 };
 
 static const npc_event_t kNpcs_PewterGym[] = {
-    {   8,   3, 0x0c, 0, "I'm BROCK!\nI'm PEWTER's GYM\nLEADER!\fI believe in rock\nhard defense and\ndetermination!\fThat's why my\nPOKEMON are all\nthe rock-type!\fDo you still want\nto challenge me?\nFine then! Show\nme your best!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERGYM_BROCK */
-    {   6,  13, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_PEWTERGYM_COOLTRAINER_M */
-    {  14,  21, 0x24, 0, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_PEWTERGYM_GYM_GUIDE */
+    {   8,   3, 0x0c, 0, "I'm BROCK!\nI'm PEWTER's GYM\nLEADER!\fI believe in rock\nhard defense and\ndetermination!\fThat's why my\nPOKEMON are all\nthe rock-type!\fDo you still want\nto challenge me?\nFine then! Show\nme your best!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERGYM_BROCK */
+    {   6,  13, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_PEWTERGYM_COOLTRAINER_M */
+    {  14,  21, 0x24, 0, NULL, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_PEWTERGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_PewterNidoranHouse[] = {
@@ -1049,9 +1051,9 @@ static const map_warp_t kWarps_PewterNidoranHouse[] = {
 };
 
 static const npc_event_t kNpcs_PewterNidoranHouse[] = {
-    {   8,  11, 0x05, 0, "NIDORAN: Bowbow!@" },  /* SPRITE_MONSTER, STAY, TEXT_PEWTERNIDORANHOUSE_NIDORAN */
-    {   6,  11, 0x35, 0, "NIDORAN sit!" },  /* SPRITE_LITTLE_BOY, STAY, TEXT_PEWTERNIDORANHOUSE_LITTLE_BOY */
-    {   2,   5, 0x0a, 0, "Our POKEMON's an\noutsider, so it's\nhard to handle.\fAn outsider is a\nPOKEMON that you\nget in a trade.\fIt grows fast, but\nit may ignore an\nunskilled trainer\nin battle!\fIf only we had\nsome BADGEs..." },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_PEWTERNIDORANHOUSE_MIDDLE_AGED_MAN */
+    {   8,  11, 0x05, 0, "NIDORAN: Bowbow!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_PEWTERNIDORANHOUSE_NIDORAN */
+    {   6,  11, 0x35, 0, "NIDORAN sit!", NULL },  /* SPRITE_LITTLE_BOY, STAY, TEXT_PEWTERNIDORANHOUSE_LITTLE_BOY */
+    {   2,   5, 0x0a, 0, "Our POKEMON's an\noutsider, so it's\nhard to handle.\fAn outsider is a\nPOKEMON that you\nget in a trade.\fIt grows fast, but\nit may ignore an\nunskilled trainer\nin battle!\fIf only we had\nsome BADGEs...", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_PEWTERNIDORANHOUSE_MIDDLE_AGED_MAN */
 };
 
 static const map_warp_t kWarps_PewterMart[] = {
@@ -1060,9 +1062,9 @@ static const map_warp_t kWarps_PewterMart[] = {
 };
 
 static const npc_event_t kNpcs_PewterMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_PEWTERMART_CLERK */
-    {   6,   7, 0x04, 1, "A shady, old man\ngot me to buy\nthis really weird\nfish POKEMON!\fIt's totally weak\nand it cost ¥500!" },  /* SPRITE_YOUNGSTER, WALK, TEXT_PEWTERMART_YOUNGSTER */
-    {  10,  11, 0x0c, 0, "Good things can\nhappen if you\nraise POKEMON\ndiligently, even\nthe weak ones!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERMART_SUPER_NERD */
+    {   0,  11, 0x26, 0, NULL, PewterMart_Start },  /* SPRITE_CLERK, STAY, TEXT_PEWTERMART_CLERK */
+    {   6,   7, 0x04, 1, "A shady, old man\ngot me to buy\nthis really weird\nfish POKEMON!\fIt's totally weak\nand it cost ¥500!", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_PEWTERMART_YOUNGSTER */
+    {  10,  11, 0x0c, 0, "Good things can\nhappen if you\nraise POKEMON\ndiligently, even\nthe weak ones!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERMART_SUPER_NERD */
 };
 
 static const map_warp_t kWarps_PewterSpeechHouse[] = {
@@ -1071,8 +1073,8 @@ static const map_warp_t kWarps_PewterSpeechHouse[] = {
 };
 
 static const npc_event_t kNpcs_PewterSpeechHouse[] = {
-    {   4,   7, 0x0b, 0, "POKEMON learn new\ntechniques as\nthey grow!\fBut, some moves\nmust be taught by\nthe trainer!" },  /* SPRITE_GAMBLER, STAY, TEXT_PEWTERSPEECHHOUSE_GAMBLER */
-    {   8,  11, 0x04, 0, "POKEMON become\neasier to catch\nwhen they are\nhurt or asleep!\fBut, it's not a\nsure thing!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_PEWTERSPEECHHOUSE_YOUNGSTER */
+    {   4,   7, 0x0b, 0, "POKEMON learn new\ntechniques as\nthey grow!\fBut, some moves\nmust be taught by\nthe trainer!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_PEWTERSPEECHHOUSE_GAMBLER */
+    {   8,  11, 0x04, 0, "POKEMON become\neasier to catch\nwhen they are\nhurt or asleep!\fBut, it's not a\nsure thing!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_PEWTERSPEECHHOUSE_YOUNGSTER */
 };
 
 static const map_warp_t kWarps_PewterPokecenter[] = {
@@ -1081,10 +1083,10 @@ static const map_warp_t kWarps_PewterPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_PewterPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_PEWTERPOKECENTER_NURSE */
-    {  22,  15, 0x10, 0, "What!?\fTEAM ROCKET is\nat MT.MOON? Huh?\nI'm on the phone!\fScram!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_PEWTERPOKECENTER_GENTLEMAN */
-    {   2,   7, 0x38, 0, "JIGGLYPUFF: Puu\npupuu!" },  /* SPRITE_FAIRY, STAY, TEXT_PEWTERPOKECENTER_JIGGLYPUFF */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_PEWTERPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_PEWTERPOKECENTER_NURSE */
+    {  22,  15, 0x10, 0, "What!?\fTEAM ROCKET is\nat MT.MOON? Huh?\nI'm on the phone!\fScram!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_PEWTERPOKECENTER_GENTLEMAN */
+    {   2,   7, 0x38, 0, "JIGGLYPUFF: Puu\npupuu!", NULL },  /* SPRITE_FAIRY, STAY, TEXT_PEWTERPOKECENTER_JIGGLYPUFF */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_PEWTERPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_MtMoon1F[] = {
@@ -1096,13 +1098,13 @@ static const map_warp_t kWarps_MtMoon1F[] = {
 };
 
 static const npc_event_t kNpcs_MtMoon1F[] = {
-    {  10,  13, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_MTMOON1F_HIKER */
-    {  24,  33, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER1 */
-    {  60,   9, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_MTMOON1F_COOLTRAINER_F1 */
-    {  48,  63, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MTMOON1F_SUPER_NERD */
-    {  32,  47, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_MTMOON1F_COOLTRAINER_F2 */
-    {  14,  45, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER2 */
-    {  60,  55, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER3 */
+    {  10,  13, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_MTMOON1F_HIKER */
+    {  24,  33, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER1 */
+    {  60,   9, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_MTMOON1F_COOLTRAINER_F1 */
+    {  48,  63, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MTMOON1F_SUPER_NERD */
+    {  32,  47, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_MTMOON1F_COOLTRAINER_F2 */
+    {  14,  45, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER2 */
+    {  60,  55, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOON1F_YOUNGSTER3 */
 };
 
 static const sign_event_t kSigns_MtMoon1F[] = {
@@ -1137,13 +1139,13 @@ static const map_warp_t kWarps_MtMoonB2F[] = {
 };
 
 static const npc_event_t kNpcs_MtMoonB2F[] = {
-    {  24,  17, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MTMOONB2F_SUPER_NERD */
-    {  22,  33, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET1 */
-    {  30,  45, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET2 */
-    {  58,  23, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET3 */
-    {  58,  35, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET4 */
-    {  24,  13, 0x3e, 0, "You want the\nDOME FOSSIL?" },  /* SPRITE_FOSSIL, STAY, TEXT_MTMOONB2F_DOME_FOSSIL */
-    {  26,  13, 0x3e, 0, "You want the\nHELIX FOSSIL?" },  /* SPRITE_FOSSIL, STAY, TEXT_MTMOONB2F_HELIX_FOSSIL */
+    {  24,  17, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MTMOONB2F_SUPER_NERD */
+    {  22,  33, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET1 */
+    {  30,  45, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET2 */
+    {  58,  23, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET3 */
+    {  58,  35, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_MTMOONB2F_ROCKET4 */
+    {  24,  13, 0x3e, 0, "You want the\nDOME FOSSIL?", NULL },  /* SPRITE_FOSSIL, STAY, TEXT_MTMOONB2F_DOME_FOSSIL */
+    {  26,  13, 0x3e, 0, "You want the\nHELIX FOSSIL?", NULL },  /* SPRITE_FOSSIL, STAY, TEXT_MTMOONB2F_HELIX_FOSSIL */
 };
 
 static const item_event_t kItems_MtMoonB2F[] = {
@@ -1158,8 +1160,8 @@ static const map_warp_t kWarps_CeruleanTrashedHouse[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanTrashedHouse[] = {
-    {   4,   3, 0x27, 0, "Those miserable\nROCKETs!\fLook what they\ndid here!\fThey stole a TM\nfor teaching\nPOKEMON how to\nDIG holes!\fThat cost me a\nbundle, it did!" },  /* SPRITE_FISHING_GURU, STAY, TEXT_CERULEANTRASHEDHOUSE_FISHING_GURU */
-    {  10,  13, 0x0d, 1, "TEAM ROCKET must\nbe trying to DIG\ntheir way into no\ngood!" },  /* SPRITE_GIRL, WALK, TEXT_CERULEANTRASHEDHOUSE_GIRL */
+    {   4,   3, 0x27, 0, "Those miserable\nROCKETs!\fLook what they\ndid here!\fThey stole a TM\nfor teaching\nPOKEMON how to\nDIG holes!\fThat cost me a\nbundle, it did!", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_CERULEANTRASHEDHOUSE_FISHING_GURU */
+    {  10,  13, 0x0d, 1, "TEAM ROCKET must\nbe trying to DIG\ntheir way into no\ngood!", NULL },  /* SPRITE_GIRL, WALK, TEXT_CERULEANTRASHEDHOUSE_GIRL */
 };
 
 static const sign_event_t kSigns_CeruleanTrashedHouse[] = {
@@ -1172,8 +1174,8 @@ static const map_warp_t kWarps_CeruleanTradeHouse[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanTradeHouse[] = {
-    {  10,   9, 0x28, 0, "My husband likes\ntrading POKEMON.\fIf you are a\ncollector, would\nyou please trade\nwith him?" },  /* SPRITE_GRANNY, STAY, TEXT_CERULEANTRADEHOUSE_GRANNY */
-    {   2,   5, 0x0b, 0, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_CERULEANTRADEHOUSE_GAMBLER */
+    {  10,   9, 0x28, 0, "My husband likes\ntrading POKEMON.\fIf you are a\ncollector, would\nyou please trade\nwith him?", NULL },  /* SPRITE_GRANNY, STAY, TEXT_CERULEANTRADEHOUSE_GRANNY */
+    {   2,   5, 0x0b, 0, NULL, NULL },  /* SPRITE_GAMBLER, STAY, TEXT_CERULEANTRADEHOUSE_GAMBLER */
 };
 
 static const map_warp_t kWarps_CeruleanPokecenter[] = {
@@ -1182,10 +1184,10 @@ static const map_warp_t kWarps_CeruleanPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_CERULEANPOKECENTER_NURSE */
-    {  20,  11, 0x0c, 1, "That BILL!\fI heard that\nhe'll do whatever\nit takes to get\nrare POKEMON!" },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANPOKECENTER_SUPER_NERD */
-    {   8,   7, 0x10, 0, "Have you heard\nabout BILL?\fEveryone calls\nhim a POKEMANIAC!\fI think people\nare just jealous\nof BILL, though.\fWho wouldn't want\nto boast about\ntheir POKEMON?" },  /* SPRITE_GENTLEMAN, STAY, TEXT_CERULEANPOKECENTER_GENTLEMAN */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CERULEANPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_CERULEANPOKECENTER_NURSE */
+    {  20,  11, 0x0c, 1, "That BILL!\fI heard that\nhe'll do whatever\nit takes to get\nrare POKEMON!", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_CERULEANPOKECENTER_SUPER_NERD */
+    {   8,   7, 0x10, 0, "Have you heard\nabout BILL?\fEveryone calls\nhim a POKEMANIAC!\fI think people\nare just jealous\nof BILL, though.\fWho wouldn't want\nto boast about\ntheir POKEMON?", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_CERULEANPOKECENTER_GENTLEMAN */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CERULEANPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_CeruleanGym[] = {
@@ -1194,10 +1196,10 @@ static const map_warp_t kWarps_CeruleanGym[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanGym[] = {
-    {   8,   5, 0x1d, 0, "Hi, you're a new\nface!\fTrainers who want\nto turn pro have\nto have a policy\nabout POKEMON!\fWhat is your\napproach when you\ncatch POKEMON?\fMy policy is an\nall-out offensive\nwith water-type\nPOKEMON!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_CERULEANGYM_MISTY */
-    {   4,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CERULEANGYM_COOLTRAINER_F */
-    {  16,  15, 0x22, 0, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_CERULEANGYM_SWIMMER */
-    {  14,  21, 0x24, 0, "Yo! Champ in\nmaking!\fHere's my advice!\fThe LEADER, MISTY,\nis a pro who uses\nwater POKEMON!\fYou can drain all\ntheir water with\nplant POKEMON!\fOr, zap them with\nelectricity!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CERULEANGYM_GYM_GUIDE */
+    {   8,   5, 0x1d, 0, "Hi, you're a new\nface!\fTrainers who want\nto turn pro have\nto have a policy\nabout POKEMON!\fWhat is your\napproach when you\ncatch POKEMON?\fMy policy is an\nall-out offensive\nwith water-type\nPOKEMON!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_CERULEANGYM_MISTY */
+    {   4,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CERULEANGYM_COOLTRAINER_F */
+    {  16,  15, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_CERULEANGYM_SWIMMER */
+    {  14,  21, 0x24, 0, "Yo! Champ in\nmaking!\fHere's my advice!\fThe LEADER, MISTY,\nis a pro who uses\nwater POKEMON!\fYou can drain all\ntheir water with\nplant POKEMON!\fOr, zap them with\nelectricity!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CERULEANGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_BikeShop[] = {
@@ -1206,9 +1208,9 @@ static const map_warp_t kWarps_BikeShop[] = {
 };
 
 static const npc_event_t kNpcs_BikeShop[] = {
-    {  12,   5, 0x15, 0, NULL },  /* SPRITE_BIKE_SHOP_CLERK, STAY, TEXT_BIKESHOP_CLERK */
-    {  10,  13, 0x1c, 1, "A plain city BIKE\nis good enough\nfor me!\fYou can't put a\nshopping basket\non an MTB!" },  /* SPRITE_MIDDLE_AGED_WOMAN, WALK, TEXT_BIKESHOP_MIDDLE_AGED_WOMAN */
-    {   2,   7, 0x04, 0, "These BIKEs are\ncool, but they're\nway expensive!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_BIKESHOP_YOUNGSTER */
+    {  12,   5, 0x15, 0, NULL, NULL },  /* SPRITE_BIKE_SHOP_CLERK, STAY, TEXT_BIKESHOP_CLERK */
+    {  10,  13, 0x1c, 1, "A plain city BIKE\nis good enough\nfor me!\fYou can't put a\nshopping basket\non an MTB!", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, WALK, TEXT_BIKESHOP_MIDDLE_AGED_WOMAN */
+    {   2,   7, 0x04, 0, "These BIKEs are\ncool, but they're\nway expensive!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_BIKESHOP_YOUNGSTER */
 };
 
 static const map_warp_t kWarps_CeruleanMart[] = {
@@ -1217,9 +1219,9 @@ static const map_warp_t kWarps_CeruleanMart[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CERULEANMART_CLERK */
-    {   6,   9, 0x07, 1, "Use REPEL to keep\nbugs and weak\nPOKEMON away.\fPut your strongest\nPOKEMON at the\ntop of the list\nfor best results!" },  /* SPRITE_COOLTRAINER_M, WALK, TEXT_CERULEANMART_COOLTRAINER_M */
-    {  12,   5, 0x06, 1, "Have you seen any\nRARE CANDY?\fIt's supposed to\nmake POKEMON go\nup one level!" },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CERULEANMART_COOLTRAINER_F */
+    {   0,  11, 0x26, 0, NULL, CeruleanMart_Start },  /* SPRITE_CLERK, STAY, TEXT_CERULEANMART_CLERK */
+    {   6,   9, 0x07, 1, "Use REPEL to keep\nbugs and weak\nPOKEMON away.\fPut your strongest\nPOKEMON at the\ntop of the list\nfor best results!", NULL },  /* SPRITE_COOLTRAINER_M, WALK, TEXT_CERULEANMART_COOLTRAINER_M */
+    {  12,   5, 0x06, 1, "Have you seen any\nRARE CANDY?\fIt's supposed to\nmake POKEMON go\nup one level!", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CERULEANMART_COOLTRAINER_F */
 };
 
 static const map_warp_t kWarps_MtMoonPokecenter[] = {
@@ -1228,12 +1230,12 @@ static const map_warp_t kWarps_MtMoonPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_MtMoonPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_MTMOONPOKECENTER_NURSE */
-    {   8,   7, 0x04, 0, "I've 6 POKE BALLs\nset in my belt.\fAt most, you can\ncarry 6 POKEMON." },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOONPOKECENTER_YOUNGSTER */
-    {  14,   7, 0x10, 0, "TEAM ROCKET\nattacks CERULEAN\ncitizens...\fTEAM ROCKET is\nalways in the\nnews!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_MTMOONPOKECENTER_GENTLEMAN */
-    {  20,  13, 0x0a, 1, "MAN: Hello, there!\nHave I got a deal\njust for you!\fI'll let you have\na swell MAGIKARP\nfor just ¥500!\nWhat do you say?" },  /* SPRITE_MIDDLE_AGED_MAN, WALK, TEXT_MTMOONPOKECENTER_MAGIKARP_SALESMAN */
-    {  14,   5, 0x42, 0, NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_MTMOONPOKECENTER_CLIPBOARD */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_MTMOONPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_MTMOONPOKECENTER_NURSE */
+    {   8,   7, 0x04, 0, "I've 6 POKE BALLs\nset in my belt.\fAt most, you can\ncarry 6 POKEMON.", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_MTMOONPOKECENTER_YOUNGSTER */
+    {  14,   7, 0x10, 0, "TEAM ROCKET\nattacks CERULEAN\ncitizens...\fTEAM ROCKET is\nalways in the\nnews!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_MTMOONPOKECENTER_GENTLEMAN */
+    {  20,  13, 0x0a, 1, "MAN: Hello, there!\nHave I got a deal\njust for you!\fI'll let you have\na swell MAGIKARP\nfor just ¥500!\nWhat do you say?", NULL },  /* SPRITE_MIDDLE_AGED_MAN, WALK, TEXT_MTMOONPOKECENTER_MAGIKARP_SALESMAN */
+    {  14,   5, 0x42, 0, NULL, NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_MTMOONPOKECENTER_CLIPBOARD */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_MTMOONPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_Route5Gate[] = {
@@ -1244,7 +1246,7 @@ static const map_warp_t kWarps_Route5Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route5Gate[] = {
-    {   2,   7, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE5GATE_GUARD */
+    {   2,   7, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE5GATE_GUARD */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute5[] = {
@@ -1254,7 +1256,7 @@ static const map_warp_t kWarps_UndergroundPathRoute5[] = {
 };
 
 static const npc_event_t kNpcs_UndergroundPathRoute5[] = {
-    {   4,   7, 0x08, 0, NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE5_LITTLE_GIRL */
+    {   4,   7, 0x08, 0, NULL, NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE5_LITTLE_GIRL */
 };
 
 static const map_warp_t kWarps_Daycare[] = {
@@ -1263,7 +1265,7 @@ static const map_warp_t kWarps_Daycare[] = {
 };
 
 static const npc_event_t kNpcs_Daycare[] = {
-    {   4,   7, 0x10, 0, "I run a DAYCARE.\nWould you like me\nto raise one of\nyour POKEMON?" },  /* SPRITE_GENTLEMAN, STAY, TEXT_DAYCARE_GENTLEMAN */
+    {   4,   7, 0x10, 0, "I run a DAYCARE.\nWould you like me\nto raise one of\nyour POKEMON?", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_DAYCARE_GENTLEMAN */
 };
 
 static const map_warp_t kWarps_Route6Gate[] = {
@@ -1274,7 +1276,7 @@ static const map_warp_t kWarps_Route6Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route6Gate[] = {
-    {  12,   5, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE6GATE_GUARD */
+    {  12,   5, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE6GATE_GUARD */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute6[] = {
@@ -1284,7 +1286,7 @@ static const map_warp_t kWarps_UndergroundPathRoute6[] = {
 };
 
 static const npc_event_t kNpcs_UndergroundPathRoute6[] = {
-    {   4,   7, 0x0d, 0, "People often lose\nthings in that\nUNDERGROUND PATH." },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE6_GIRL */
+    {   4,   7, 0x0d, 0, "People often lose\nthings in that\nUNDERGROUND PATH.", NULL },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE6_GIRL */
 };
 
 static const map_warp_t kWarps_Route7Gate[] = {
@@ -1295,7 +1297,7 @@ static const map_warp_t kWarps_Route7Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route7Gate[] = {
-    {   6,   3, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE7GATE_GUARD */
+    {   6,   3, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE7GATE_GUARD */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute7[] = {
@@ -1305,7 +1307,7 @@ static const map_warp_t kWarps_UndergroundPathRoute7[] = {
 };
 
 static const npc_event_t kNpcs_UndergroundPathRoute7[] = {
-    {   4,   9, 0x0a, 0, "I heard a sleepy\nPOKEMON appeared\nnear CELADON CITY." },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_UNDERGROUNDPATHROUTE7_MIDDLE_AGED_MAN */
+    {   4,   9, 0x0a, 0, "I heard a sleepy\nPOKEMON appeared\nnear CELADON CITY.", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_UNDERGROUNDPATHROUTE7_MIDDLE_AGED_MAN */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute7Copy[] = {
@@ -1315,8 +1317,8 @@ static const map_warp_t kWarps_UndergroundPathRoute7Copy[] = {
 };
 
 static const npc_event_t kNpcs_UndergroundPathRoute7Copy[] = {
-    {   6,   5, 0x0d, 0, "I want to shop at\nthe dept. store\nin CELADON but...\fThere are so many\nrough looking\npeople there." },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE7COPY_UNUSED_GIRL */
-    {   4,   9, 0x0a, 0, "You're here to\nshop in CELADON?\fJust step outside\nand head west!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_UNDERGROUNDPATHROUTE7COPY_UNUSED_MIDDLE_AGED_MAN */
+    {   6,   5, 0x0d, 0, "I want to shop at\nthe dept. store\nin CELADON but...\fThere are so many\nrough looking\npeople there.", NULL },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE7COPY_UNUSED_GIRL */
+    {   4,   9, 0x0a, 0, "You're here to\nshop in CELADON?\fJust step outside\nand head west!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_UNDERGROUNDPATHROUTE7COPY_UNUSED_MIDDLE_AGED_MAN */
 };
 
 static const map_warp_t kWarps_Route8Gate[] = {
@@ -1327,7 +1329,7 @@ static const map_warp_t kWarps_Route8Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route8Gate[] = {
-    {   4,   3, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE8GATE_GUARD */
+    {   4,   3, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE8GATE_GUARD */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute8[] = {
@@ -1337,7 +1339,7 @@ static const map_warp_t kWarps_UndergroundPathRoute8[] = {
 };
 
 static const npc_event_t kNpcs_UndergroundPathRoute8[] = {
-    {   6,   9, 0x0d, 0, "The dept. store\nin CELADON has a\ngreat selection!" },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE8_GIRL */
+    {   6,   9, 0x0d, 0, "The dept. store\nin CELADON has a\ngreat selection!", NULL },  /* SPRITE_GIRL, STAY, TEXT_UNDERGROUNDPATHROUTE8_GIRL */
 };
 
 static const map_warp_t kWarps_RockTunnelPokecenter[] = {
@@ -1346,10 +1348,10 @@ static const map_warp_t kWarps_RockTunnelPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_RockTunnelPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_ROCKTUNNELPOKECENTER_NURSE */
-    {  14,   7, 0x10, 1, "The element types\nof POKEMON make\nthem stronger\nthan some types\nand weaker than\nothers!" },  /* SPRITE_GENTLEMAN, WALK, TEXT_ROCKTUNNELPOKECENTER_GENTLEMAN */
-    {   4,  11, 0x2f, 0, "I sold a useless\nNUGGET for ¥5000!" },  /* SPRITE_FISHER, STAY, TEXT_ROCKTUNNELPOKECENTER_FISHER */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_ROCKTUNNELPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_ROCKTUNNELPOKECENTER_NURSE */
+    {  14,   7, 0x10, 1, "The element types\nof POKEMON make\nthem stronger\nthan some types\nand weaker than\nothers!", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_ROCKTUNNELPOKECENTER_GENTLEMAN */
+    {   4,  11, 0x2f, 0, "I sold a useless\nNUGGET for ¥5000!", NULL },  /* SPRITE_FISHER, STAY, TEXT_ROCKTUNNELPOKECENTER_FISHER */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_ROCKTUNNELPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_RockTunnel1F[] = {
@@ -1364,13 +1366,13 @@ static const map_warp_t kWarps_RockTunnel1F[] = {
 };
 
 static const npc_event_t kNpcs_RockTunnel1F[] = {
-    {  14,  11, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER1 */
-    {  10,  33, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER2 */
-    {  34,  31, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER3 */
-    {  46,  17, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNEL1F_SUPER_NERD */
-    {  74,  43, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F1 */
-    {  44,  49, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F2 */
-    {  64,  49, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F3 */
+    {  14,  11, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER1 */
+    {  10,  33, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER2 */
+    {  34,  31, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNEL1F_HIKER3 */
+    {  46,  17, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNEL1F_SUPER_NERD */
+    {  74,  43, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F1 */
+    {  44,  49, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F2 */
+    {  64,  49, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F3 */
 };
 
 static const sign_event_t kSigns_RockTunnel1F[] = {
@@ -1384,7 +1386,7 @@ static const map_warp_t kWarps_PowerPlant[] = {
 };
 
 static const npc_event_t kNpcs_PowerPlant[] = {
-    {   8,  19, 0x09, 0, NULL },  /* SPRITE_BIRD, STAY, TEXT_POWERPLANT_ZAPDOS */
+    {   8,  19, 0x09, 0, NULL, NULL },  /* SPRITE_BIRD, STAY, TEXT_POWERPLANT_ZAPDOS */
 };
 
 static const item_event_t kItems_PowerPlant[] = {
@@ -1412,7 +1414,7 @@ static const map_warp_t kWarps_Route11Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route11Gate1F[] = {
-    {   8,   3, 0x31, 0, "When you catch\nlots of POKEMON,\nisn't it hard to\nthink up names?\fIn LAVENDER TOWN,\nthere's a man who\nrates POKEMON\nnicknames.\fHe'll help you\nrename them too!" },  /* SPRITE_GUARD, STAY, TEXT_ROUTE11GATE1F_GUARD */
+    {   8,   3, 0x31, 0, "When you catch\nlots of POKEMON,\nisn't it hard to\nthink up names?\fIn LAVENDER TOWN,\nthere's a man who\nrates POKEMON\nnicknames.\fHe'll help you\nrename them too!", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE11GATE1F_GUARD */
 };
 
 static const map_warp_t kWarps_DiglettsCaveRoute11[] = {
@@ -1422,7 +1424,7 @@ static const map_warp_t kWarps_DiglettsCaveRoute11[] = {
 };
 
 static const npc_event_t kNpcs_DiglettsCaveRoute11[] = {
-    {   4,   7, 0x0b, 0, "What a surprise!\nDIGLETTs dug this\nlong tunnel!\fIt goes right to\nVIRIDIAN CITY!" },  /* SPRITE_GAMBLER, STAY, TEXT_DIGLETTSCAVEROUTE11_GAMBLER */
+    {   4,   7, 0x0b, 0, "What a surprise!\nDIGLETTs dug this\nlong tunnel!\fIt goes right to\nVIRIDIAN CITY!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_DIGLETTSCAVEROUTE11_GAMBLER */
 };
 
 static const map_warp_t kWarps_Route11Gate2F[] = {
@@ -1430,8 +1432,8 @@ static const map_warp_t kWarps_Route11Gate2F[] = {
 };
 
 static const npc_event_t kNpcs_Route11Gate2F[] = {
-    {   8,   5, 0x04, 1, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE11GATE2F_YOUNGSTER */
-    {   4,  13, 0x20, 0, "There are items on\nthe ground that\ncan't be seen.\fITEMFINDER will\ndetect an item\nclose to you.\fIt can't pinpoint\nit, so you have\nto look yourself!" },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE11GATE2F_OAKS_AIDE */
+    {   8,   5, 0x04, 1, NULL, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE11GATE2F_YOUNGSTER */
+    {   4,  13, 0x20, 0, "There are items on\nthe ground that\ncan't be seen.\fITEMFINDER will\ndetect an item\nclose to you.\fIt can't pinpoint\nit, so you have\nto look yourself!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE11GATE2F_OAKS_AIDE */
 };
 
 static const sign_event_t kSigns_Route11Gate2F[] = {
@@ -1448,7 +1450,7 @@ static const map_warp_t kWarps_Route12Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route12Gate1F[] = {
-    {   2,   7, 0x31, 0, "There's a lookout\nspot upstairs." },  /* SPRITE_GUARD, STAY, TEXT_ROUTE12GATE1F_GUARD */
+    {   2,   7, 0x31, 0, "There's a lookout\nspot upstairs.", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE12GATE1F_GUARD */
 };
 
 static const map_warp_t kWarps_BillsHouse[] = {
@@ -1457,9 +1459,9 @@ static const map_warp_t kWarps_BillsHouse[] = {
 };
 
 static const npc_event_t kNpcs_BillsHouse[] = {
-    {  12,  11, 0x05, 0, "Hiya! I'm a\nPOKEMON...\n...No I'm not!\fCall me BILL!\nI'm a true blue\nPOKEMANIAC! Hey!\nWhat's with that\nskeptical look?\fI'm not joshing\nyou, I screwed up\nan experiment and\ngot combined with\na POKEMON!\fSo, how about it?\nHelp me out here!" },  /* SPRITE_MONSTER, STAY, TEXT_BILLSHOUSE_BILL_POKEMON */
-    {   8,   9, 0x0c, 0, "BILL: Yeehah!\nThanks, bud! I\nowe you one!\fSo, did you come\nto see my POKEMON\ncollection?\nYou didn't?\nThat's a bummer.\fI've got to thank\nyou... Oh here,\nmaybe this'll do." },  /* SPRITE_SUPER_NERD, STAY, TEXT_BILLSHOUSE_BILL_SS_TICKET */
-    {  12,  11, 0x0c, 0, "BILL: Look, bud,\njust check out\nsome of my rare\nPOKEMON on my PC!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_BILLSHOUSE_BILL_CHECK_OUT_MY_RARE_POKEMON */
+    {  12,  11, 0x05, 0, "Hiya! I'm a\nPOKEMON...\n...No I'm not!\fCall me BILL!\nI'm a true blue\nPOKEMANIAC! Hey!\nWhat's with that\nskeptical look?\fI'm not joshing\nyou, I screwed up\nan experiment and\ngot combined with\na POKEMON!\fSo, how about it?\nHelp me out here!", NULL },  /* SPRITE_MONSTER, STAY, TEXT_BILLSHOUSE_BILL_POKEMON */
+    {   8,   9, 0x0c, 0, "BILL: Yeehah!\nThanks, bud! I\nowe you one!\fSo, did you come\nto see my POKEMON\ncollection?\nYou didn't?\nThat's a bummer.\fI've got to thank\nyou... Oh here,\nmaybe this'll do.", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_BILLSHOUSE_BILL_SS_TICKET */
+    {  12,  11, 0x0c, 0, "BILL: Look, bud,\njust check out\nsome of my rare\nPOKEMON on my PC!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_BILLSHOUSE_BILL_CHECK_OUT_MY_RARE_POKEMON */
 };
 
 static const map_warp_t kWarps_VermilionPokecenter[] = {
@@ -1468,10 +1470,10 @@ static const map_warp_t kWarps_VermilionPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_VermilionPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_VERMILIONPOKECENTER_NURSE */
-    {  20,  11, 0x27, 0, "Even if they are\nthe same level,\nPOKEMON can have\nvery different\nabilities.\fA POKEMON raised\nby a trainer is\nstronger than one\nin the wild." },  /* SPRITE_FISHING_GURU, STAY, TEXT_VERMILIONPOKECENTER_FISHING_GURU */
-    {  10,   9, 0x13, 0, "My POKEMON was\npoisoned! It\nfainted while we\nwere walking!" },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONPOKECENTER_SAILOR */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_VERMILIONPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_VERMILIONPOKECENTER_NURSE */
+    {  20,  11, 0x27, 0, "Even if they are\nthe same level,\nPOKEMON can have\nvery different\nabilities.\fA POKEMON raised\nby a trainer is\nstronger than one\nin the wild.", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_VERMILIONPOKECENTER_FISHING_GURU */
+    {  10,   9, 0x13, 0, "My POKEMON was\npoisoned! It\nfainted while we\nwere walking!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONPOKECENTER_SAILOR */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_VERMILIONPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_PokemonFanClub[] = {
@@ -1480,12 +1482,12 @@ static const map_warp_t kWarps_PokemonFanClub[] = {
 };
 
 static const npc_event_t kNpcs_PokemonFanClub[] = {
-    {  12,   7, 0x2f, 0, "Won't you admire\nmy PIKACHU's\nadorable tail?" },  /* SPRITE_FISHER, STAY, TEXT_POKEMONFANCLUB_PIKACHU_FAN */
-    {   2,   7, 0x0d, 0, "I just love my\nSEEL!\fIt squeals when I\nhug it!" },  /* SPRITE_GIRL, STAY, TEXT_POKEMONFANCLUB_SEEL_FAN */
-    {  12,   9, 0x38, 0, "PIKACHU: Chu!\nPikachu!" },  /* SPRITE_FAIRY, STAY, TEXT_POKEMONFANCLUB_PIKACHU */
-    {   2,   9, 0x3c, 0, "SEEL: Kyuoo!" },  /* SPRITE_SEEL, STAY, TEXT_POKEMONFANCLUB_SEEL */
-    {   6,   3, 0x10, 0, "I chair the\nPOKEMON Fan Club!\fI have collected\nover 100 POKEMON!\fI'm very fussy\nwhen it comes to\nPOKEMON!\fSo...\fDid you come\nvisit to hear\nabout my POKEMON?" },  /* SPRITE_GENTLEMAN, STAY, TEXT_POKEMONFANCLUB_CHAIRMAN */
-    {  10,   3, 0x2a, 0, "Our Chairman is\nvery vocal about\nPOKEMON." },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_POKEMONFANCLUB_RECEPTIONIST */
+    {  12,   7, 0x2f, 0, "Won't you admire\nmy PIKACHU's\nadorable tail?", NULL },  /* SPRITE_FISHER, STAY, TEXT_POKEMONFANCLUB_PIKACHU_FAN */
+    {   2,   7, 0x0d, 0, "I just love my\nSEEL!\fIt squeals when I\nhug it!", NULL },  /* SPRITE_GIRL, STAY, TEXT_POKEMONFANCLUB_SEEL_FAN */
+    {  12,   9, 0x38, 0, "PIKACHU: Chu!\nPikachu!", NULL },  /* SPRITE_FAIRY, STAY, TEXT_POKEMONFANCLUB_PIKACHU */
+    {   2,   9, 0x3c, 0, "SEEL: Kyuoo!", NULL },  /* SPRITE_SEEL, STAY, TEXT_POKEMONFANCLUB_SEEL */
+    {   6,   3, 0x10, 0, "I chair the\nPOKEMON Fan Club!\fI have collected\nover 100 POKEMON!\fI'm very fussy\nwhen it comes to\nPOKEMON!\fSo...\fDid you come\nvisit to hear\nabout my POKEMON?", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_POKEMONFANCLUB_CHAIRMAN */
+    {  10,   3, 0x2a, 0, "Our Chairman is\nvery vocal about\nPOKEMON.", NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_POKEMONFANCLUB_RECEPTIONIST */
 };
 
 static const sign_event_t kSigns_PokemonFanClub[] = {
@@ -1499,9 +1501,9 @@ static const map_warp_t kWarps_VermilionMart[] = {
 };
 
 static const npc_event_t kNpcs_VermilionMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_VERMILIONMART_CLERK */
-    {  10,  13, 0x07, 0, "There are evil\npeople who will\nuse POKEMON for\ncriminal acts.\fTEAM ROCKET\ntraffics in rare\nPOKEMON.\fThey also abandon\nPOKEMON that they\nconsider not to\nbe popular or\nuseful." },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VERMILIONMART_COOLTRAINER_M */
-    {   6,   7, 0x06, 1, "I think POKEMON\ncan be good or\nevil. It depends\non the trainer." },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_VERMILIONMART_COOLTRAINER_F */
+    {   0,  11, 0x26, 0, NULL, VermilionMart_Start },  /* SPRITE_CLERK, STAY, TEXT_VERMILIONMART_CLERK */
+    {  10,  13, 0x07, 0, "There are evil\npeople who will\nuse POKEMON for\ncriminal acts.\fTEAM ROCKET\ntraffics in rare\nPOKEMON.\fThey also abandon\nPOKEMON that they\nconsider not to\nbe popular or\nuseful.", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VERMILIONMART_COOLTRAINER_M */
+    {   6,   7, 0x06, 1, "I think POKEMON\ncan be good or\nevil. It depends\non the trainer.", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_VERMILIONMART_COOLTRAINER_F */
 };
 
 static const map_warp_t kWarps_VermilionGym[] = {
@@ -1510,11 +1512,11 @@ static const map_warp_t kWarps_VermilionGym[] = {
 };
 
 static const npc_event_t kNpcs_VermilionGym[] = {
-    {  10,   3, 0x21, 0, "Hey, kid! What do\nyou think you're\ndoing here?\fYou won't live\nlong in combat!\nThat's for sure!\fI tell you kid,\nelectric POKEMON\nsaved me during\nthe war!\fThey zapped my\nenemies into\nparalysis!\fThe same as I'll\ndo to you!" },  /* SPRITE_ROCKER, STAY, TEXT_VERMILIONGYM_LT_SURGE */
-    {  18,  13, 0x10, 0, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_VERMILIONGYM_GENTLEMAN */
-    {   6,  17, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VERMILIONGYM_SUPER_NERD */
-    {   0,  21, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONGYM_SAILOR */
-    {   8,  29, 0x24, 0, "Yo! Champ in\nmaking!\fLT.SURGE has a\nnickname. People\nrefer to him as\nthe Lightning\nAmerican!\fHe's an expert on\nelectric POKEMON!\fBirds and water\nPOKEMON are at\nrisk! Beware of\nparalysis too!\fLT.SURGE is very\ncautious!\fYou'll have to\nbreak a code to\nget to him!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_VERMILIONGYM_GYM_GUIDE */
+    {  10,   3, 0x21, 0, "Hey, kid! What do\nyou think you're\ndoing here?\fYou won't live\nlong in combat!\nThat's for sure!\fI tell you kid,\nelectric POKEMON\nsaved me during\nthe war!\fThey zapped my\nenemies into\nparalysis!\fThe same as I'll\ndo to you!", NULL },  /* SPRITE_ROCKER, STAY, TEXT_VERMILIONGYM_LT_SURGE */
+    {  18,  13, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_VERMILIONGYM_GENTLEMAN */
+    {   6,  17, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VERMILIONGYM_SUPER_NERD */
+    {   0,  21, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONGYM_SAILOR */
+    {   8,  29, 0x24, 0, "Yo! Champ in\nmaking!\fLT.SURGE has a\nnickname. People\nrefer to him as\nthe Lightning\nAmerican!\fHe's an expert on\nelectric POKEMON!\fBirds and water\nPOKEMON are at\nrisk! Beware of\nparalysis too!\fLT.SURGE is very\ncautious!\fYou'll have to\nbreak a code to\nget to him!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_VERMILIONGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_VermilionPidgeyHouse[] = {
@@ -1523,9 +1525,9 @@ static const map_warp_t kWarps_VermilionPidgeyHouse[] = {
 };
 
 static const npc_event_t kNpcs_VermilionPidgeyHouse[] = {
-    {  10,   7, 0x04, 0, "I'm getting my\nPIDGEY to fly a\nletter to SAFFRON\nin the north!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_VERMILIONPIDGEYHOUSE_YOUNGSTER */
-    {   6,  11, 0x09, 1, "PIDGEY: Kurukkoo!@" },  /* SPRITE_BIRD, WALK, TEXT_VERMILIONPIDGEYHOUSE_PIDGEY */
-    {   8,   7, 0x40, 0, "Dear PIPPI, I hope\nto see you soon.\fI heard SAFFRON\nhas problems with\nTEAM ROCKET.\fVERMILION appears\nto be safe." },  /* SPRITE_PAPER, STAY, TEXT_VERMILIONPIDGEYHOUSE_LETTER */
+    {  10,   7, 0x04, 0, "I'm getting my\nPIDGEY to fly a\nletter to SAFFRON\nin the north!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_VERMILIONPIDGEYHOUSE_YOUNGSTER */
+    {   6,  11, 0x09, 1, "PIDGEY: Kurukkoo!@", NULL },  /* SPRITE_BIRD, WALK, TEXT_VERMILIONPIDGEYHOUSE_PIDGEY */
+    {   8,   7, 0x40, 0, "Dear PIPPI, I hope\nto see you soon.\fI heard SAFFRON\nhas problems with\nTEAM ROCKET.\fVERMILION appears\nto be safe.", NULL },  /* SPRITE_PAPER, STAY, TEXT_VERMILIONPIDGEYHOUSE_LETTER */
 };
 
 static const map_warp_t kWarps_VermilionDock[] = {
@@ -1548,8 +1550,8 @@ static const map_warp_t kWarps_SSAnne1F[] = {
 };
 
 static const npc_event_t kNpcs_SSAnne1F[] = {
-    {  24,  13, 0x1a, 1, "Bonjour!\nI am le waiter on\nthis ship!\fI will be happy\nto serve you any-\nthing you please!\fAh! Le strong\nsilent type!" },  /* SPRITE_WAITER, WALK, TEXT_SSANNE1F_WAITER */
-    {  54,  11, 0x13, 0, "The passengers\nare restless!\fYou might be\nchallenged by the\nmore bored ones!" },  /* SPRITE_SAILOR, STAY, TEXT_SSANNE1F_SAILOR */
+    {  24,  13, 0x1a, 1, "Bonjour!\nI am le waiter on\nthis ship!\fI will be happy\nto serve you any-\nthing you please!\fAh! Le strong\nsilent type!", NULL },  /* SPRITE_WAITER, WALK, TEXT_SSANNE1F_WAITER */
+    {  54,  11, 0x13, 0, "The passengers\nare restless!\fYou might be\nchallenged by the\nmore bored ones!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNE1F_SAILOR */
 };
 
 static const map_warp_t kWarps_SSAnne2F[] = {
@@ -1565,8 +1567,8 @@ static const map_warp_t kWarps_SSAnne2F[] = {
 };
 
 static const npc_event_t kNpcs_SSAnne2F[] = {
-    {   6,  15, 0x1a, 1, "This ship, she is\na luxury liner\nfor trainers!\fAt every port, we\nhold parties with\ninvited trainers!" },  /* SPRITE_WAITER, WALK, TEXT_SSANNE2F_WAITER */
-    {  72,   9, 0x02, 0, "{RIVAL}: Bonjour!\n{PLAYER}!\fImagine seeing\nyou here!\f{PLAYER}, were you\nreally invited?\fSo how's your\nPOKEDEX coming?\fI already caught\n40 kinds, pal!\fDifferent kinds\nare everywhere!\fCrawl around in\ngrassy areas!" },  /* SPRITE_BLUE, STAY, TEXT_SSANNE2F_RIVAL */
+    {   6,  15, 0x1a, 1, "This ship, she is\na luxury liner\nfor trainers!\fAt every port, we\nhold parties with\ninvited trainers!", NULL },  /* SPRITE_WAITER, WALK, TEXT_SSANNE2F_WAITER */
+    {  72,   9, 0x02, 0, "{RIVAL}: Bonjour!\n{PLAYER}!\fImagine seeing\nyou here!\f{PLAYER}, were you\nreally invited?\fSo how's your\nPOKEDEX coming?\fI already caught\n40 kinds, pal!\fDifferent kinds\nare everywhere!\fCrawl around in\ngrassy areas!", NULL },  /* SPRITE_BLUE, STAY, TEXT_SSANNE2F_RIVAL */
 };
 
 static const map_warp_t kWarps_SSAnne3F[] = {
@@ -1575,7 +1577,7 @@ static const map_warp_t kWarps_SSAnne3F[] = {
 };
 
 static const npc_event_t kNpcs_SSAnne3F[] = {
-    {  18,   7, 0x13, 1, "Our CAPTAIN is a\nsword master!\fHe even teaches\nCUT to POKEMON!" },  /* SPRITE_SAILOR, WALK, TEXT_SSANNE3F_SAILOR */
+    {  18,   7, 0x13, 1, "Our CAPTAIN is a\nsword master!\fHe even teaches\nCUT to POKEMON!", NULL },  /* SPRITE_SAILOR, WALK, TEXT_SSANNE3F_SAILOR */
 };
 
 static const map_warp_t kWarps_SSAnneB1F[] = {
@@ -1593,11 +1595,11 @@ static const map_warp_t kWarps_SSAnneBow[] = {
 };
 
 static const npc_event_t kNpcs_SSAnneBow[] = {
-    {  10,   5, 0x0c, 0, "The party's over.\nThe ship will be\ndeparting soon." },  /* SPRITE_SUPER_NERD, STAY, TEXT_SSANNEBOW_SUPER_NERD */
-    {   8,  19, 0x13, 0, "Scrubbing decks\nis hard work!" },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR1 */
-    {  14,  23, 0x07, 0, "Urf. I feel ill.\fI stepped out to\nget some air." },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_SSANNEBOW_COOLTRAINER_M */
-    {   8,   9, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR2 */
-    {  20,  17, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR3 */
+    {  10,   5, 0x0c, 0, "The party's over.\nThe ship will be\ndeparting soon.", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_SSANNEBOW_SUPER_NERD */
+    {   8,  19, 0x13, 0, "Scrubbing decks\nis hard work!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR1 */
+    {  14,  23, 0x07, 0, "Urf. I feel ill.\fI stepped out to\nget some air.", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_SSANNEBOW_COOLTRAINER_M */
+    {   8,   9, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR2 */
+    {  20,  17, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEBOW_SAILOR3 */
 };
 
 static const map_warp_t kWarps_SSAnneKitchen[] = {
@@ -1605,13 +1607,13 @@ static const map_warp_t kWarps_SSAnneKitchen[] = {
 };
 
 static const npc_event_t kNpcs_SSAnneKitchen[] = {
-    {   2,  17, 0x14, 1, "You, mon petit!\nWe're busy here!\nOut of the way!" },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK1 */
-    {  10,  17, 0x14, 1, "I saw an odd ball\nin the trash." },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK2 */
-    {  18,  15, 0x14, 1, "I'm so busy I'm\ngetting dizzy!" },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK3 */
-    {  26,  13, 0x14, 0, "Hum-de-hum-de-\nho...\fI peel spuds\nevery day!\nHum-hum..." },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK4 */
-    {  26,  17, 0x14, 0, "Did you hear about\nSNORLAX?\fAll it does is\neat and sleep!" },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK5 */
-    {  26,  21, 0x14, 0, "Snivel...Sniff...\fI only get to\npeel onions...\nSnivel..." },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK6 */
-    {  22,  27, 0x14, 0, "Er-hem! Indeed I\nam le CHEF!\fLe main course is" },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK7 */
+    {   2,  17, 0x14, 1, "You, mon petit!\nWe're busy here!\nOut of the way!", NULL },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK1 */
+    {  10,  17, 0x14, 1, "I saw an odd ball\nin the trash.", NULL },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK2 */
+    {  18,  15, 0x14, 1, "I'm so busy I'm\ngetting dizzy!", NULL },  /* SPRITE_COOK, WALK, TEXT_SSANNEKITCHEN_COOK3 */
+    {  26,  13, 0x14, 0, "Hum-de-hum-de-\nho...\fI peel spuds\nevery day!\nHum-hum...", NULL },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK4 */
+    {  26,  17, 0x14, 0, "Did you hear about\nSNORLAX?\fAll it does is\neat and sleep!", NULL },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK5 */
+    {  26,  21, 0x14, 0, "Snivel...Sniff...\fI only get to\npeel onions...\nSnivel...", NULL },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK6 */
+    {  22,  27, 0x14, 0, "Er-hem! Indeed I\nam le CHEF!\fLe main course is", NULL },  /* SPRITE_COOK, STAY, TEXT_SSANNEKITCHEN_COOK7 */
 };
 
 static const map_warp_t kWarps_SSAnneCaptainsRoom[] = {
@@ -1619,7 +1621,7 @@ static const map_warp_t kWarps_SSAnneCaptainsRoom[] = {
 };
 
 static const npc_event_t kNpcs_SSAnneCaptainsRoom[] = {
-    {   8,   5, 0x2e, 0, NULL },  /* SPRITE_CAPTAIN, STAY, TEXT_SSANNECAPTAINSROOM_CAPTAIN */
+    {   8,   5, 0x2e, 0, NULL, NULL },  /* SPRITE_CAPTAIN, STAY, TEXT_SSANNECAPTAINSROOM_CAPTAIN */
 };
 
 static const sign_event_t kSigns_SSAnneCaptainsRoom[] = {
@@ -1637,16 +1639,16 @@ static const map_warp_t kWarps_SSAnne1FRooms[] = {
 };
 
 static const npc_event_t kNpcs_SSAnne1FRooms[] = {
-    {   4,   7, 0x10, 0, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE1FROOMS_GENTLEMAN1 */
-    {  22,   9, 0x10, 0, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE1FROOMS_GENTLEMAN2 */
-    {  22,  29, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SSANNE1FROOMS_YOUNGSTER */
-    {  26,  23, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_SSANNE1FROOMS_COOLTRAINER_F */
-    {  44,   7, 0x0d, 1, "Waiter, I would\nlike a cherry pie\nplease!" },  /* SPRITE_GIRL, WALK, TEXT_SSANNE1FROOMS_GIRL1 */
-    {   0,  29, 0x0a, 0, "A cruise is so\nelegant yet cozy!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_SSANNE1FROOMS_MIDDLE_AGED_MAN */
-    {   4,  23, 0x08, 0, "I always travel\nwith WIGGLYTUFF!" },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_SSANNE1FROOMS_LITTLE_GIRL */
-    {   6,  23, 0x38, 0, "WIGGLYTUFF: Puup\npupuu!@" },  /* SPRITE_FAIRY, STAY, TEXT_SSANNE1FROOMS_WIGGLYTUFF */
-    {  20,  27, 0x0d, 0, "We are cruising\naround the world." },  /* SPRITE_GIRL, STAY, TEXT_SSANNE1FROOMS_GIRL2 */
-    {  42,  27, 0x10, 1, "Ssh! I'm a GLOBAL\nPOLICE agent!\fI'm on the trail\nof TEAM ROCKET!" },  /* SPRITE_GENTLEMAN, WALK, TEXT_SSANNE1FROOMS_GENTLEMAN3 */
+    {   4,   7, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE1FROOMS_GENTLEMAN1 */
+    {  22,   9, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE1FROOMS_GENTLEMAN2 */
+    {  22,  29, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SSANNE1FROOMS_YOUNGSTER */
+    {  26,  23, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_SSANNE1FROOMS_COOLTRAINER_F */
+    {  44,   7, 0x0d, 1, "Waiter, I would\nlike a cherry pie\nplease!", NULL },  /* SPRITE_GIRL, WALK, TEXT_SSANNE1FROOMS_GIRL1 */
+    {   0,  29, 0x0a, 0, "A cruise is so\nelegant yet cozy!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_SSANNE1FROOMS_MIDDLE_AGED_MAN */
+    {   4,  23, 0x08, 0, "I always travel\nwith WIGGLYTUFF!", NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_SSANNE1FROOMS_LITTLE_GIRL */
+    {   6,  23, 0x38, 0, "WIGGLYTUFF: Puup\npupuu!@", NULL },  /* SPRITE_FAIRY, STAY, TEXT_SSANNE1FROOMS_WIGGLYTUFF */
+    {  20,  27, 0x0d, 0, "We are cruising\naround the world.", NULL },  /* SPRITE_GIRL, STAY, TEXT_SSANNE1FROOMS_GIRL2 */
+    {  42,  27, 0x10, 1, "Ssh! I'm a GLOBAL\nPOLICE agent!\fI'm on the trail\nof TEAM ROCKET!", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_SSANNE1FROOMS_GENTLEMAN3 */
 };
 
 static const item_event_t kItems_SSAnne1FRooms[] = {
@@ -1669,17 +1671,17 @@ static const map_warp_t kWarps_SSAnne2FRooms[] = {
 };
 
 static const npc_event_t kNpcs_SSAnne2FRooms[] = {
-    {  20,   5, 0x10, 0, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN1 */
-    {  26,   9, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_SSANNE2FROOMS_FISHER */
-    {   0,  29, 0x10, 0, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN2 */
-    {   4,  23, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_SSANNE2FROOMS_COOLTRAINER_F */
-    {   2,   5, 0x10, 0, "In all my travels\nI've never seen\nany POKEMON sleep\nlike this one!\fIt was something\nlike this!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN3 */
-    {  42,   5, 0x10, 0, "Ah yes, I have\nseen some POKEMON\nferry people\nacross the water!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN4 */
-    {  44,   3, 0x25, 0, "POKEMON can CUT\ndown small bushes." },  /* SPRITE_GRAMPS, STAY, TEXT_SSANNE2FROOMS_GRAMPS */
-    {  24,  25, 0x10, 0, "Have you gone to\nthe SAFARI ZONE\nin FUCHSIA CITY?\fIt had many rare\nkinds of POKEMON!!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN5 */
-    {  22,  29, 0x35, 0, "Me and my Daddy\nthink the SAFARI\nZONE is awesome!" },  /* SPRITE_LITTLE_BOY, STAY, TEXT_SSANNE2FROOMS_LITTLE_BOY */
-    {  44,  25, 0x1d, 0, "The CAPTAIN looked\nreally sick and\npale!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_SSANNE2FROOMS_BRUNETTE_GIRL */
-    {  40,  25, 0x0f, 0, "I hear many people\nget seasick!" },  /* SPRITE_BEAUTY, STAY, TEXT_SSANNE2FROOMS_BEAUTY */
+    {  20,   5, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN1 */
+    {  26,   9, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_SSANNE2FROOMS_FISHER */
+    {   0,  29, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN2 */
+    {   4,  23, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_SSANNE2FROOMS_COOLTRAINER_F */
+    {   2,   5, 0x10, 0, "In all my travels\nI've never seen\nany POKEMON sleep\nlike this one!\fIt was something\nlike this!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN3 */
+    {  42,   5, 0x10, 0, "Ah yes, I have\nseen some POKEMON\nferry people\nacross the water!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN4 */
+    {  44,   3, 0x25, 0, "POKEMON can CUT\ndown small bushes.", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_SSANNE2FROOMS_GRAMPS */
+    {  24,  25, 0x10, 0, "Have you gone to\nthe SAFARI ZONE\nin FUCHSIA CITY?\fIt had many rare\nkinds of POKEMON!!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SSANNE2FROOMS_GENTLEMAN5 */
+    {  22,  29, 0x35, 0, "Me and my Daddy\nthink the SAFARI\nZONE is awesome!", NULL },  /* SPRITE_LITTLE_BOY, STAY, TEXT_SSANNE2FROOMS_LITTLE_BOY */
+    {  44,  25, 0x1d, 0, "The CAPTAIN looked\nreally sick and\npale!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_SSANNE2FROOMS_BRUNETTE_GIRL */
+    {  40,  25, 0x0f, 0, "I hear many people\nget seasick!", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_SSANNE2FROOMS_BEAUTY */
 };
 
 static const item_event_t kItems_SSAnne2FRooms[] = {
@@ -1701,14 +1703,14 @@ static const map_warp_t kWarps_SSAnneB1FRooms[] = {
 };
 
 static const npc_event_t kNpcs_SSAnneB1FRooms[] = {
-    {   0,  27, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR1 */
-    {   4,  23, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR2 */
-    {  24,   7, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR3 */
-    {  44,   5, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR4 */
-    {   0,   5, 0x13, 0, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR5 */
-    {   0,   9, 0x2f, 0, NULL },  /* SPRITE_FISHER, STAY, TEXT_SSANNEB1FROOMS_FISHER */
-    {  20,  27, 0x0c, 0, "My buddy, MACHOKE,\nis super strong!\fHe has enough\nSTRENGTH to move\nbig rocks!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_SSANNEB1FROOMS_SUPER_NERD */
-    {  22,  25, 0x05, 0, "MACHOKE: Gwoh!\nGoggoh!@" },  /* SPRITE_MONSTER, STAY, TEXT_SSANNEB1FROOMS_MACHOKE */
+    {   0,  27, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR1 */
+    {   4,  23, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR2 */
+    {  24,   7, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR3 */
+    {  44,   5, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR4 */
+    {   0,   5, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR5 */
+    {   0,   9, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_SSANNEB1FROOMS_FISHER */
+    {  20,  27, 0x0c, 0, "My buddy, MACHOKE,\nis super strong!\fHe has enough\nSTRENGTH to move\nbig rocks!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_SSANNEB1FROOMS_SUPER_NERD */
+    {  22,  25, 0x05, 0, "MACHOKE: Gwoh!\nGoggoh!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_SSANNEB1FROOMS_MACHOKE */
 };
 
 static const item_event_t kItems_SSAnneB1FRooms[] = {
@@ -1724,7 +1726,7 @@ static const map_warp_t kWarps_LancesRoom[] = {
 };
 
 static const npc_event_t kNpcs_LancesRoom[] = {
-    {  12,   3, 0x1e, 0, NULL },  /* SPRITE_LANCE, STAY, TEXT_LANCESROOM_LANCE */
+    {  12,   3, 0x1e, 0, NULL, NULL },  /* SPRITE_LANCE, STAY, TEXT_LANCESROOM_LANCE */
 };
 
 static const map_warp_t kWarps_VictoryRoad1F[] = {
@@ -1734,11 +1736,11 @@ static const map_warp_t kWarps_VictoryRoad1F[] = {
 };
 
 static const npc_event_t kNpcs_VictoryRoad1F[] = {
-    {  14,  11, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD1F_COOLTRAINER_F */
-    {   6,   5, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD1F_COOLTRAINER_M */
-    {  10,  31, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER1 */
-    {  28,   5, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER2 */
-    {   4,  21, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER3 */
+    {  14,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD1F_COOLTRAINER_F */
+    {   6,   5, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD1F_COOLTRAINER_M */
+    {  10,  31, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER1 */
+    {  28,   5, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER2 */
+    {   4,  21, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER3 */
 };
 
 static const item_event_t kItems_VictoryRoad1F[] = {
@@ -1752,7 +1754,7 @@ static const map_warp_t kWarps_HallOfFame[] = {
 };
 
 static const npc_event_t kNpcs_HallOfFame[] = {
-    {  10,   5, 0x03, 0, "OAK: Er-hem!\nCongratulations\n{PLAYER}!\fThis floor is the\nPOKEMON HALL OF\nFAME!\fPOKEMON LEAGUE\nchampions are\nhonored for their\nexploits here!\fTheir POKEMON are\nalso recorded in\nthe HALL OF FAME!\f{PLAYER}! You have\nendeavored hard\nto become the new\nLEAGUE champion!\fCongratulations,\n{PLAYER}, you and\nyour POKEMON are\nHALL OF FAMERs!" },  /* SPRITE_OAK, STAY, TEXT_HALLOFFAME_OAK */
+    {  10,   5, 0x03, 0, "OAK: Er-hem!\nCongratulations\n{PLAYER}!\fThis floor is the\nPOKEMON HALL OF\nFAME!\fPOKEMON LEAGUE\nchampions are\nhonored for their\nexploits here!\fTheir POKEMON are\nalso recorded in\nthe HALL OF FAME!\f{PLAYER}! You have\nendeavored hard\nto become the new\nLEAGUE champion!\fCongratulations,\n{PLAYER}, you and\nyour POKEMON are\nHALL OF FAMERs!", NULL },  /* SPRITE_OAK, STAY, TEXT_HALLOFFAME_OAK */
 };
 
 static const map_warp_t kWarps_UndergroundPathNorthSouth[] = {
@@ -1768,8 +1770,8 @@ static const map_warp_t kWarps_ChampionsRoom[] = {
 };
 
 static const npc_event_t kNpcs_ChampionsRoom[] = {
-    {   8,   5, 0x02, 0, "{RIVAL}: Hey!\fI was looking\nforward to seeing\nyou, {PLAYER}!\fMy rival should\nbe strong to keep\nme sharp!\fWhile working on\nPOKEDEX, I looked\nall over for\npowerful POKEMON!\fNot only that, I\nassembled teams\nthat would beat\nany POKEMON type!\fAnd now!\fI'm the POKEMON\nLEAGUE champion!\f{PLAYER}! Do you\nknow what that\nmeans?\fI'll tell you!\fI am the most\npowerful trainer\nin the world!" },  /* SPRITE_BLUE, STAY, TEXT_CHAMPIONSROOM_RIVAL */
-    {   6,  15, 0x03, 0, "OAK: {PLAYER}!" },  /* SPRITE_OAK, STAY, TEXT_CHAMPIONSROOM_OAK */
+    {   8,   5, 0x02, 0, "{RIVAL}: Hey!\fI was looking\nforward to seeing\nyou, {PLAYER}!\fMy rival should\nbe strong to keep\nme sharp!\fWhile working on\nPOKEDEX, I looked\nall over for\npowerful POKEMON!\fNot only that, I\nassembled teams\nthat would beat\nany POKEMON type!\fAnd now!\fI'm the POKEMON\nLEAGUE champion!\f{PLAYER}! Do you\nknow what that\nmeans?\fI'll tell you!\fI am the most\npowerful trainer\nin the world!", NULL },  /* SPRITE_BLUE, STAY, TEXT_CHAMPIONSROOM_RIVAL */
+    {   6,  15, 0x03, 0, "OAK: {PLAYER}!", NULL },  /* SPRITE_OAK, STAY, TEXT_CHAMPIONSROOM_OAK */
 };
 
 static const map_warp_t kWarps_UndergroundPathWestEast[] = {
@@ -1787,7 +1789,7 @@ static const map_warp_t kWarps_CeladonMart1F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart1F[] = {
-    {  16,   7, 0x2a, 0, "Hello! Welcome to\nCELADON DEPT.\nSTORE.\fThe board on the\nright describes\nthe store layout." },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CELADONMART1F_RECEPTIONIST */
+    {  16,   7, 0x2a, 0, "Hello! Welcome to\nCELADON DEPT.\nSTORE.\fThe board on the\nright describes\nthe store layout.", NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CELADONMART1F_RECEPTIONIST */
 };
 
 static const sign_event_t kSigns_CeladonMart1F[] = {
@@ -1802,10 +1804,10 @@ static const map_warp_t kWarps_CeladonMart2F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart2F[] = {
-    {  10,   7, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART2F_CLERK1 */
-    {  12,   7, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART2F_CLERK2 */
-    {  38,  11, 0x0a, 0, "SUPER REPEL keeps\nweak POKEMON at\nbay...\fHmm, it's a more\npowerful REPEL!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CELADONMART2F_MIDDLE_AGED_MAN */
-    {  28,   9, 0x0d, 1, "For long outings,\nyou should buy\nREVIVE." },  /* SPRITE_GIRL, WALK, TEXT_CELADONMART2F_GIRL */
+    {  10,   7, 0x26, 0, NULL, Celadon2F1Mart_Start },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART2F_CLERK1 */
+    {  12,   7, 0x26, 0, NULL, Celadon2F2Mart_Start },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART2F_CLERK2 */
+    {  38,  11, 0x0a, 0, "SUPER REPEL keeps\nweak POKEMON at\nbay...\fHmm, it's a more\npowerful REPEL!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CELADONMART2F_MIDDLE_AGED_MAN */
+    {  28,   9, 0x0d, 1, "For long outings,\nyou should buy\nREVIVE.", NULL },  /* SPRITE_GIRL, WALK, TEXT_CELADONMART2F_GIRL */
 };
 
 static const sign_event_t kSigns_CeladonMart2F[] = {
@@ -1819,11 +1821,11 @@ static const map_warp_t kWarps_CeladonMart3F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart3F[] = {
-    {  32,  11, 0x26, 0, "Oh, hi! I finally\nfinished POKEMON!\fNot done yet?\nThis might be\nuseful!" },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART3F_CLERK */
-    {  22,  13, 0x37, 0, "Captured POKEMON\nare registered\nwith an ID No.\nand OT, the name\nof the Original\nTrainer that\ncaught it!" },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID1 */
-    {  14,   5, 0x37, 0, "All right!\fMy buddy's going\nto trade me his\nKANGASKHAN for my\nGRAVELER!" },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID2 */
-    {  16,   5, 0x37, 0, "Come on GRAVELER!\fI love GRAVELER!\nI collect them!\fHuh?\fGRAVELER turned\ninto a different\nPOKEMON!" },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID3 */
-    {   4,  11, 0x35, 0, "You can identify\nPOKEMON you got\nin trades by\ntheir ID Numbers!" },  /* SPRITE_LITTLE_BOY, STAY, TEXT_CELADONMART3F_LITTLE_BOY */
+    {  32,  11, 0x26, 0, "Oh, hi! I finally\nfinished POKEMON!\fNot done yet?\nThis might be\nuseful!", NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART3F_CLERK */
+    {  22,  13, 0x37, 0, "Captured POKEMON\nare registered\nwith an ID No.\nand OT, the name\nof the Original\nTrainer that\ncaught it!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID1 */
+    {  14,   5, 0x37, 0, "All right!\fMy buddy's going\nto trade me his\nKANGASKHAN for my\nGRAVELER!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID2 */
+    {  16,   5, 0x37, 0, "Come on GRAVELER!\fI love GRAVELER!\nI collect them!\fHuh?\fGRAVELER turned\ninto a different\nPOKEMON!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID3 */
+    {   4,  11, 0x35, 0, "You can identify\nPOKEMON you got\nin trades by\ntheir ID Numbers!", NULL },  /* SPRITE_LITTLE_BOY, STAY, TEXT_CELADONMART3F_LITTLE_BOY */
 };
 
 static const sign_event_t kSigns_CeladonMart3F[] = {
@@ -1848,9 +1850,9 @@ static const map_warp_t kWarps_CeladonMart4F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart4F[] = {
-    {  10,  15, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART4F_CLERK */
-    {  30,  11, 0x0c, 1, "I'm getting a\nPOKE DOLL for my\ngirl friend!" },  /* SPRITE_SUPER_NERD, WALK, TEXT_CELADONMART4F_SUPER_NERD */
-    {  10,   5, 0x04, 1, "I heard something\nuseful.\fYou can run from\nwild POKEMON by\ndistracting them\nwith a POKE DOLL!" },  /* SPRITE_YOUNGSTER, WALK, TEXT_CELADONMART4F_YOUNGSTER */
+    {  10,  15, 0x26, 0, NULL, Celadon4FMart_Start },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART4F_CLERK */
+    {  30,  11, 0x0c, 1, "I'm getting a\nPOKE DOLL for my\ngirl friend!", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_CELADONMART4F_SUPER_NERD */
+    {  10,   5, 0x04, 1, "I heard something\nuseful.\fYou can run from\nwild POKEMON by\ndistracting them\nwith a POKE DOLL!", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_CELADONMART4F_YOUNGSTER */
 };
 
 static const sign_event_t kSigns_CeladonMart4F[] = {
@@ -1862,8 +1864,8 @@ static const map_warp_t kWarps_CeladonMartRoof[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMartRoof[] = {
-    {  20,   9, 0x0c, 0, "My sister is a\ntrainer, believe\nit or not.\fBut, she's so\nimmature, she\ndrives me nuts!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CELADONMARTROOF_SUPER_NERD */
-    {  10,  11, 0x08, 1, "I'm thirsty!\nI want something\nto drink!" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONMARTROOF_LITTLE_GIRL */
+    {  20,   9, 0x0c, 0, "My sister is a\ntrainer, believe\nit or not.\fBut, she's so\nimmature, she\ndrives me nuts!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CELADONMARTROOF_SUPER_NERD */
+    {  10,  11, 0x08, 1, "I'm thirsty!\nI want something\nto drink!", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONMARTROOF_LITTLE_GIRL */
 };
 
 static const sign_event_t kSigns_CeladonMartRoof[] = {
@@ -1891,10 +1893,10 @@ static const map_warp_t kWarps_CeladonMansion1F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMansion1F[] = {
-    {   0,  11, 0x05, 0, "MEOWTH: Meow!@" },  /* SPRITE_MONSTER, STAY, TEXT_CELADONMANSION1F_MEOWTH */
-    {   2,  11, 0x28, 0, "My dear POKEMON\nkeep me company.\fMEOWTH even brings\nmoney home!" },  /* SPRITE_GRANNY, STAY, TEXT_CELADONMANSION1F_GRANNY */
-    {   2,  17, 0x38, 1, "CLEFAIRY: Pi\npippippi!@" },  /* SPRITE_FAIRY, WALK, TEXT_CELADONMANSION1F_CLEFAIRY */
-    {   8,   9, 0x05, 1, "NIDORAN: Kya\nkyaoo!@" },  /* SPRITE_MONSTER, WALK, TEXT_CELADONMANSION1F_NIDORANF */
+    {   0,  11, 0x05, 0, "MEOWTH: Meow!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_CELADONMANSION1F_MEOWTH */
+    {   2,  11, 0x28, 0, "My dear POKEMON\nkeep me company.\fMEOWTH even brings\nmoney home!", NULL },  /* SPRITE_GRANNY, STAY, TEXT_CELADONMANSION1F_GRANNY */
+    {   2,  17, 0x38, 1, "CLEFAIRY: Pi\npippippi!@", NULL },  /* SPRITE_FAIRY, WALK, TEXT_CELADONMANSION1F_CLEFAIRY */
+    {   8,   9, 0x05, 1, "NIDORAN: Kya\nkyaoo!@", NULL },  /* SPRITE_MONSTER, WALK, TEXT_CELADONMANSION1F_NIDORANF */
 };
 
 static const sign_event_t kSigns_CeladonMansion1F[] = {
@@ -1920,10 +1922,10 @@ static const map_warp_t kWarps_CeladonMansion3F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMansion3F[] = {
-    {   0,   9, 0x15, 0, "Me? I'm the\nprogrammer!" },  /* SPRITE_BIKE_SHOP_CLERK, STAY, TEXT_CELADONMANSION3F_PROGRAMMER */
-    {   6,   9, 0x26, 0, "I'm the graphic\nartist!\nI drew you!" },  /* SPRITE_CLERK, STAY, TEXT_CELADONMANSION3F_GRAPHIC_ARTIST */
-    {   0,  15, 0x0c, 0, "I wrote the story!\nIsn't ERIKA cute?\fI like MISTY a\nlot too!\fOh, and SABRINA,\nI like her!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CELADONMANSION3F_WRITER */
-    {   4,   7, 0x2c, 0, "Is that right?\fI'm the game\ndesigner!\fFilling up your\nPOKEDEX is tough,\nbut don't quit!\fWhen you finish,\ncome tell me!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_CELADONMANSION3F_GAME_DESIGNER */
+    {   0,   9, 0x15, 0, "Me? I'm the\nprogrammer!", NULL },  /* SPRITE_BIKE_SHOP_CLERK, STAY, TEXT_CELADONMANSION3F_PROGRAMMER */
+    {   6,   9, 0x26, 0, "I'm the graphic\nartist!\nI drew you!", NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMANSION3F_GRAPHIC_ARTIST */
+    {   0,  15, 0x0c, 0, "I wrote the story!\nIsn't ERIKA cute?\fI like MISTY a\nlot too!\fOh, and SABRINA,\nI like her!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CELADONMANSION3F_WRITER */
+    {   4,   7, 0x2c, 0, "Is that right?\fI'm the game\ndesigner!\fFilling up your\nPOKEDEX is tough,\nbut don't quit!\fWhen you finish,\ncome tell me!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_CELADONMANSION3F_GAME_DESIGNER */
 };
 
 static const sign_event_t kSigns_CeladonMansion3F[] = {
@@ -1949,7 +1951,7 @@ static const map_warp_t kWarps_CeladonMansionRoofHouse[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMansionRoofHouse[] = {
-    {   4,   5, 0x0e, 0, "I know everything\nabout the world\nof POKEMON in\nyour GAME BOY!\fGet together with\nyour friends and\ntrade POKEMON!" },  /* SPRITE_HIKER, STAY, TEXT_CELADONMANSION_ROOF_HOUSE_HIKER */
+    {   4,   5, 0x0e, 0, "I know everything\nabout the world\nof POKEMON in\nyour GAME BOY!\fGet together with\nyour friends and\ntrade POKEMON!", NULL },  /* SPRITE_HIKER, STAY, TEXT_CELADONMANSION_ROOF_HOUSE_HIKER */
 };
 
 static const map_warp_t kWarps_CeladonPokecenter[] = {
@@ -1958,10 +1960,10 @@ static const map_warp_t kWarps_CeladonPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_CeladonPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_CELADONPOKECENTER_NURSE */
-    {  14,   7, 0x10, 1, "POKE FLUTE awakens\nPOKEMON with a\nsound that only\nthey can hear!" },  /* SPRITE_GENTLEMAN, WALK, TEXT_CELADONPOKECENTER_GENTLEMAN */
-    {  20,  11, 0x0f, 1, "I rode uphill on\nCYCLING ROAD from\nFUCHSIA!" },  /* SPRITE_BEAUTY, WALK, TEXT_CELADONPOKECENTER_BEAUTY */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CELADONPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_CELADONPOKECENTER_NURSE */
+    {  14,   7, 0x10, 1, "POKE FLUTE awakens\nPOKEMON with a\nsound that only\nthey can hear!", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_CELADONPOKECENTER_GENTLEMAN */
+    {  20,  11, 0x0f, 1, "I rode uphill on\nCYCLING ROAD from\nFUCHSIA!", NULL },  /* SPRITE_BEAUTY, WALK, TEXT_CELADONPOKECENTER_BEAUTY */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CELADONPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_CeladonGym[] = {
@@ -1970,14 +1972,14 @@ static const map_warp_t kWarps_CeladonGym[] = {
 };
 
 static const npc_event_t kNpcs_CeladonGym[] = {
-    {   8,   7, 0x1b, 0, "Hello. Lovely\nweather isn't it?\nIt's so pleasant.\f...Oh dear...\nI must have dozed\noff. Welcome.\fMy name is ERIKA.\nI am the LEADER\nof CELADON GYM.\fI teach the art of\nflower arranging.\nMy POKEMON are of\nthe grass-type.\fOh, I'm sorry, I\nhad no idea that\nyou wished to\nchallenge me.\fVery well, but I\nshall not lose." },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CELADONGYM_ERIKA */
-    {   4,  23, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F1 */
-    {  14,  21, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY1 */
-    {  18,  11, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F2 */
-    {   2,  11, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY2 */
-    {  12,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F3 */
-    {   6,   7, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY3 */
-    {  10,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F4 */
+    {   8,   7, 0x1b, 0, "Hello. Lovely\nweather isn't it?\nIt's so pleasant.\f...Oh dear...\nI must have dozed\noff. Welcome.\fMy name is ERIKA.\nI am the LEADER\nof CELADON GYM.\fI teach the art of\nflower arranging.\nMy POKEMON are of\nthe grass-type.\fOh, I'm sorry, I\nhad no idea that\nyou wished to\nchallenge me.\fVery well, but I\nshall not lose.", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CELADONGYM_ERIKA */
+    {   4,  23, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F1 */
+    {  14,  21, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY1 */
+    {  18,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F2 */
+    {   2,  11, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY2 */
+    {  12,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F3 */
+    {   6,   7, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY3 */
+    {  10,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F4 */
 };
 
 static const map_warp_t kWarps_GameCorner[] = {
@@ -1987,17 +1989,17 @@ static const map_warp_t kWarps_GameCorner[] = {
 };
 
 static const npc_event_t kNpcs_GameCorner[] = {
-    {   4,  13, 0x0f, 0, "Welcome!\fYou can exchange\nyour coins for\nfabulous prizes\nnext door." },  /* SPRITE_BEAUTY, STAY, TEXT_GAMECORNER_BEAUTY1 */
-    {  10,  13, 0x26, 0, "Welcome to ROCKET\nGAME CORNER!\fDo you need some\ngame coins?\fIt's ¥1000 for 50\ncoins. Would you\nlike some?" },  /* SPRITE_CLERK, STAY, TEXT_GAMECORNER_CLERK1 */
-    {   4,  21, 0x0a, 0, "Keep this quiet.\fIt's rumored that\nthis place is run\nby TEAM ROCKET." },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_GAMECORNER_MIDDLE_AGED_MAN1 */
-    {   4,  27, 0x0f, 0, "I think these\nmachines have\ndifferent odds." },  /* SPRITE_BEAUTY, STAY, TEXT_GAMECORNER_BEAUTY2 */
-    {  10,  23, 0x27, 0, "Kid, do you want\nto play?" },  /* SPRITE_FISHING_GURU, STAY, TEXT_GAMECORNER_FISHING_GURU */
-    {  16,  23, 0x1c, 0, "I'm having a\nwonderful time!" },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_GAMECORNER_MIDDLE_AGED_WOMAN */
-    {  16,  29, 0x24, 0, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_GAMECORNER_GYM_GUIDE */
-    {  22,  31, 0x0b, 0, "Games are scary!\nIt's so easy to\nget hooked!" },  /* SPRITE_GAMBLER, STAY, TEXT_GAMECORNER_GAMBLER */
-    {  28,  23, 0x26, 0, "What's up? Want\nsome coins?" },  /* SPRITE_CLERK, STAY, TEXT_GAMECORNER_CLERK2 */
-    {  34,  27, 0x10, 0, "Hey, what? You're\nthrowing me off!\nHere are some\ncoins, shoo!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_GAMECORNER_GENTLEMAN */
-    {  18,  11, 0x18, 0, "I'm guarding this\nposter!\nGo away, or else!" },  /* SPRITE_ROCKET, STAY, TEXT_GAMECORNER_ROCKET */
+    {   4,  13, 0x0f, 0, "Welcome!\fYou can exchange\nyour coins for\nfabulous prizes\nnext door.", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_GAMECORNER_BEAUTY1 */
+    {  10,  13, 0x26, 0, "Welcome to ROCKET\nGAME CORNER!\fDo you need some\ngame coins?\fIt's ¥1000 for 50\ncoins. Would you\nlike some?", NULL },  /* SPRITE_CLERK, STAY, TEXT_GAMECORNER_CLERK1 */
+    {   4,  21, 0x0a, 0, "Keep this quiet.\fIt's rumored that\nthis place is run\nby TEAM ROCKET.", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_GAMECORNER_MIDDLE_AGED_MAN1 */
+    {   4,  27, 0x0f, 0, "I think these\nmachines have\ndifferent odds.", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_GAMECORNER_BEAUTY2 */
+    {  10,  23, 0x27, 0, "Kid, do you want\nto play?", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_GAMECORNER_FISHING_GURU */
+    {  16,  23, 0x1c, 0, "I'm having a\nwonderful time!", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_GAMECORNER_MIDDLE_AGED_WOMAN */
+    {  16,  29, 0x24, 0, NULL, NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_GAMECORNER_GYM_GUIDE */
+    {  22,  31, 0x0b, 0, "Games are scary!\nIt's so easy to\nget hooked!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_GAMECORNER_GAMBLER */
+    {  28,  23, 0x26, 0, "What's up? Want\nsome coins?", NULL },  /* SPRITE_CLERK, STAY, TEXT_GAMECORNER_CLERK2 */
+    {  34,  27, 0x10, 0, "Hey, what? You're\nthrowing me off!\nHere are some\ncoins, shoo!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_GAMECORNER_GENTLEMAN */
+    {  18,  11, 0x18, 0, "I'm guarding this\nposter!\nGo away, or else!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_GAMECORNER_ROCKET */
 };
 
 static const sign_event_t kSigns_GameCorner[] = {
@@ -2011,10 +2013,10 @@ static const map_warp_t kWarps_CeladonMart5F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart5F[] = {
-    {  28,  11, 0x10, 1, "POKEMON ability\nenhancers can be\nbought only here.\fUse CALCIUM to\nincrease SPECIAL\nabilities.\fUse CARBOS to\nincrease SPEED." },  /* SPRITE_GENTLEMAN, WALK, TEXT_CELADONMART5F_GENTLEMAN */
-    {   4,  13, 0x13, 0, "I'm here for\nPOKEMON ability\nenhancers.\fPROTEIN increases\nATTACK power.\fIRON increases\nDEFENSE!" },  /* SPRITE_SAILOR, STAY, TEXT_CELADONMART5F_SAILOR */
-    {  10,   7, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART5F_CLERK1 */
-    {  12,   7, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART5F_CLERK2 */
+    {  28,  11, 0x10, 1, "POKEMON ability\nenhancers can be\nbought only here.\fUse CALCIUM to\nincrease SPECIAL\nabilities.\fUse CARBOS to\nincrease SPEED.", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_CELADONMART5F_GENTLEMAN */
+    {   4,  13, 0x13, 0, "I'm here for\nPOKEMON ability\nenhancers.\fPROTEIN increases\nATTACK power.\fIRON increases\nDEFENSE!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_CELADONMART5F_SAILOR */
+    {  10,   7, 0x26, 0, NULL, Celadon5F1Mart_Start },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART5F_CLERK1 */
+    {  12,   7, 0x26, 0, NULL, Celadon5F2Mart_Start },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART5F_CLERK2 */
 };
 
 static const sign_event_t kSigns_CeladonMart5F[] = {
@@ -2027,8 +2029,8 @@ static const map_warp_t kWarps_GameCornerPrizeRoom[] = {
 };
 
 static const npc_event_t kNpcs_GameCornerPrizeRoom[] = {
-    {   2,   9, 0x34, 0, "I sure do fancy\nthat PORYGON!\fBut, it's hard to\nwin at slots!" },  /* SPRITE_BALDING_GUY, STAY, TEXT_GAMECORNERPRIZEROOM_BALDING_GUY */
-    {  14,   7, 0x0b, 1, "I had a major\nhaul today!" },  /* SPRITE_GAMBLER, WALK, TEXT_GAMECORNERPRIZEROOM_GAMBLER */
+    {   2,   9, 0x34, 0, "I sure do fancy\nthat PORYGON!\fBut, it's hard to\nwin at slots!", NULL },  /* SPRITE_BALDING_GUY, STAY, TEXT_GAMECORNERPRIZEROOM_BALDING_GUY */
+    {  14,   7, 0x0b, 1, "I had a major\nhaul today!", NULL },  /* SPRITE_GAMBLER, WALK, TEXT_GAMECORNERPRIZEROOM_GAMBLER */
 };
 
 static const sign_event_t kSigns_GameCornerPrizeRoom[] = {
@@ -2043,11 +2045,11 @@ static const map_warp_t kWarps_CeladonDiner[] = {
 };
 
 static const npc_event_t kNpcs_CeladonDiner[] = {
-    {  16,  11, 0x14, 1, "Hi!\fWe're taking a\nbreak now." },  /* SPRITE_COOK, WALK, TEXT_CELADONDINER_COOK */
-    {  14,   5, 0x1c, 0, "My POKEMON are\nweak, so I often\nhave to go to the\nDRUG STORE." },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_WOMAN */
-    {   2,   9, 0x0a, 0, "Psst! There's a\nbasement under\nthe GAME CORNER." },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_MAN */
-    {  10,   7, 0x2f, 0, "Munch...\fThe man at that\ntable lost it all\nat the slots." },  /* SPRITE_FISHER, STAY, TEXT_CELADONDINER_FISHER */
-    {   0,   3, 0x24, 0, "Go ahead! Laugh!\fI'm flat out\nbusted!\fNo more slots for\nme! I'm going\nstraight!\fHere! I won't be\nneeding this any-\nmore!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CELADONDINER_GYM_GUIDE */
+    {  16,  11, 0x14, 1, "Hi!\fWe're taking a\nbreak now.", NULL },  /* SPRITE_COOK, WALK, TEXT_CELADONDINER_COOK */
+    {  14,   5, 0x1c, 0, "My POKEMON are\nweak, so I often\nhave to go to the\nDRUG STORE.", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_WOMAN */
+    {   2,   9, 0x0a, 0, "Psst! There's a\nbasement under\nthe GAME CORNER.", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_MAN */
+    {  10,   7, 0x2f, 0, "Munch...\fThe man at that\ntable lost it all\nat the slots.", NULL },  /* SPRITE_FISHER, STAY, TEXT_CELADONDINER_FISHER */
+    {   0,   3, 0x24, 0, "Go ahead! Laugh!\fI'm flat out\nbusted!\fNo more slots for\nme! I'm going\nstraight!\fHere! I won't be\nneeding this any-\nmore!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CELADONDINER_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_CeladonChiefHouse[] = {
@@ -2056,9 +2058,9 @@ static const map_warp_t kWarps_CeladonChiefHouse[] = {
 };
 
 static const npc_event_t kNpcs_CeladonChiefHouse[] = {
-    {   8,   5, 0x25, 0, "Hehehe! The slots\njust reel in the\ndough, big time!" },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCHIEFHOUSE_CHIEF */
-    {   2,   9, 0x18, 1, "CHIEF!\fWe just shipped\n2000 POKEMON as\nslot prizes!" },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCHIEFHOUSE_ROCKET */
-    {  10,  13, 0x13, 0, "Don't touch the\nposter at the\nGAME CORNER!\fThere's no secret\nswitch behind it!" },  /* SPRITE_SAILOR, STAY, TEXT_CELADONCHIEFHOUSE_SAILOR */
+    {   8,   5, 0x25, 0, "Hehehe! The slots\njust reel in the\ndough, big time!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCHIEFHOUSE_CHIEF */
+    {   2,   9, 0x18, 1, "CHIEF!\fWe just shipped\n2000 POKEMON as\nslot prizes!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCHIEFHOUSE_ROCKET */
+    {  10,  13, 0x13, 0, "Don't touch the\nposter at the\nGAME CORNER!\fThere's no secret\nswitch behind it!", NULL },  /* SPRITE_SAILOR, STAY, TEXT_CELADONCHIEFHOUSE_SAILOR */
 };
 
 static const map_warp_t kWarps_CeladonHotel[] = {
@@ -2067,9 +2069,9 @@ static const map_warp_t kWarps_CeladonHotel[] = {
 };
 
 static const npc_event_t kNpcs_CeladonHotel[] = {
-    {   6,   3, 0x28, 0, "POKEMON? No, this\nis a hotel for\npeople.\fWe're full up." },  /* SPRITE_GRANNY, STAY, TEXT_CELADONHOTEL_GRANNY */
-    {   4,   9, 0x0f, 0, "I'm on vacation\nwith my brother\nand boy friend.\fCELADON is such a\npretty city!" },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONHOTEL_BEAUTY */
-    {  16,   9, 0x0c, 1, "Why did she bring\nher brother?" },  /* SPRITE_SUPER_NERD, WALK, TEXT_CELADONHOTEL_SUPER_NERD */
+    {   6,   3, 0x28, 0, "POKEMON? No, this\nis a hotel for\npeople.\fWe're full up.", NULL },  /* SPRITE_GRANNY, STAY, TEXT_CELADONHOTEL_GRANNY */
+    {   4,   9, 0x0f, 0, "I'm on vacation\nwith my brother\nand boy friend.\fCELADON is such a\npretty city!", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONHOTEL_BEAUTY */
+    {  16,   9, 0x0c, 1, "Why did she bring\nher brother?", NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_CELADONHOTEL_SUPER_NERD */
 };
 
 static const map_warp_t kWarps_LavenderPokecenter[] = {
@@ -2078,10 +2080,10 @@ static const map_warp_t kWarps_LavenderPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_LavenderPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_LAVENDERPOKECENTER_NURSE */
-    {  10,   7, 0x10, 0, "TEAM ROCKET will\ndo anything for\nthe sake of gold!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_LAVENDERPOKECENTER_GENTLEMAN */
-    {   4,  13, 0x08, 1, "I saw CUBONE's\nmother die trying\nto escape from\nTEAM ROCKET!" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_LAVENDERPOKECENTER_LITTLE_GIRL */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_LAVENDERPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_LAVENDERPOKECENTER_NURSE */
+    {  10,   7, 0x10, 0, "TEAM ROCKET will\ndo anything for\nthe sake of gold!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_LAVENDERPOKECENTER_GENTLEMAN */
+    {   4,  13, 0x08, 1, "I saw CUBONE's\nmother die trying\nto escape from\nTEAM ROCKET!", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_LAVENDERPOKECENTER_LITTLE_GIRL */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_LAVENDERPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_PokemonTower1F[] = {
@@ -2091,11 +2093,11 @@ static const map_warp_t kWarps_PokemonTower1F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower1F[] = {
-    {  30,  27, 0x2a, 0, "POKEMON TOWER was\nerected in the\nmemory of POKEMON\nthat had died." },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_POKEMONTOWER1F_RECEPTIONIST */
-    {  12,  17, 0x1c, 0, "Did you come to\npay respects?\nBless you!" },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_POKEMONTOWER1F_MIDDLE_AGED_WOMAN */
-    {  16,  25, 0x34, 0, "I came to pray\nfor my CLEFAIRY.\fSniff! I can't\nstop crying..." },  /* SPRITE_BALDING_GUY, STAY, TEXT_POKEMONTOWER1F_BALDING_GUY */
-    {  26,  15, 0x0d, 0, "My GROWLITHE...\nWhy did you die?" },  /* SPRITE_GIRL, STAY, TEXT_POKEMONTOWER1F_GIRL */
-    {  34,  15, 0x19, 0, "I am a CHANNELER!\nThere are spirits\nup to mischief!" },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER1F_CHANNELER */
+    {  30,  27, 0x2a, 0, "POKEMON TOWER was\nerected in the\nmemory of POKEMON\nthat had died.", NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_POKEMONTOWER1F_RECEPTIONIST */
+    {  12,  17, 0x1c, 0, "Did you come to\npay respects?\nBless you!", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_POKEMONTOWER1F_MIDDLE_AGED_WOMAN */
+    {  16,  25, 0x34, 0, "I came to pray\nfor my CLEFAIRY.\fSniff! I can't\nstop crying...", NULL },  /* SPRITE_BALDING_GUY, STAY, TEXT_POKEMONTOWER1F_BALDING_GUY */
+    {  26,  15, 0x0d, 0, "My GROWLITHE...\nWhy did you die?", NULL },  /* SPRITE_GIRL, STAY, TEXT_POKEMONTOWER1F_GIRL */
+    {  34,  15, 0x19, 0, "I am a CHANNELER!\nThere are spirits\nup to mischief!", NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER1F_CHANNELER */
 };
 
 static const map_warp_t kWarps_PokemonTower2F[] = {
@@ -2104,8 +2106,8 @@ static const map_warp_t kWarps_PokemonTower2F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower2F[] = {
-    {  28,  11, 0x02, 0, "{RIVAL}: Hey,\n{PLAYER}! What\nbrings you here?\nYour POKEMON\ndon't look dead!\fI can at least\nmake them faint!\nLet's go, pal!" },  /* SPRITE_BLUE, STAY, TEXT_POKEMONTOWER2F_RIVAL */
-    {   6,  15, 0x19, 0, "Even we could not\nidentify the\nwayward GHOSTs!\fA SILPH SCOPE\nmight be able to\nunmask them." },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER2F_CHANNELER */
+    {  28,  11, 0x02, 0, "{RIVAL}: Hey,\n{PLAYER}! What\nbrings you here?\nYour POKEMON\ndon't look dead!\fI can at least\nmake them faint!\nLet's go, pal!", NULL },  /* SPRITE_BLUE, STAY, TEXT_POKEMONTOWER2F_RIVAL */
+    {   6,  15, 0x19, 0, "Even we could not\nidentify the\nwayward GHOSTs!\fA SILPH SCOPE\nmight be able to\nunmask them.", NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER2F_CHANNELER */
 };
 
 static const map_warp_t kWarps_PokemonTower3F[] = {
@@ -2114,9 +2116,9 @@ static const map_warp_t kWarps_PokemonTower3F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower3F[] = {
-    {  24,   7, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER1 */
-    {  18,  17, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER2 */
-    {  20,  27, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER3 */
+    {  24,   7, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER1 */
+    {  18,  17, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER2 */
+    {  20,  27, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER3 */
 };
 
 static const item_event_t kItems_PokemonTower3F[] = {
@@ -2129,9 +2131,9 @@ static const map_warp_t kWarps_PokemonTower4F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower4F[] = {
-    {  10,  21, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER1 */
-    {  30,  15, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER2 */
-    {  28,  25, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER3 */
+    {  10,  21, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER1 */
+    {  30,  15, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER2 */
+    {  28,  25, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER3 */
 };
 
 static const item_event_t kItems_PokemonTower4F[] = {
@@ -2146,11 +2148,11 @@ static const map_warp_t kWarps_PokemonTower5F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower5F[] = {
-    {  24,  17, 0x19, 0, "Come, child! I\nsealed this space\nwith white magic!\fYou can rest here!" },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER1 */
-    {  34,  15, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER2 */
-    {  28,   7, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER3 */
-    {  12,  21, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER4 */
-    {  18,  33, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER5 */
+    {  24,  17, 0x19, 0, "Come, child! I\nsealed this space\nwith white magic!\fYou can rest here!", NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER1 */
+    {  34,  15, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER2 */
+    {  28,   7, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER3 */
+    {  12,  21, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER4 */
+    {  18,  33, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER5 */
 };
 
 static const item_event_t kItems_PokemonTower5F[] = {
@@ -2163,9 +2165,9 @@ static const map_warp_t kWarps_PokemonTower6F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower6F[] = {
-    {  24,  21, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER1 */
-    {  18,  11, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER2 */
-    {  32,  11, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER3 */
+    {  24,  21, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER1 */
+    {  18,  11, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER2 */
+    {  32,  11, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER3 */
 };
 
 static const item_event_t kItems_PokemonTower6F[] = {
@@ -2178,10 +2180,10 @@ static const map_warp_t kWarps_PokemonTower7F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower7F[] = {
-    {  18,  23, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET1 */
-    {  24,  19, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET2 */
-    {  18,  15, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET3 */
-    {  20,   7, 0x16, 0, "MR.FUJI: Heh? You\ncame to save me?\fThank you. But, I\ncame here of my\nown free will.\fI came to calm\nthe soul of\nCUBONE's mother.\fI think MAROWAK's\nspirit has gone\nto the afterlife.\fI must thank you\nfor your kind\nconcern!\fFollow me to my\nhome, POKEMON\nHOUSE at the foot\nof this tower." },  /* SPRITE_MR_FUJI, STAY, TEXT_POKEMONTOWER7F_MR_FUJI */
+    {  18,  23, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET1 */
+    {  24,  19, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET2 */
+    {  18,  15, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET3 */
+    {  20,   7, 0x16, 0, "MR.FUJI: Heh? You\ncame to save me?\fThank you. But, I\ncame here of my\nown free will.\fI came to calm\nthe soul of\nCUBONE's mother.\fI think MAROWAK's\nspirit has gone\nto the afterlife.\fI must thank you\nfor your kind\nconcern!\fFollow me to my\nhome, POKEMON\nHOUSE at the foot\nof this tower.", NULL },  /* SPRITE_MR_FUJI, STAY, TEXT_POKEMONTOWER7F_MR_FUJI */
 };
 
 static const map_warp_t kWarps_MrFujisHouse[] = {
@@ -2190,12 +2192,12 @@ static const map_warp_t kWarps_MrFujisHouse[] = {
 };
 
 static const npc_event_t kNpcs_MrFujisHouse[] = {
-    {   6,  11, 0x0c, 0, "That's odd, MR.FUJI\nisn't here.\nWhere'd he go?" },  /* SPRITE_SUPER_NERD, STAY, TEXT_MRFUJISHOUSE_SUPER_NERD */
-    {  12,   7, 0x08, 0, "This is really\nMR.FUJI's house.\fHe's really kind!\fHe looks after\nabandoned and\norphaned POKEMON!" },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_MRFUJISHOUSE_LITTLE_GIRL */
-    {  12,   9, 0x05, 0, "PSYDUCK: Gwappa!@" },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_PSYDUCK */
-    {   2,   7, 0x05, 0, "NIDORINO: Gaoo!@" },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_NIDORINO */
-    {   6,   3, 0x16, 0, "MR.FUJI: {PLAYER}.\fYour POKEDEX quest\nmay fail without\nlove for your\nPOKEMON.\fI think this may\nhelp your quest." },  /* SPRITE_MR_FUJI, STAY, TEXT_MRFUJISHOUSE_MR_FUJI */
-    {   6,   7, 0x41, 0, "POKEMON Monthly\nGrand Prize\nDrawing!\fThe application\nform is...\fGone! It's been\nclipped out!" },  /* SPRITE_POKEDEX, STAY, TEXT_MRFUJISHOUSE_POKEDEX */
+    {   6,  11, 0x0c, 0, "That's odd, MR.FUJI\nisn't here.\nWhere'd he go?", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MRFUJISHOUSE_SUPER_NERD */
+    {  12,   7, 0x08, 0, "This is really\nMR.FUJI's house.\fHe's really kind!\fHe looks after\nabandoned and\norphaned POKEMON!", NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_MRFUJISHOUSE_LITTLE_GIRL */
+    {  12,   9, 0x05, 0, "PSYDUCK: Gwappa!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_PSYDUCK */
+    {   2,   7, 0x05, 0, "NIDORINO: Gaoo!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_NIDORINO */
+    {   6,   3, 0x16, 0, "MR.FUJI: {PLAYER}.\fYour POKEDEX quest\nmay fail without\nlove for your\nPOKEMON.\fI think this may\nhelp your quest.", NULL },  /* SPRITE_MR_FUJI, STAY, TEXT_MRFUJISHOUSE_MR_FUJI */
+    {   6,   7, 0x41, 0, "POKEMON Monthly\nGrand Prize\nDrawing!\fThe application\nform is...\fGone! It's been\nclipped out!", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_MRFUJISHOUSE_POKEDEX */
 };
 
 static const map_warp_t kWarps_LavenderMart[] = {
@@ -2204,9 +2206,9 @@ static const map_warp_t kWarps_LavenderMart[] = {
 };
 
 static const npc_event_t kNpcs_LavenderMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_LAVENDERMART_CLERK */
-    {   6,   9, 0x34, 0, "I'm searching for\nitems that raise\nthe abilities of\nPOKEMON during a\nsingle battle.\fX ATTACK, X\nDEFEND, X SPEED\nand X SPECIAL are\nwhat I'm after.\fDo you know where\nI can get them?" },  /* SPRITE_BALDING_GUY, STAY, TEXT_LAVENDERMART_BALDING_GUY */
-    {  14,   5, 0x07, 0, "You know REVIVE?\nIt revives any\nfainted POKEMON!" },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_LAVENDERMART_COOLTRAINER_M */
+    {   0,  11, 0x26, 0, NULL, LavenderMart_Start },  /* SPRITE_CLERK, STAY, TEXT_LAVENDERMART_CLERK */
+    {   6,   9, 0x34, 0, "I'm searching for\nitems that raise\nthe abilities of\nPOKEMON during a\nsingle battle.\fX ATTACK, X\nDEFEND, X SPEED\nand X SPECIAL are\nwhat I'm after.\fDo you know where\nI can get them?", NULL },  /* SPRITE_BALDING_GUY, STAY, TEXT_LAVENDERMART_BALDING_GUY */
+    {  14,   5, 0x07, 0, "You know REVIVE?\nIt revives any\nfainted POKEMON!", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_LAVENDERMART_COOLTRAINER_M */
 };
 
 static const map_warp_t kWarps_LavenderCuboneHouse[] = {
@@ -2215,8 +2217,8 @@ static const map_warp_t kWarps_LavenderCuboneHouse[] = {
 };
 
 static const npc_event_t kNpcs_LavenderCuboneHouse[] = {
-    {   6,  11, 0x05, 0, "CUBONE: Kyarugoo!@" },  /* SPRITE_MONSTER, STAY, TEXT_LAVENDERCUBONEHOUSE_CUBONE */
-    {   4,   9, 0x1d, 0, "I hate those\nhorrible ROCKETs!\fThat poor CUBONE's\nmother...\fIt was killed\ntrying to escape\nfrom TEAM ROCKET!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_LAVENDERCUBONEHOUSE_BRUNETTE_GIRL */
+    {   6,  11, 0x05, 0, "CUBONE: Kyarugoo!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_LAVENDERCUBONEHOUSE_CUBONE */
+    {   4,   9, 0x1d, 0, "I hate those\nhorrible ROCKETs!\fThat poor CUBONE's\nmother...\fIt was killed\ntrying to escape\nfrom TEAM ROCKET!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_LAVENDERCUBONEHOUSE_BRUNETTE_GIRL */
 };
 
 static const map_warp_t kWarps_FuchsiaMart[] = {
@@ -2225,9 +2227,9 @@ static const map_warp_t kWarps_FuchsiaMart[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_FUCHSIAMART_CLERK */
-    {   8,   5, 0x0a, 0, "Do you have a\nSAFARI ZONE flag?\fWhat about cards\nor calendars?" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_FUCHSIAMART_MIDDLE_AGED_MAN */
-    {  12,  11, 0x06, 1, "Did you try X\nSPEED? It speeds\nup a POKEMON in\nbattle!" },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_FUCHSIAMART_COOLTRAINER_F */
+    {   0,  11, 0x26, 0, NULL, FuchsiaMart_Start },  /* SPRITE_CLERK, STAY, TEXT_FUCHSIAMART_CLERK */
+    {   8,   5, 0x0a, 0, "Do you have a\nSAFARI ZONE flag?\fWhat about cards\nor calendars?", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_FUCHSIAMART_MIDDLE_AGED_MAN */
+    {  12,  11, 0x06, 1, "Did you try X\nSPEED? It speeds\nup a POKEMON in\nbattle!", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_FUCHSIAMART_COOLTRAINER_F */
 };
 
 static const map_warp_t kWarps_FuchsiaBillsGrandpasHouse[] = {
@@ -2236,9 +2238,9 @@ static const map_warp_t kWarps_FuchsiaBillsGrandpasHouse[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaBillsGrandpasHouse[] = {
-    {   4,   7, 0x1c, 0, "SAFARI ZONE's\nWARDEN is old,\nbut still active!\fAll his teeth are\nfalse, though." },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_MIDDLE_AGED_WOMAN */
-    {  14,   5, 0x0b, 0, "Hmm? You've met\nBILL?\fHe's my grandson!\fHe always liked\ncollecting things\neven as a child!" },  /* SPRITE_GAMBLER, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_BILLS_GRANDPA */
-    {  10,  11, 0x04, 0, "BILL files his\nown POKEMON data\non his PC!\fDid he show you?" },  /* SPRITE_YOUNGSTER, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_YOUNGSTER */
+    {   4,   7, 0x1c, 0, "SAFARI ZONE's\nWARDEN is old,\nbut still active!\fAll his teeth are\nfalse, though.", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_MIDDLE_AGED_WOMAN */
+    {  14,   5, 0x0b, 0, "Hmm? You've met\nBILL?\fHe's my grandson!\fHe always liked\ncollecting things\neven as a child!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_BILLS_GRANDPA */
+    {  10,  11, 0x04, 0, "BILL files his\nown POKEMON data\non his PC!\fDid he show you?", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_FUCHSIABILLSGRANDPASHOUSE_YOUNGSTER */
 };
 
 static const map_warp_t kWarps_FuchsiaPokecenter[] = {
@@ -2247,10 +2249,10 @@ static const map_warp_t kWarps_FuchsiaPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_FUCHSIAPOKECENTER_NURSE */
-    {   4,   7, 0x21, 0, "You can't win\nwith just one\nstrong POKEMON.\fIt's tough, but\nyou have to raise\nthem evenly." },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAPOKECENTER_ROCKER */
-    {  12,  11, 0x06, 1, "There's a narrow\ntrail west of\nVIRIDIAN CITY.\fIt goes to POKEMON\nLEAGUE HQ.\nThe HQ governs\nall trainers." },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_FUCHSIAPOKECENTER_COOLTRAINER_F */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_FUCHSIAPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_FUCHSIAPOKECENTER_NURSE */
+    {   4,   7, 0x21, 0, "You can't win\nwith just one\nstrong POKEMON.\fIt's tough, but\nyou have to raise\nthem evenly.", NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAPOKECENTER_ROCKER */
+    {  12,  11, 0x06, 1, "There's a narrow\ntrail west of\nVIRIDIAN CITY.\fIt goes to POKEMON\nLEAGUE HQ.\nThe HQ governs\nall trainers.", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_FUCHSIAPOKECENTER_COOLTRAINER_F */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_FUCHSIAPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_WardensHouse[] = {
@@ -2259,8 +2261,8 @@ static const map_warp_t kWarps_WardensHouse[] = {
 };
 
 static const npc_event_t kNpcs_WardensHouse[] = {
-    {   4,   7, 0x2d, 0, "WARDEN: Hif fuff\nhefifoo!\fHa lof ha feef ee\nhafahi ho. Heff\nhee fwee!" },  /* SPRITE_WARDEN, STAY, TEXT_WARDENSHOUSE_WARDEN */
-    {  16,   9, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_WARDENSHOUSE_BOULDER */
+    {   4,   7, 0x2d, 0, "WARDEN: Hif fuff\nhefifoo!\fHa lof ha feef ee\nhafahi ho. Heff\nhee fwee!", NULL },  /* SPRITE_WARDEN, STAY, TEXT_WARDENSHOUSE_WARDEN */
+    {  16,   9, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_WARDENSHOUSE_BOULDER */
 };
 
 static const sign_event_t kSigns_WardensHouse[] = {
@@ -2280,8 +2282,8 @@ static const map_warp_t kWarps_SafariZoneGate[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneGate[] = {
-    {  12,   5, 0x23, 0, "Welcome to the\nSAFARI ZONE!" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONEGATE_SAFARI_ZONE_WORKER1 */
-    {   2,   9, 0x23, 0, "Hi! Is it your\nfirst time here?" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONEGATE_SAFARI_ZONE_WORKER2 */
+    {  12,   5, 0x23, 0, "Welcome to the\nSAFARI ZONE!", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONEGATE_SAFARI_ZONE_WORKER1 */
+    {   2,   9, 0x23, 0, "Hi! Is it your\nfirst time here?", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONEGATE_SAFARI_ZONE_WORKER2 */
 };
 
 static const map_warp_t kWarps_FuchsiaGym[] = {
@@ -2290,14 +2292,14 @@ static const map_warp_t kWarps_FuchsiaGym[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaGym[] = {
-    {   8,  21, 0x30, 0, "KOGA: Fwahahaha!\fA mere child like\nyou dares to\nchallenge me?\fVery well, I\nshall show you\ntrue terror as a\nninja master!\fYou shall feel\nthe despair of\npoison and sleep\ntechniques!" },  /* SPRITE_KOGA, STAY, TEXT_FUCHSIAGYM_KOGA */
-    {  16,  27, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER1 */
-    {  14,  17, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER2 */
-    {   2,  25, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER3 */
-    {   6,  11, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER4 */
-    {  16,   5, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER5 */
-    {   4,  15, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER6 */
-    {  14,  31, 0x24, 0, "Yo! Champ in\nmaking!\fFUCHSIA GYM is\nriddled with\ninvisible walls!\fKOGA might appear\nclose, but he's\nblocked off!\fYou have to find\ngaps in the walls\nto reach him!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_FUCHSIAGYM_GYM_GUIDE */
+    {   8,  21, 0x30, 0, "KOGA: Fwahahaha!\fA mere child like\nyou dares to\nchallenge me?\fVery well, I\nshall show you\ntrue terror as a\nninja master!\fYou shall feel\nthe despair of\npoison and sleep\ntechniques!", NULL },  /* SPRITE_KOGA, STAY, TEXT_FUCHSIAGYM_KOGA */
+    {  16,  27, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER1 */
+    {  14,  17, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER2 */
+    {   2,  25, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER3 */
+    {   6,  11, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER4 */
+    {  16,   5, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER5 */
+    {   4,  15, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER6 */
+    {  14,  31, 0x24, 0, "Yo! Champ in\nmaking!\fFUCHSIA GYM is\nriddled with\ninvisible walls!\fKOGA might appear\nclose, but he's\nblocked off!\fYou have to find\ngaps in the walls\nto reach him!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_FUCHSIAGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_FuchsiaMeetingRoom[] = {
@@ -2306,9 +2308,9 @@ static const map_warp_t kWarps_FuchsiaMeetingRoom[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaMeetingRoom[] = {
-    {   8,   3, 0x23, 0, "We nicknamed the\nWARDEN SLOWPOKE.\fHe and SLOWPOKE\nboth look vacant!" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER1 */
-    {   0,   5, 0x23, 0, "SLOWPOKE is very\nknowledgeable\nabout POKEMON!\fHe even has some\nfossils of rare,\nextinct POKEMON!" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER2 */
-    {  20,   3, 0x23, 0, "SLOWPOKE came in,\nbut I couldn't\nunderstand him.\fI think he's got\na speech problem!" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER3 */
+    {   8,   3, 0x23, 0, "We nicknamed the\nWARDEN SLOWPOKE.\fHe and SLOWPOKE\nboth look vacant!", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER1 */
+    {   0,   5, 0x23, 0, "SLOWPOKE is very\nknowledgeable\nabout POKEMON!\fHe even has some\nfossils of rare,\nextinct POKEMON!", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER2 */
+    {  20,   3, 0x23, 0, "SLOWPOKE came in,\nbut I couldn't\nunderstand him.\fI think he's got\na speech problem!", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_FUCHSIAMEETINGROOM_SAFARI_ZONE_WORKER3 */
 };
 
 static const map_warp_t kWarps_SeafoamIslandsB1F[] = {
@@ -2322,8 +2324,8 @@ static const map_warp_t kWarps_SeafoamIslandsB1F[] = {
 };
 
 static const npc_event_t kNpcs_SeafoamIslandsB1F[] = {
-    {  34,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB1F_BOULDER1 */
-    {  44,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB1F_BOULDER2 */
+    {  34,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB1F_BOULDER1 */
+    {  44,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB1F_BOULDER2 */
 };
 
 static const map_warp_t kWarps_SeafoamIslandsB2F[] = {
@@ -2337,8 +2339,8 @@ static const map_warp_t kWarps_SeafoamIslandsB2F[] = {
 };
 
 static const npc_event_t kNpcs_SeafoamIslandsB2F[] = {
-    {  36,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB2F_BOULDER1 */
-    {  46,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB2F_BOULDER2 */
+    {  36,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB2F_BOULDER1 */
+    {  46,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB2F_BOULDER2 */
 };
 
 static const map_warp_t kWarps_SeafoamIslandsB3F[] = {
@@ -2352,12 +2354,12 @@ static const map_warp_t kWarps_SeafoamIslandsB3F[] = {
 };
 
 static const npc_event_t kNpcs_SeafoamIslandsB3F[] = {
-    {  10,  29, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER1 */
-    {   6,  31, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER2 */
-    {  16,  29, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER3 */
-    {  18,  29, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER4 */
-    {  36,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER5 */
-    {  38,  13, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER6 */
+    {  10,  29, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER1 */
+    {   6,  31, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER2 */
+    {  16,  29, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER3 */
+    {  18,  29, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER4 */
+    {  36,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER5 */
+    {  38,  13, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB3F_BOULDER6 */
 };
 
 static const map_warp_t kWarps_SeafoamIslandsB4F[] = {
@@ -2368,9 +2370,9 @@ static const map_warp_t kWarps_SeafoamIslandsB4F[] = {
 };
 
 static const npc_event_t kNpcs_SeafoamIslandsB4F[] = {
-    {   8,  31, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB4F_BOULDER1 */
-    {  10,  31, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB4F_BOULDER2 */
-    {  12,   3, 0x09, 0, NULL },  /* SPRITE_BIRD, STAY, TEXT_SEAFOAMISLANDSB4F_ARTICUNO */
+    {   8,  31, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB4F_BOULDER1 */
+    {  10,  31, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDSB4F_BOULDER2 */
+    {  12,   3, 0x09, 0, NULL, NULL },  /* SPRITE_BIRD, STAY, TEXT_SEAFOAMISLANDSB4F_ARTICUNO */
 };
 
 static const sign_event_t kSigns_SeafoamIslandsB4F[] = {
@@ -2384,7 +2386,7 @@ static const map_warp_t kWarps_VermilionOldRodHouse[] = {
 };
 
 static const npc_event_t kNpcs_VermilionOldRodHouse[] = {
-    {   4,   9, 0x27, 0, "I'm the FISHING\nGURU!\fI simply Looove\nfishing!\fDo you like to\nfish?" },  /* SPRITE_FISHING_GURU, STAY, TEXT_VERMILIONOLDRODHOUSE_FISHING_GURU */
+    {   4,   9, 0x27, 0, "I'm the FISHING\nGURU!\fI simply Looove\nfishing!\fDo you like to\nfish?", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_VERMILIONOLDRODHOUSE_FISHING_GURU */
 };
 
 static const map_warp_t kWarps_FuchsiaGoodRodHouse[] = {
@@ -2394,7 +2396,7 @@ static const map_warp_t kWarps_FuchsiaGoodRodHouse[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaGoodRodHouse[] = {
-    {  10,   7, 0x27, 0, "I'm the FISHING\nGURU's older\nbrother!\fI simply Looove\nfishing!\fDo you like to\nfish?" },  /* SPRITE_FISHING_GURU, STAY, TEXT_FUCHSIAGOODRODHOUSE_FISHING_GURU */
+    {  10,   7, 0x27, 0, "I'm the FISHING\nGURU's older\nbrother!\fI simply Looove\nfishing!\fDo you like to\nfish?", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_FUCHSIAGOODRODHOUSE_FISHING_GURU */
 };
 
 static const map_warp_t kWarps_PokemonMansion1F[] = {
@@ -2409,7 +2411,7 @@ static const map_warp_t kWarps_PokemonMansion1F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonMansion1F[] = {
-    {  34,  35, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSION1F_SCIENTIST */
+    {  34,  35, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSION1F_SCIENTIST */
 };
 
 static const item_event_t kItems_PokemonMansion1F[] = {
@@ -2423,15 +2425,15 @@ static const map_warp_t kWarps_CinnabarGym[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarGym[] = {
-    {   6,   7, 0x0a, 0, "Hah!\fI am BLAINE! I\nam the LEADER of\nCINNABAR GYM!\fMy fiery POKEMON\nwill incinerate\nall challengers!\fHah! You better\nhave BURN HEAL!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CINNABARGYM_BLAINE */
-    {  34,   5, 0x0c, 0, "Do you know how\nhot POKEMON fire\nbreath can get?" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD1 */
-    {  34,  17, 0x0c, 0, "I was a thief, but\nI became straight\nas a trainer!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD2 */
-    {  22,   9, 0x0c, 0, "You can't win!\nI have studied\nPOKEMON totally!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD3 */
-    {  22,  17, 0x0c, 0, "I just like using\nfire POKEMON!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD4 */
-    {  22,  29, 0x0c, 0, "I know why BLAINE\nbecame a trainer!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD5 */
-    {   6,  29, 0x0c, 0, "I've been to many\nGYMs, but this is\nmy favorite!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD6 */
-    {   6,  17, 0x0c, 0, "Fire is weak\nagainst H2O!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD7 */
-    {  32,  27, 0x24, 0, "Yo! Champ in\nmaking!\fThe hot-headed\nBLAINE is a fire\nPOKEMON pro!\fDouse his spirits\nwith water!\fYou better take\nsome BURN HEALs!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CINNABARGYM_GYM_GUIDE */
+    {   6,   7, 0x0a, 0, "Hah!\fI am BLAINE! I\nam the LEADER of\nCINNABAR GYM!\fMy fiery POKEMON\nwill incinerate\nall challengers!\fHah! You better\nhave BURN HEAL!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CINNABARGYM_BLAINE */
+    {  34,   5, 0x0c, 0, "Do you know how\nhot POKEMON fire\nbreath can get?", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD1 */
+    {  34,  17, 0x0c, 0, "I was a thief, but\nI became straight\nas a trainer!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD2 */
+    {  22,   9, 0x0c, 0, "You can't win!\nI have studied\nPOKEMON totally!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD3 */
+    {  22,  17, 0x0c, 0, "I just like using\nfire POKEMON!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD4 */
+    {  22,  29, 0x0c, 0, "I know why BLAINE\nbecame a trainer!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD5 */
+    {   6,  29, 0x0c, 0, "I've been to many\nGYMs, but this is\nmy favorite!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD6 */
+    {   6,  17, 0x0c, 0, "Fire is weak\nagainst H2O!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD7 */
+    {  32,  27, 0x24, 0, "Yo! Champ in\nmaking!\fThe hot-headed\nBLAINE is a fire\nPOKEMON pro!\fDouse his spirits\nwith water!\fYou better take\nsome BURN HEALs!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CINNABARGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_CinnabarLab[] = {
@@ -2443,7 +2445,7 @@ static const map_warp_t kWarps_CinnabarLab[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarLab[] = {
-    {   2,   7, 0x27, 0, "We study POKEMON\nextensively here.\fPeople often bring\nus rare POKEMON\nfor examination." },  /* SPRITE_FISHING_GURU, STAY, TEXT_CINNABARLAB_FISHING_GURU */
+    {   2,   7, 0x27, 0, "We study POKEMON\nextensively here.\fPeople often bring\nus rare POKEMON\nfor examination.", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_CINNABARLAB_FISHING_GURU */
 };
 
 static const sign_event_t kSigns_CinnabarLab[] = {
@@ -2459,9 +2461,9 @@ static const map_warp_t kWarps_CinnabarLabTradeRoom[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarLabTradeRoom[] = {
-    {   6,   5, 0x0c, 0, "I found this very\nstrange fossil in\nMT.MOON!\fI think it's a\nrare, prehistoric\nPOKEMON!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARLABTRADEROOM_SUPER_NERD */
-    {   2,   9, 0x25, 0, NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CINNABARLABTRADEROOM_GRAMPS */
-    {  10,  11, 0x0f, 0, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CINNABARLABTRADEROOM_BEAUTY */
+    {   6,   5, 0x0c, 0, "I found this very\nstrange fossil in\nMT.MOON!\fI think it's a\nrare, prehistoric\nPOKEMON!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARLABTRADEROOM_SUPER_NERD */
+    {   2,   9, 0x25, 0, NULL, NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CINNABARLABTRADEROOM_GRAMPS */
+    {  10,  11, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CINNABARLABTRADEROOM_BEAUTY */
 };
 
 static const map_warp_t kWarps_CinnabarLabMetronomeRoom[] = {
@@ -2470,8 +2472,8 @@ static const map_warp_t kWarps_CinnabarLabMetronomeRoom[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarLabMetronomeRoom[] = {
-    {  14,   5, 0x20, 0, "Tch-tch-tch!\nI made a cool TM!\fIt can cause all\nkinds of fun!" },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARLABMETRONOMEROOM_SCIENTIST1 */
-    {   4,   7, 0x20, 1, "EEVEE can evolve\ninto 1 of 3 kinds\nof POKEMON." },  /* SPRITE_SCIENTIST, WALK, TEXT_CINNABARLABMETRONOMEROOM_SCIENTIST2 */
+    {  14,   5, 0x20, 0, "Tch-tch-tch!\nI made a cool TM!\fIt can cause all\nkinds of fun!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARLABMETRONOMEROOM_SCIENTIST1 */
+    {   4,   7, 0x20, 1, "EEVEE can evolve\ninto 1 of 3 kinds\nof POKEMON.", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_CINNABARLABMETRONOMEROOM_SCIENTIST2 */
 };
 
 static const sign_event_t kSigns_CinnabarLabMetronomeRoom[] = {
@@ -2486,8 +2488,8 @@ static const map_warp_t kWarps_CinnabarLabFossilRoom[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarLabFossilRoom[] = {
-    {  10,   5, 0x20, 1, "Hiya!\fI am important\ndoctor!\fI study here rare\nPOKEMON fossils!\fYou! Have you a\nfossil for me?" },  /* SPRITE_SCIENTIST, WALK, TEXT_CINNABARLABFOSSILROOM_SCIENTIST1 */
-    {  14,  13, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARLABFOSSILROOM_SCIENTIST2 */
+    {  10,   5, 0x20, 1, "Hiya!\fI am important\ndoctor!\fI study here rare\nPOKEMON fossils!\fYou! Have you a\nfossil for me?", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_CINNABARLABFOSSILROOM_SCIENTIST1 */
+    {  14,  13, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARLABFOSSILROOM_SCIENTIST2 */
 };
 
 static const map_warp_t kWarps_CinnabarPokecenter[] = {
@@ -2496,10 +2498,10 @@ static const map_warp_t kWarps_CinnabarPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_CINNABARPOKECENTER_NURSE */
-    {  18,   9, 0x06, 1, "You can cancel\nevolution.\fWhen a POKEMON is\nevolving, you can\nstop it and leave\nit the way it is." },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CINNABARPOKECENTER_COOLTRAINER_F */
-    {   4,  13, 0x10, 0, "Do you have any\nfriends?\fPOKEMON you get\nin trades grow\nvery quickly.\fI think it's\nworth a try!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_CINNABARPOKECENTER_GENTLEMAN */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CINNABARPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_CINNABARPOKECENTER_NURSE */
+    {  18,   9, 0x06, 1, "You can cancel\nevolution.\fWhen a POKEMON is\nevolving, you can\nstop it and leave\nit the way it is.", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_CINNABARPOKECENTER_COOLTRAINER_F */
+    {   4,  13, 0x10, 0, "Do you have any\nfriends?\fPOKEMON you get\nin trades grow\nvery quickly.\fI think it's\nworth a try!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_CINNABARPOKECENTER_GENTLEMAN */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_CINNABARPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_CinnabarMart[] = {
@@ -2508,9 +2510,9 @@ static const map_warp_t kWarps_CinnabarMart[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_CINNABARMART_CLERK */
-    {  12,   5, 0x1b, 0, "Don't they have X\nATTACK? It's good\nfor battles!" },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CINNABARMART_SILPH_WORKER_F */
-    {   6,   9, 0x20, 0, "It never hurts to\nhave extra items!" },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARMART_SCIENTIST */
+    {   0,  11, 0x26, 0, NULL, CinnabarMart_Start },  /* SPRITE_CLERK, STAY, TEXT_CINNABARMART_CLERK */
+    {  12,   5, 0x1b, 0, "Don't they have X\nATTACK? It's good\nfor battles!", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CINNABARMART_SILPH_WORKER_F */
+    {   6,   9, 0x20, 0, "It never hurts to\nhave extra items!", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_CINNABARMART_SCIENTIST */
 };
 
 static const map_warp_t kWarps_IndigoPlateauLobby[] = {
@@ -2520,11 +2522,11 @@ static const map_warp_t kWarps_IndigoPlateauLobby[] = {
 };
 
 static const npc_event_t kNpcs_IndigoPlateauLobby[] = {
-    {  14,  11, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_INDIGOPLATEAULOBBY_NURSE */
-    {   8,  19, 0x24, 0, "Yo! Champ in\nmaking!\fAt POKEMON LEAGUE,\nyou have to face\nthe ELITE FOUR in\nsuccession.\fIf you lose, you\nhave to start all\nover again! This\nis it! Go for it!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_INDIGOPLATEAULOBBY_GYM_GUIDE */
-    {  10,   3, 0x06, 0, "From here on, you\nface the ELITE\nFOUR one by one!\fIf you win, a\ndoor opens to the\nnext trainer!\nGood luck!" },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_INDIGOPLATEAULOBBY_COOLTRAINER_F */
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_INDIGOPLATEAULOBBY_CLERK */
-    {  26,  13, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_INDIGOPLATEAULOBBY_LINK_RECEPTIONIST */
+    {  14,  11, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_INDIGOPLATEAULOBBY_NURSE */
+    {   8,  19, 0x24, 0, "Yo! Champ in\nmaking!\fAt POKEMON LEAGUE,\nyou have to face\nthe ELITE FOUR in\nsuccession.\fIf you lose, you\nhave to start all\nover again! This\nis it! Go for it!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_INDIGOPLATEAULOBBY_GYM_GUIDE */
+    {  10,   3, 0x06, 0, "From here on, you\nface the ELITE\nFOUR one by one!\fIf you win, a\ndoor opens to the\nnext trainer!\nGood luck!", NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_INDIGOPLATEAULOBBY_COOLTRAINER_F */
+    {   0,  11, 0x26, 0, NULL, IndigoMart_Start },  /* SPRITE_CLERK, STAY, TEXT_INDIGOPLATEAULOBBY_CLERK */
+    {  26,  13, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_INDIGOPLATEAULOBBY_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_CopycatsHouse1F[] = {
@@ -2534,9 +2536,9 @@ static const map_warp_t kWarps_CopycatsHouse1F[] = {
 };
 
 static const npc_event_t kNpcs_CopycatsHouse1F[] = {
-    {   4,   5, 0x1c, 0, "My daughter is so\nself-centered.\nShe only has a\nfew friends." },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_COPYCATSHOUSE1F_MIDDLE_AGED_WOMAN */
-    {  10,   9, 0x0a, 0, "My daughter likes\nto mimic people.\fHer mimicry has\nearned her the\nnickname COPYCAT\naround here!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_COPYCATSHOUSE1F_MIDDLE_AGED_MAN */
-    {   2,   9, 0x38, 1, "CHANSEY: Chaan!\nSii!@" },  /* SPRITE_FAIRY, WALK, TEXT_COPYCATSHOUSE1F_CHANSEY */
+    {   4,   5, 0x1c, 0, "My daughter is so\nself-centered.\nShe only has a\nfew friends.", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_COPYCATSHOUSE1F_MIDDLE_AGED_WOMAN */
+    {  10,   9, 0x0a, 0, "My daughter likes\nto mimic people.\fHer mimicry has\nearned her the\nnickname COPYCAT\naround here!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_COPYCATSHOUSE1F_MIDDLE_AGED_MAN */
+    {   2,   9, 0x38, 1, "CHANSEY: Chaan!\nSii!@", NULL },  /* SPRITE_FAIRY, WALK, TEXT_COPYCATSHOUSE1F_CHANSEY */
 };
 
 static const map_warp_t kWarps_CopycatsHouse2F[] = {
@@ -2544,11 +2546,11 @@ static const map_warp_t kWarps_CopycatsHouse2F[] = {
 };
 
 static const npc_event_t kNpcs_CopycatsHouse2F[] = {
-    {   8,   7, 0x1d, 1, "{PLAYER}: Hi! Do\nyou like POKEMON?\f{PLAYER}: Uh no, I\njust asked you.\f{PLAYER}: Huh?\nYou're strange!\fCOPYCAT: Hmm?\nQuit mimicking?\fBut, that's my\nfavorite hobby!" },  /* SPRITE_BRUNETTE_GIRL, WALK, TEXT_COPYCATSHOUSE2F_COPYCAT */
-    {   8,  13, 0x09, 1, "DODUO: Giiih!\fMIRROR MIRROR ON\nTHE WALL, WHO IS\nTHE FAIREST ONE\nOF ALL?" },  /* SPRITE_BIRD, WALK, TEXT_COPYCATSHOUSE2F_DODUO */
-    {  10,   3, 0x05, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!" },  /* SPRITE_MONSTER, STAY, TEXT_COPYCATSHOUSE2F_MONSTER */
-    {   4,   1, 0x09, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!" },  /* SPRITE_BIRD, STAY, TEXT_COPYCATSHOUSE2F_BIRD */
-    {   2,  13, 0x38, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!" },  /* SPRITE_FAIRY, STAY, TEXT_COPYCATSHOUSE2F_FAIRY */
+    {   8,   7, 0x1d, 1, "{PLAYER}: Hi! Do\nyou like POKEMON?\f{PLAYER}: Uh no, I\njust asked you.\f{PLAYER}: Huh?\nYou're strange!\fCOPYCAT: Hmm?\nQuit mimicking?\fBut, that's my\nfavorite hobby!", NULL },  /* SPRITE_BRUNETTE_GIRL, WALK, TEXT_COPYCATSHOUSE2F_COPYCAT */
+    {   8,  13, 0x09, 1, "DODUO: Giiih!\fMIRROR MIRROR ON\nTHE WALL, WHO IS\nTHE FAIREST ONE\nOF ALL?", NULL },  /* SPRITE_BIRD, WALK, TEXT_COPYCATSHOUSE2F_DODUO */
+    {  10,   3, 0x05, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!", NULL },  /* SPRITE_MONSTER, STAY, TEXT_COPYCATSHOUSE2F_MONSTER */
+    {   4,   1, 0x09, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!", NULL },  /* SPRITE_BIRD, STAY, TEXT_COPYCATSHOUSE2F_BIRD */
+    {   2,  13, 0x38, 0, "This is a rare\nPOKEMON! Huh?\nIt's only a doll!", NULL },  /* SPRITE_FAIRY, STAY, TEXT_COPYCATSHOUSE2F_FAIRY */
 };
 
 static const sign_event_t kSigns_CopycatsHouse2F[] = {
@@ -2562,11 +2564,11 @@ static const map_warp_t kWarps_FightingDojo[] = {
 };
 
 static const npc_event_t kNpcs_FightingDojo[] = {
-    {  10,   7, 0x0e, 0, "Grunt!\fI am the KARATE\nMASTER! I am the\nLEADER here!\fYou wish to\nchallenge us?\nExpect no mercy!\fFwaaa!" },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_KARATE_MASTER */
-    {   6,   9, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT1 */
-    {   6,  13, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT2 */
-    {  10,  11, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT3 */
-    {  10,  15, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT4 */
+    {  10,   7, 0x0e, 0, "Grunt!\fI am the KARATE\nMASTER! I am the\nLEADER here!\fYou wish to\nchallenge us?\nExpect no mercy!\fFwaaa!", NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_KARATE_MASTER */
+    {   6,   9, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT1 */
+    {   6,  13, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT2 */
+    {  10,  11, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT3 */
+    {  10,  15, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT4 */
 };
 
 static const map_warp_t kWarps_SaffronGym[] = {
@@ -2605,15 +2607,15 @@ static const map_warp_t kWarps_SaffronGym[] = {
 };
 
 static const npc_event_t kNpcs_SaffronGym[] = {
-    {  18,  17, 0x0d, 0, "I had a vision of\nyour arrival!\fI have had psychic\npowers since I\nwas a child.\fI first learned\nto bend spoons\nwith my mind.\fI dislike fight-\ning, but if you\nwish, I will show\nyou my powers!" },  /* SPRITE_GIRL, STAY, TEXT_SAFFRONGYM_SABRINA */
-    {  20,   3, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER1 */
-    {  34,   3, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER1 */
-    {   6,  15, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER2 */
-    {  34,  15, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER2 */
-    {   6,  27, 0x19, 0, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER3 */
-    {  34,  27, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER3 */
-    {   6,   3, 0x04, 0, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER4 */
-    {  20,  31, 0x24, 0, "Yo! Champ in\nmaking!\fSABRINA's POKEMON\nuse psychic power\ninstead of force!\fFighting POKEMON\nare weak against\npsychic POKEMON!\fThey get creamed\nbefore they can\neven aim a punch!" },  /* SPRITE_GYM_GUIDE, STAY, TEXT_SAFFRONGYM_GYM_GUIDE */
+    {  18,  17, 0x0d, 0, "I had a vision of\nyour arrival!\fI have had psychic\npowers since I\nwas a child.\fI first learned\nto bend spoons\nwith my mind.\fI dislike fight-\ning, but if you\nwish, I will show\nyou my powers!", NULL },  /* SPRITE_GIRL, STAY, TEXT_SAFFRONGYM_SABRINA */
+    {  20,   3, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER1 */
+    {  34,   3, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER1 */
+    {   6,  15, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER2 */
+    {  34,  15, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER2 */
+    {   6,  27, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_SAFFRONGYM_CHANNELER3 */
+    {  34,  27, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER3 */
+    {   6,   3, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONGYM_YOUNGSTER4 */
+    {  20,  31, 0x24, 0, "Yo! Champ in\nmaking!\fSABRINA's POKEMON\nuse psychic power\ninstead of force!\fFighting POKEMON\nare weak against\npsychic POKEMON!\fThey get creamed\nbefore they can\neven aim a punch!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_SAFFRONGYM_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_SaffronPidgeyHouse[] = {
@@ -2622,10 +2624,10 @@ static const map_warp_t kWarps_SaffronPidgeyHouse[] = {
 };
 
 static const npc_event_t kNpcs_SaffronPidgeyHouse[] = {
-    {   4,   7, 0x1d, 0, "Thank you for\nwriting. I hope\nto see you soon!\fHey! Don't look\nat my letter!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_SAFFRONPIDGEYHOUSE_BRUNETTE_GIRL */
-    {   0,   9, 0x09, 1, "PIDGEY: Kurukkoo!@" },  /* SPRITE_BIRD, WALK, TEXT_SAFFRONPIDGEYHOUSE_PIDGEY */
-    {   8,   3, 0x04, 0, "The COPYCAT is\ncute! I'm getting\nher a POKE DOLL!" },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONPIDGEYHOUSE_YOUNGSTER */
-    {   6,   7, 0x40, 0, "I was given a PP\nUP as a gift.\fIt's used for\nincreasing the PP\nof techniques!" },  /* SPRITE_PAPER, STAY, TEXT_SAFFRONPIDGEYHOUSE_PAPER */
+    {   4,   7, 0x1d, 0, "Thank you for\nwriting. I hope\nto see you soon!\fHey! Don't look\nat my letter!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_SAFFRONPIDGEYHOUSE_BRUNETTE_GIRL */
+    {   0,   9, 0x09, 1, "PIDGEY: Kurukkoo!@", NULL },  /* SPRITE_BIRD, WALK, TEXT_SAFFRONPIDGEYHOUSE_PIDGEY */
+    {   8,   3, 0x04, 0, "The COPYCAT is\ncute! I'm getting\nher a POKE DOLL!", NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_SAFFRONPIDGEYHOUSE_YOUNGSTER */
+    {   6,   7, 0x40, 0, "I was given a PP\nUP as a gift.\fIt's used for\nincreasing the PP\nof techniques!", NULL },  /* SPRITE_PAPER, STAY, TEXT_SAFFRONPIDGEYHOUSE_PAPER */
 };
 
 static const map_warp_t kWarps_SaffronMart[] = {
@@ -2634,9 +2636,9 @@ static const map_warp_t kWarps_SaffronMart[] = {
 };
 
 static const npc_event_t kNpcs_SaffronMart[] = {
-    {   0,  11, 0x26, 0, NULL },  /* SPRITE_CLERK, STAY, TEXT_SAFFRONMART_CLERK */
-    {   8,   5, 0x0c, 0, "MAX REPEL lasts\nlonger than SUPER\nREPEL for keeping\nweaker POKEMON\naway!" },  /* SPRITE_SUPER_NERD, STAY, TEXT_SAFFRONMART_SUPER_NERD */
-    {  12,  11, 0x06, 1, "REVIVE is costly,\nbut it revives\nfainted POKEMON!" },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_SAFFRONMART_COOLTRAINER_F */
+    {   0,  11, 0x26, 0, NULL, SaffronMart_Start },  /* SPRITE_CLERK, STAY, TEXT_SAFFRONMART_CLERK */
+    {   8,   5, 0x0c, 0, "MAX REPEL lasts\nlonger than SUPER\nREPEL for keeping\nweaker POKEMON\naway!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_SAFFRONMART_SUPER_NERD */
+    {  12,  11, 0x06, 1, "REVIVE is costly,\nbut it revives\nfainted POKEMON!", NULL },  /* SPRITE_COOLTRAINER_F, WALK, TEXT_SAFFRONMART_COOLTRAINER_F */
 };
 
 static const map_warp_t kWarps_SilphCo1F[] = {
@@ -2648,7 +2650,7 @@ static const map_warp_t kWarps_SilphCo1F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo1F[] = {
-    {   8,   5, 0x2a, 0, "Welcome!\fThe PRESIDENT is\nin the boardroom\non 11F!" },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_SILPHCO1F_LINK_RECEPTIONIST */
+    {   8,   5, 0x2a, 0, "Welcome!\fThe PRESIDENT is\nin the boardroom\non 11F!", NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_SILPHCO1F_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_SaffronPokecenter[] = {
@@ -2657,10 +2659,10 @@ static const map_warp_t kWarps_SaffronPokecenter[] = {
 };
 
 static const npc_event_t kNpcs_SaffronPokecenter[] = {
-    {   6,   3, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_SAFFRONPOKECENTER_NURSE */
-    {  10,  11, 0x0f, 0, "POKEMON growth\nrates differ from\nspecie to specie." },  /* SPRITE_BEAUTY, STAY, TEXT_SAFFRONPOKECENTER_BEAUTY */
-    {  16,   7, 0x10, 0, "SILPH CO. is very\nfamous. That's\nwhy it attracted\nTEAM ROCKET!" },  /* SPRITE_GENTLEMAN, STAY, TEXT_SAFFRONPOKECENTER_GENTLEMAN */
-    {  22,   5, 0x2a, 0, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_SAFFRONPOKECENTER_LINK_RECEPTIONIST */
+    {   6,   3, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_SAFFRONPOKECENTER_NURSE */
+    {  10,  11, 0x0f, 0, "POKEMON growth\nrates differ from\nspecie to specie.", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_SAFFRONPOKECENTER_BEAUTY */
+    {  16,   7, 0x10, 0, "SILPH CO. is very\nfamous. That's\nwhy it attracted\nTEAM ROCKET!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_SAFFRONPOKECENTER_GENTLEMAN */
+    {  22,   5, 0x2a, 0, NULL, NULL },  /* SPRITE_LINK_RECEPTIONIST, STAY, TEXT_SAFFRONPOKECENTER_LINK_RECEPTIONIST */
 };
 
 static const map_warp_t kWarps_MrPsychicsHouse[] = {
@@ -2669,7 +2671,7 @@ static const map_warp_t kWarps_MrPsychicsHouse[] = {
 };
 
 static const npc_event_t kNpcs_MrPsychicsHouse[] = {
-    {  10,   7, 0x27, 0, "...Wait! Don't\nsay a word!\fYou wanted this!" },  /* SPRITE_FISHING_GURU, STAY, TEXT_MRPSYCHICSHOUSE_MR_PSYCHIC */
+    {  10,   7, 0x27, 0, "...Wait! Don't\nsay a word!\fYou wanted this!", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_MRPSYCHICSHOUSE_MR_PSYCHIC */
 };
 
 static const map_warp_t kWarps_Route15Gate1F[] = {
@@ -2681,7 +2683,7 @@ static const map_warp_t kWarps_Route15Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route15Gate1F[] = {
-    {   8,   3, 0x31, 0, "Are you working\non a POKEDEX?\fPROF.OAK's AIDE\ncame by here." },  /* SPRITE_GUARD, STAY, TEXT_ROUTE15GATE1F_GUARD */
+    {   8,   3, 0x31, 0, "Are you working\non a POKEDEX?\fPROF.OAK's AIDE\ncame by here.", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE15GATE1F_GUARD */
 };
 
 static const map_warp_t kWarps_Route15Gate2F[] = {
@@ -2689,7 +2691,7 @@ static const map_warp_t kWarps_Route15Gate2F[] = {
 };
 
 static const npc_event_t kNpcs_Route15Gate2F[] = {
-    {   8,   5, 0x20, 0, "EXP.ALL gives\nEXP points to all\nthe POKEMON with\nyou, even if they\ndon't fight.\fIt does, however,\nreduce the amount\nof EXP for each\nPOKEMON.\fIf you don't need\nit, you should \nstore it via PC." },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE15GATE2F_OAKS_AIDE */
+    {   8,   5, 0x20, 0, "EXP.ALL gives\nEXP points to all\nthe POKEMON with\nyou, even if they\ndon't fight.\fIt does, however,\nreduce the amount\nof EXP for each\nPOKEMON.\fIf you don't need\nit, you should \nstore it via PC.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE15GATE2F_OAKS_AIDE */
 };
 
 static const sign_event_t kSigns_Route15Gate2F[] = {
@@ -2709,8 +2711,8 @@ static const map_warp_t kWarps_Route16Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route16Gate1F[] = {
-    {   8,  11, 0x31, 0, "No pedestrians\nare allowed on\nCYCLING ROAD!" },  /* SPRITE_GUARD, STAY, TEXT_ROUTE16GATE1F_GUARD */
-    {   8,   7, 0x0b, 0, "How'd you get in?\nGood effort!" },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE16GATE1F_GAMBLER */
+    {   8,  11, 0x31, 0, "No pedestrians\nare allowed on\nCYCLING ROAD!", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE16GATE1F_GUARD */
+    {   8,   7, 0x0b, 0, "How'd you get in?\nGood effort!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE16GATE1F_GAMBLER */
 };
 
 static const map_warp_t kWarps_Route16Gate2F[] = {
@@ -2718,8 +2720,8 @@ static const map_warp_t kWarps_Route16Gate2F[] = {
 };
 
 static const npc_event_t kNpcs_Route16Gate2F[] = {
-    {   8,   5, 0x35, 0, "I'm going for a\nride with my girl\nfriend!" },  /* SPRITE_LITTLE_BOY, STAY, TEXT_ROUTE16GATE2F_LITTLE_BOY */
-    {   4,  11, 0x08, 1, "We're going\nriding together!" },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_ROUTE16GATE2F_LITTLE_GIRL */
+    {   8,   5, 0x35, 0, "I'm going for a\nride with my girl\nfriend!", NULL },  /* SPRITE_LITTLE_BOY, STAY, TEXT_ROUTE16GATE2F_LITTLE_BOY */
+    {   4,  11, 0x08, 1, "We're going\nriding together!", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_ROUTE16GATE2F_LITTLE_GIRL */
 };
 
 static const sign_event_t kSigns_Route16Gate2F[] = {
@@ -2733,8 +2735,8 @@ static const map_warp_t kWarps_Route16FlyHouse[] = {
 };
 
 static const npc_event_t kNpcs_Route16FlyHouse[] = {
-    {   4,   7, 0x1d, 0, "Oh, you found my\nsecret retreat!\fPlease don't tell\nanyone I'm here.\nI'll make it up\nto you with this!" },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_ROUTE16FLYHOUSE_BRUNETTE_GIRL */
-    {  12,   9, 0x09, 1, "FEAROW: Kyueen!" },  /* SPRITE_BIRD, WALK, TEXT_ROUTE16FLYHOUSE_FEAROW */
+    {   4,   7, 0x1d, 0, "Oh, you found my\nsecret retreat!\fPlease don't tell\nanyone I'm here.\nI'll make it up\nto you with this!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_ROUTE16FLYHOUSE_BRUNETTE_GIRL */
+    {  12,   9, 0x09, 1, "FEAROW: Kyueen!", NULL },  /* SPRITE_BIRD, WALK, TEXT_ROUTE16FLYHOUSE_FEAROW */
 };
 
 static const map_warp_t kWarps_Route12SuperRodHouse[] = {
@@ -2743,7 +2745,7 @@ static const map_warp_t kWarps_Route12SuperRodHouse[] = {
 };
 
 static const npc_event_t kNpcs_Route12SuperRodHouse[] = {
-    {   4,   9, 0x27, 0, "I'm the FISHING\nGURU's brother!\fI simply Looove\nfishing!\fDo you like to\nfish?" },  /* SPRITE_FISHING_GURU, STAY, TEXT_ROUTE12SUPERRODHOUSE_FISHING_GURU */
+    {   4,   9, 0x27, 0, "I'm the FISHING\nGURU's brother!\fI simply Looove\nfishing!\fDo you like to\nfish?", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_ROUTE12SUPERRODHOUSE_FISHING_GURU */
 };
 
 static const map_warp_t kWarps_Route18Gate1F[] = {
@@ -2755,7 +2757,7 @@ static const map_warp_t kWarps_Route18Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route18Gate1F[] = {
-    {   8,   3, 0x31, 0, "You need a BICYCLE\nfor CYCLING ROAD!" },  /* SPRITE_GUARD, STAY, TEXT_ROUTE18GATE1F_GUARD */
+    {   8,   3, 0x31, 0, "You need a BICYCLE\nfor CYCLING ROAD!", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE18GATE1F_GUARD */
 };
 
 static const map_warp_t kWarps_Route18Gate2F[] = {
@@ -2763,7 +2765,7 @@ static const map_warp_t kWarps_Route18Gate2F[] = {
 };
 
 static const npc_event_t kNpcs_Route18Gate2F[] = {
-    {   8,   5, 0x04, 1, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE18GATE2F_YOUNGSTER */
+    {   8,   5, 0x04, 1, NULL, NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE18GATE2F_YOUNGSTER */
 };
 
 static const sign_event_t kSigns_Route18Gate2F[] = {
@@ -2782,8 +2784,8 @@ static const map_warp_t kWarps_SeafoamIslands1F[] = {
 };
 
 static const npc_event_t kNpcs_SeafoamIslands1F[] = {
-    {  36,  21, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDS1F_BOULDER1 */
-    {  52,  15, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDS1F_BOULDER2 */
+    {  36,  21, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDS1F_BOULDER1 */
+    {  52,  15, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_SEAFOAMISLANDS1F_BOULDER2 */
 };
 
 static const map_warp_t kWarps_Route22Gate[] = {
@@ -2794,7 +2796,7 @@ static const map_warp_t kWarps_Route22Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route22Gate[] = {
-    {  12,   5, 0x31, 0, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE22GATE_GUARD */
+    {  12,   5, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE22GATE_GUARD */
 };
 
 static const map_warp_t kWarps_VictoryRoad2F[] = {
@@ -2808,15 +2810,15 @@ static const map_warp_t kWarps_VictoryRoad2F[] = {
 };
 
 static const npc_event_t kNpcs_VictoryRoad2F[] = {
-    {  24,  19, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_VICTORYROAD2F_HIKER */
-    {  42,  27, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD1 */
-    {  38,  17, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD2F_COOLTRAINER_M */
-    {   8,   5, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD2 */
-    {  52,   7, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD3 */
-    {  22,  11, 0x09, 0, NULL },  /* SPRITE_BIRD, STAY, TEXT_VICTORYROAD2F_MOLTRES */
-    {   8,  29, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER1 */
-    {  10,  11, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER2 */
-    {  46,  33, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER3 */
+    {  24,  19, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_VICTORYROAD2F_HIKER */
+    {  42,  27, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD1 */
+    {  38,  17, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD2F_COOLTRAINER_M */
+    {   8,   5, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD2 */
+    {  52,   7, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VICTORYROAD2F_SUPER_NERD3 */
+    {  22,  11, 0x09, 0, NULL, NULL },  /* SPRITE_BIRD, STAY, TEXT_VICTORYROAD2F_MOLTRES */
+    {   8,  29, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER1 */
+    {  10,  11, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER2 */
+    {  46,  33, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER3 */
 };
 
 static const item_event_t kItems_VictoryRoad2F[] = {
@@ -2831,7 +2833,7 @@ static const map_warp_t kWarps_Route12Gate2F[] = {
 };
 
 static const npc_event_t kNpcs_Route12Gate2F[] = {
-    {   6,   9, 0x1d, 1, "My POKEMON's\nashes are stored\nin POKEMON TOWER.\fYou can have this\nTM. I don't need\nit any more..." },  /* SPRITE_BRUNETTE_GIRL, WALK, TEXT_ROUTE12GATE2F_BRUNETTE_GIRL */
+    {   6,   9, 0x1d, 1, "My POKEMON's\nashes are stored\nin POKEMON TOWER.\fYou can have this\nTM. I don't need\nit any more...", NULL },  /* SPRITE_BRUNETTE_GIRL, WALK, TEXT_ROUTE12GATE2F_BRUNETTE_GIRL */
 };
 
 static const sign_event_t kSigns_Route12Gate2F[] = {
@@ -2845,7 +2847,7 @@ static const map_warp_t kWarps_VermilionTradeHouse[] = {
 };
 
 static const npc_event_t kNpcs_VermilionTradeHouse[] = {
-    {   6,  11, 0x08, 0, NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_VERMILIONTRADEHOUSE_LITTLE_GIRL */
+    {   6,  11, 0x08, 0, NULL, NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_VERMILIONTRADEHOUSE_LITTLE_GIRL */
 };
 
 static const map_warp_t kWarps_DiglettsCave[] = {
@@ -2861,14 +2863,14 @@ static const map_warp_t kWarps_VictoryRoad3F[] = {
 };
 
 static const npc_event_t kNpcs_VictoryRoad3F[] = {
-    {  56,  11, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_M1 */
-    {  14,  27, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_F1 */
-    {  12,  29, 0x07, 0, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_M2 */
-    {  26,   7, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_F2 */
-    {  44,   7, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER1 */
-    {  26,  25, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER2 */
-    {  48,  21, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER3 */
-    {  44,  31, 0x3f, 0, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER4 */
+    {  56,  11, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_M1 */
+    {  14,  27, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_F1 */
+    {  12,  29, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_M2 */
+    {  26,   7, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_VICTORYROAD3F_COOLTRAINER_F2 */
+    {  44,   7, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER1 */
+    {  26,  25, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER2 */
+    {  48,  21, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER3 */
+    {  44,  31, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER4 */
 };
 
 static const item_event_t kItems_VictoryRoad3F[] = {
@@ -2885,11 +2887,11 @@ static const map_warp_t kWarps_RocketHideoutB1F[] = {
 };
 
 static const npc_event_t kNpcs_RocketHideoutB1F[] = {
-    {  52,  17, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET1 */
-    {  24,  13, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET2 */
-    {  36,  35, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET3 */
-    {  30,  51, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET4 */
-    {  56,  37, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET5 */
+    {  52,  17, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET1 */
+    {  24,  13, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET2 */
+    {  36,  35, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET3 */
+    {  30,  51, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET4 */
+    {  56,  37, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET5 */
 };
 
 static const item_event_t kItems_RocketHideoutB1F[] = {
@@ -2906,7 +2908,7 @@ static const map_warp_t kWarps_RocketHideoutB2F[] = {
 };
 
 static const npc_event_t kNpcs_RocketHideoutB2F[] = {
-    {  40,  25, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB2F_ROCKET */
+    {  40,  25, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB2F_ROCKET */
 };
 
 static const item_event_t kItems_RocketHideoutB2F[] = {
@@ -2922,8 +2924,8 @@ static const map_warp_t kWarps_RocketHideoutB3F[] = {
 };
 
 static const npc_event_t kNpcs_RocketHideoutB3F[] = {
-    {  20,  45, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB3F_ROCKET1 */
-    {  52,  25, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB3F_ROCKET2 */
+    {  20,  45, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB3F_ROCKET1 */
+    {  52,  25, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB3F_ROCKET2 */
 };
 
 static const item_event_t kItems_RocketHideoutB3F[] = {
@@ -2938,10 +2940,10 @@ static const map_warp_t kWarps_RocketHideoutB4F[] = {
 };
 
 static const npc_event_t kNpcs_RocketHideoutB4F[] = {
-    {  50,   7, 0x17, 0, "So! I must say, I\nam impressed you\ngot here!" },  /* SPRITE_GIOVANNI, STAY, TEXT_ROCKETHIDEOUTB4F_GIOVANNI */
-    {  46,  25, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET1 */
-    {  52,  25, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET2 */
-    {  22,   5, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET3 */
+    {  50,   7, 0x17, 0, "So! I must say, I\nam impressed you\ngot here!", NULL },  /* SPRITE_GIOVANNI, STAY, TEXT_ROCKETHIDEOUTB4F_GIOVANNI */
+    {  46,  25, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET1 */
+    {  52,  25, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET2 */
+    {  22,   5, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET3 */
 };
 
 static const item_event_t kItems_RocketHideoutB4F[] = {
@@ -2972,11 +2974,11 @@ static const map_warp_t kWarps_SilphCo2F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo2F[] = {
-    {  20,   3, 0x1b, 0, "{PLAYER} got\n@" },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO2F_SILPH_WORKER_F */
-    {  10,  25, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO2F_SCIENTIST1 */
-    {  48,  27, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO2F_SCIENTIST2 */
-    {  32,  23, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO2F_ROCKET1 */
-    {  48,  15, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO2F_ROCKET2 */
+    {  20,   3, 0x1b, 0, "{PLAYER} got\n@", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO2F_SILPH_WORKER_F */
+    {  10,  25, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO2F_SCIENTIST1 */
+    {  48,  27, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO2F_SCIENTIST2 */
+    {  32,  23, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO2F_ROCKET1 */
+    {  48,  15, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO2F_ROCKET2 */
 };
 
 static const map_warp_t kWarps_SilphCo3F[] = {
@@ -2993,9 +2995,9 @@ static const map_warp_t kWarps_SilphCo3F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo3F[] = {
-    {  48,  17, 0x2c, 0, "I work for SILPH.\nWhat should I do?" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO3F_SILPH_WORKER_M */
-    {  40,  15, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO3F_ROCKET */
-    {  14,  19, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO3F_SCIENTIST */
+    {  48,  17, 0x2c, 0, "I work for SILPH.\nWhat should I do?", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO3F_SILPH_WORKER_M */
+    {  40,  15, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO3F_ROCKET */
+    {  14,  19, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO3F_SCIENTIST */
 };
 
 static const item_event_t kItems_SilphCo3F[] = {
@@ -3013,10 +3015,10 @@ static const map_warp_t kWarps_SilphCo4F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo4F[] = {
-    {  12,   5, 0x2c, 0, "Sssh! Can't you\nsee I'm hiding?" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO4F_SILPH_WORKER_M */
-    {  18,  29, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO4F_ROCKET1 */
-    {  28,  13, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO4F_SCIENTIST */
-    {  52,  21, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO4F_ROCKET2 */
+    {  12,   5, 0x2c, 0, "Sssh! Can't you\nsee I'm hiding?", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO4F_SILPH_WORKER_M */
+    {  18,  29, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO4F_ROCKET1 */
+    {  28,  13, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO4F_SCIENTIST */
+    {  52,  21, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO4F_ROCKET2 */
 };
 
 static const item_event_t kItems_SilphCo4F[] = {
@@ -3036,14 +3038,14 @@ static const map_warp_t kWarps_SilphCo5F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo5F[] = {
-    {  26,  19, 0x2c, 0, "TEAM ROCKET is\nin an uproar over\nsome intruder.\nThat's you right?" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO5F_SILPH_WORKER_M */
-    {  16,  33, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO5F_ROCKET1 */
-    {  16,   7, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO5F_SCIENTIST */
-    {  36,  21, 0x21, 0, NULL },  /* SPRITE_ROCKER, STAY, TEXT_SILPHCO5F_ROCKER */
-    {  56,   9, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO5F_ROCKET2 */
-    {  44,  25, 0x42, 0, "It's a POKEMON\nREPORT!\fPOKEMON LAB\ncreated PORYGON,\nthe first virtual\nreality POKEMON." },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT1 */
-    {  50,  21, 0x42, 0, "It's a POKEMON\nREPORT!\fOver 160 POKEMON\ntechniques have\nbeen confirmed." },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT2 */
-    {  48,  13, 0x42, 0, "It's a POKEMON\nREPORT!\f4 POKEMON evolve\nonly when traded\nby link-cable." },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT3 */
+    {  26,  19, 0x2c, 0, "TEAM ROCKET is\nin an uproar over\nsome intruder.\nThat's you right?", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO5F_SILPH_WORKER_M */
+    {  16,  33, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO5F_ROCKET1 */
+    {  16,   7, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO5F_SCIENTIST */
+    {  36,  21, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_SILPHCO5F_ROCKER */
+    {  56,   9, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO5F_ROCKET2 */
+    {  44,  25, 0x42, 0, "It's a POKEMON\nREPORT!\fPOKEMON LAB\ncreated PORYGON,\nthe first virtual\nreality POKEMON.", NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT1 */
+    {  50,  21, 0x42, 0, "It's a POKEMON\nREPORT!\fOver 160 POKEMON\ntechniques have\nbeen confirmed.", NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT2 */
+    {  48,  13, 0x42, 0, "It's a POKEMON\nREPORT!\f4 POKEMON evolve\nonly when traded\nby link-cable.", NULL },  /* SPRITE_CLIPBOARD, STAY, TEXT_SILPHCO5F_POKEMON_REPORT3 */
 };
 
 static const item_event_t kItems_SilphCo5F[] = {
@@ -3061,14 +3063,14 @@ static const map_warp_t kWarps_SilphCo6F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo6F[] = {
-    {  20,  13, 0x2c, 0, "The ROCKETs came\nand took over the\nbuilding!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M1 */
-    {  40,  13, 0x2c, 0, "Oh dear, oh dear.\nHelp me please!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M2 */
-    {  42,  13, 0x1b, 0, "Look at him! He's\nsuch a coward!" },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO6F_SILPH_WORKER_F1 */
-    {  22,  21, 0x1b, 0, "TEAM ROCKET is\ntrying to conquer\nthe world with\nPOKEMON!" },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO6F_SILPH_WORKER_F2 */
-    {  36,  27, 0x2c, 0, "They must have\ntargeted SILPH\nfor our POKEMON\nproducts." },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M3 */
-    {  34,   7, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO6F_ROCKET1 */
-    {  14,  17, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO6F_SCIENTIST */
-    {  28,  31, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO6F_ROCKET2 */
+    {  20,  13, 0x2c, 0, "The ROCKETs came\nand took over the\nbuilding!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M1 */
+    {  40,  13, 0x2c, 0, "Oh dear, oh dear.\nHelp me please!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M2 */
+    {  42,  13, 0x1b, 0, "Look at him! He's\nsuch a coward!", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO6F_SILPH_WORKER_F1 */
+    {  22,  21, 0x1b, 0, "TEAM ROCKET is\ntrying to conquer\nthe world with\nPOKEMON!", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO6F_SILPH_WORKER_F2 */
+    {  36,  27, 0x2c, 0, "They must have\ntargeted SILPH\nfor our POKEMON\nproducts.", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO6F_SILPH_WORKER_M3 */
+    {  34,   7, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO6F_ROCKET1 */
+    {  14,  17, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO6F_SCIENTIST */
+    {  28,  31, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO6F_ROCKET2 */
 };
 
 static const item_event_t kItems_SilphCo6F[] = {
@@ -3086,15 +3088,15 @@ static const map_warp_t kWarps_SilphCo7F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo7F[] = {
-    {   2,  11, 0x2c, 0, "Oh! Hi! You're\nnot a ROCKET! You\ncame to save us?\nWhy, thank you!\fI want you to\nhave this POKEMON\nfor saving us." },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M1 */
-    {  26,  27, 0x2c, 0, "TEAM ROCKET was\nafter the MASTER\nBALL which will\ncatch any POKEMON!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M2 */
-    {  14,  21, 0x2c, 0, "It would be bad\nif TEAM ROCKET\ntook over SILPH\nor our POKEMON!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M3 */
-    {  20,  17, 0x1b, 0, "You! It's really\ndangerous here!\nYou came to save\nme? You can't!" },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M4 */
-    {  26,   3, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET1 */
-    {   4,  27, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO7F_SCIENTIST */
-    {  40,   5, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET2 */
-    {  38,  29, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET3 */
-    {   6,  15, 0x02, 0, "{RIVAL}: What\nkept you {PLAYER}?" },  /* SPRITE_BLUE, STAY, TEXT_SILPHCO7F_RIVAL */
+    {   2,  11, 0x2c, 0, "Oh! Hi! You're\nnot a ROCKET! You\ncame to save us?\nWhy, thank you!\fI want you to\nhave this POKEMON\nfor saving us.", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M1 */
+    {  26,  27, 0x2c, 0, "TEAM ROCKET was\nafter the MASTER\nBALL which will\ncatch any POKEMON!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M2 */
+    {  14,  21, 0x2c, 0, "It would be bad\nif TEAM ROCKET\ntook over SILPH\nor our POKEMON!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M3 */
+    {  20,  17, 0x1b, 0, "You! It's really\ndangerous here!\nYou came to save\nme? You can't!", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SILPHCO7F_SILPH_WORKER_M4 */
+    {  26,   3, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET1 */
+    {   4,  27, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO7F_SCIENTIST */
+    {  40,   5, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET2 */
+    {  38,  29, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO7F_ROCKET3 */
+    {   6,  15, 0x02, 0, "{RIVAL}: What\nkept you {PLAYER}?", NULL },  /* SPRITE_BLUE, STAY, TEXT_SILPHCO7F_RIVAL */
 };
 
 static const item_event_t kItems_SilphCo7F[] = {
@@ -3113,10 +3115,10 @@ static const map_warp_t kWarps_SilphCo8F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo8F[] = {
-    {   8,   5, 0x2c, 0, "I wonder if SILPH\nis finished..." },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO8F_SILPH_WORKER_M */
-    {  38,   5, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO8F_ROCKET1 */
-    {  20,   5, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO8F_SCIENTIST */
-    {  24,  31, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO8F_ROCKET2 */
+    {   8,   5, 0x2c, 0, "I wonder if SILPH\nis finished...", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SILPHCO8F_SILPH_WORKER_M */
+    {  38,   5, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO8F_ROCKET1 */
+    {  20,   5, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO8F_SCIENTIST */
+    {  24,  31, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO8F_ROCKET2 */
 };
 
 static const map_warp_t kWarps_PokemonMansion2F[] = {
@@ -3127,9 +3129,9 @@ static const map_warp_t kWarps_PokemonMansion2F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonMansion2F[] = {
-    {   6,  35, 0x0c, 1, NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_POKEMONMANSION2F_SUPER_NERD */
-    {  36,   5, 0x41, 0, "Diary: July 5\nGuyana,\nSouth America\fA new POKEMON was\ndiscovered deep\nin the jungle." },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION2F_DIARY1 */
-    {   6,  45, 0x41, 0, "Diary: July 10\nWe christened the\nnewly discovered\nPOKEMON, MEW." },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION2F_DIARY2 */
+    {   6,  35, 0x0c, 1, NULL, NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_POKEMONMANSION2F_SUPER_NERD */
+    {  36,   5, 0x41, 0, "Diary: July 5\nGuyana,\nSouth America\fA new POKEMON was\ndiscovered deep\nin the jungle.", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION2F_DIARY1 */
+    {   6,  45, 0x41, 0, "Diary: July 10\nWe christened the\nnewly discovered\nPOKEMON, MEW.", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION2F_DIARY2 */
 };
 
 static const item_event_t kItems_PokemonMansion2F[] = {
@@ -3143,9 +3145,9 @@ static const map_warp_t kWarps_PokemonMansion3F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonMansion3F[] = {
-    {  10,  23, 0x0c, 1, NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_POKEMONMANSION3F_SUPER_NERD */
-    {  40,  23, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSION3F_SCIENTIST */
-    {  12,  25, 0x41, 0, "Diary: Feb. 6\nMEW gave birth.\fWe named the\nnewborn MEWTWO." },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION3F_DIARY */
+    {  10,  23, 0x0c, 1, NULL, NULL },  /* SPRITE_SUPER_NERD, WALK, TEXT_POKEMONMANSION3F_SUPER_NERD */
+    {  40,  23, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSION3F_SCIENTIST */
+    {  12,  25, 0x41, 0, "Diary: Feb. 6\nMEW gave birth.\fWe named the\nnewborn MEWTWO.", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION3F_DIARY */
 };
 
 static const item_event_t kItems_PokemonMansion3F[] = {
@@ -3158,9 +3160,9 @@ static const map_warp_t kWarps_PokemonMansionB1F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonMansionB1F[] = {
-    {  32,  47, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_POKEMONMANSIONB1F_BURGLAR */
-    {  54,  23, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSIONB1F_SCIENTIST */
-    {  32,  41, 0x41, 0, "\nMEWTWO is far too\npowerful.\fWe have failed to\ncurb its vicious\ntendencies..." },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSIONB1F_DIARY */
+    {  32,  47, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_POKEMONMANSIONB1F_BURGLAR */
+    {  54,  23, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSIONB1F_SCIENTIST */
+    {  32,  41, 0x41, 0, "\nMEWTWO is far too\npowerful.\fWe have failed to\ncurb its vicious\ntendencies...", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSIONB1F_DIARY */
 };
 
 static const item_event_t kItems_PokemonMansionB1F[] = {
@@ -3269,8 +3271,8 @@ static const map_warp_t kWarps_SafariZoneCenterRestHouse[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneCenterRestHouse[] = {
-    {   6,   5, 0x0d, 0, "SARA: Where did\nmy boy friend,\nERIK, go?" },  /* SPRITE_GIRL, STAY, TEXT_SAFARIZONECENTERRESTHOUSE_GIRL */
-    {   2,   9, 0x20, 1, "I'm catching\nPOKEMON to take\nhome as gifts!" },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONECENTERRESTHOUSE_SCIENTIST */
+    {   6,   5, 0x0d, 0, "SARA: Where did\nmy boy friend,\nERIK, go?", NULL },  /* SPRITE_GIRL, STAY, TEXT_SAFARIZONECENTERRESTHOUSE_GIRL */
+    {   2,   9, 0x20, 1, "I'm catching\nPOKEMON to take\nhome as gifts!", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONECENTERRESTHOUSE_SCIENTIST */
 };
 
 static const map_warp_t kWarps_SafariZoneSecretHouse[] = {
@@ -3279,7 +3281,7 @@ static const map_warp_t kWarps_SafariZoneSecretHouse[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneSecretHouse[] = {
-    {   6,   7, 0x27, 0, "Ah! Finally!\fYou're the first\nperson to reach\nthe SECRET HOUSE!\fI was getting\nworried that no\none would win our\ncampaign prize.\fCongratulations!\nYou have won!" },  /* SPRITE_FISHING_GURU, STAY, TEXT_SAFARIZONESECRETHOUSE_FISHING_GURU */
+    {   6,   7, 0x27, 0, "Ah! Finally!\fYou're the first\nperson to reach\nthe SECRET HOUSE!\fI was getting\nworried that no\none would win our\ncampaign prize.\fCongratulations!\nYou have won!", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_SAFARIZONESECRETHOUSE_FISHING_GURU */
 };
 
 static const map_warp_t kWarps_SafariZoneWestRestHouse[] = {
@@ -3288,9 +3290,9 @@ static const map_warp_t kWarps_SafariZoneWestRestHouse[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneWestRestHouse[] = {
-    {   8,   9, 0x20, 1, "Tossing ROCKs at\nPOKEMON might\nmake them run,\nbut they'll be\neasier to catch." },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONEWESTRESTHOUSE_SCIENTIST */
-    {   0,   5, 0x07, 0, "Using BAIT will\nmake POKEMON\neasier to catch." },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_SAFARIZONEWESTRESTHOUSE_COOLTRAINER_M */
-    {  12,   5, 0x1b, 0, "I hiked a lot, but\nI didn't see any\nPOKEMON I wanted." },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SAFARIZONEWESTRESTHOUSE_SILPH_WORKER_F */
+    {   8,   9, 0x20, 1, "Tossing ROCKs at\nPOKEMON might\nmake them run,\nbut they'll be\neasier to catch.", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONEWESTRESTHOUSE_SCIENTIST */
+    {   0,   5, 0x07, 0, "Using BAIT will\nmake POKEMON\neasier to catch.", NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_SAFARIZONEWESTRESTHOUSE_COOLTRAINER_M */
+    {  12,   5, 0x1b, 0, "I hiked a lot, but\nI didn't see any\nPOKEMON I wanted.", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_SAFARIZONEWESTRESTHOUSE_SILPH_WORKER_F */
 };
 
 static const map_warp_t kWarps_SafariZoneEastRestHouse[] = {
@@ -3299,9 +3301,9 @@ static const map_warp_t kWarps_SafariZoneEastRestHouse[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneEastRestHouse[] = {
-    {   2,   7, 0x20, 1, "How many did you\ncatch? I'm bushed\nfrom the work!" },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONEEASTRESTHOUSE_SCIENTIST */
-    {   8,   5, 0x21, 0, "I caught a\nCHANSEY!\fThat makes this\nall worthwhile!" },  /* SPRITE_ROCKER, STAY, TEXT_SAFARIZONEEASTRESTHOUSE_ROCKER */
-    {  10,   5, 0x2c, 0, "Whew! I'm tired\nfrom all the fun!" },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SAFARIZONEEASTRESTHOUSE_SILPH_WORKER_M */
+    {   2,   7, 0x20, 1, "How many did you\ncatch? I'm bushed\nfrom the work!", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONEEASTRESTHOUSE_SCIENTIST */
+    {   8,   5, 0x21, 0, "I caught a\nCHANSEY!\fThat makes this\nall worthwhile!", NULL },  /* SPRITE_ROCKER, STAY, TEXT_SAFARIZONEEASTRESTHOUSE_ROCKER */
+    {  10,   5, 0x2c, 0, "Whew! I'm tired\nfrom all the fun!", NULL },  /* SPRITE_SILPH_WORKER_M, STAY, TEXT_SAFARIZONEEASTRESTHOUSE_SILPH_WORKER_M */
 };
 
 static const map_warp_t kWarps_SafariZoneNorthRestHouse[] = {
@@ -3310,9 +3312,9 @@ static const map_warp_t kWarps_SafariZoneNorthRestHouse[] = {
 };
 
 static const npc_event_t kNpcs_SafariZoneNorthRestHouse[] = {
-    {  12,   7, 0x20, 1, "You can keep any\nitem you find on\nthe ground here.\fBut, you'll run\nout of time if\nyou try for all\nof them at once!" },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONENORTHRESTHOUSE_SCIENTIST */
-    {   6,   9, 0x23, 0, "Go to the deepest\npart of the\nSAFARI ZONE. You\nwill win a prize!" },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONENORTHRESTHOUSE_SAFARI_ZONE_WORKER */
-    {   2,  11, 0x10, 1, "My EEVEE evolved\ninto FLAREON!\fBut, a friend's\nEEVEE turned into\na VAPOREON!\nI wonder why?" },  /* SPRITE_GENTLEMAN, WALK, TEXT_SAFARIZONENORTHRESTHOUSE_GENTLEMAN */
+    {  12,   7, 0x20, 1, "You can keep any\nitem you find on\nthe ground here.\fBut, you'll run\nout of time if\nyou try for all\nof them at once!", NULL },  /* SPRITE_SCIENTIST, WALK, TEXT_SAFARIZONENORTHRESTHOUSE_SCIENTIST */
+    {   6,   9, 0x23, 0, "Go to the deepest\npart of the\nSAFARI ZONE. You\nwill win a prize!", NULL },  /* SPRITE_SAFARI_ZONE_WORKER, STAY, TEXT_SAFARIZONENORTHRESTHOUSE_SAFARI_ZONE_WORKER */
+    {   2,  11, 0x10, 1, "My EEVEE evolved\ninto FLAREON!\fBut, a friend's\nEEVEE turned into\na VAPOREON!\nI wonder why?", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_SAFARIZONENORTHRESTHOUSE_GENTLEMAN */
 };
 
 static const map_warp_t kWarps_CeruleanCave2F[] = {
@@ -3335,7 +3337,7 @@ static const map_warp_t kWarps_CeruleanCaveB1F[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanCaveB1F[] = {
-    {  54,  27, 0x05, 0, NULL },  /* SPRITE_MONSTER, STAY, TEXT_CERULEANCAVEB1F_MEWTWO */
+    {  54,  27, 0x05, 0, NULL, NULL },  /* SPRITE_MONSTER, STAY, TEXT_CERULEANCAVEB1F_MEWTWO */
 };
 
 static const item_event_t kItems_CeruleanCaveB1F[] = {
@@ -3367,7 +3369,7 @@ static const map_warp_t kWarps_NameRatersHouse[] = {
 };
 
 static const npc_event_t kNpcs_NameRatersHouse[] = {
-    {  10,   7, 0x2b, 0, "Hello, hello!\nI am the official\nNAME RATER!\fWant me to rate\nthe nicknames of\nyour POKEMON?" },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_NAMERATERSHOUSE_NAME_RATER */
+    {  10,   7, 0x2b, 0, "Hello, hello!\nI am the official\nNAME RATER!\fWant me to rate\nthe nicknames of\nyour POKEMON?", NULL },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_NAMERATERSHOUSE_NAME_RATER */
 };
 
 static const map_warp_t kWarps_CeruleanBadgeHouse[] = {
@@ -3377,7 +3379,7 @@ static const map_warp_t kWarps_CeruleanBadgeHouse[] = {
 };
 
 static const npc_event_t kNpcs_CeruleanBadgeHouse[] = {
-    {  10,   7, 0x0a, 0, "POKEMON BADGEs\nare owned only by\nskilled trainers.\fI see you have\nat least one.\fThose BADGEs have\namazing secrets!" },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CERULEANBADGEHOUSE_MIDDLE_AGED_MAN */
+    {  10,   7, 0x0a, 0, "POKEMON BADGEs\nare owned only by\nskilled trainers.\fI see you have\nat least one.\fThose BADGEs have\namazing secrets!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CERULEANBADGEHOUSE_MIDDLE_AGED_MAN */
 };
 
 static const map_warp_t kWarps_RockTunnelB1F[] = {
@@ -3388,14 +3390,14 @@ static const map_warp_t kWarps_RockTunnelB1F[] = {
 };
 
 static const npc_event_t kNpcs_RockTunnelB1F[] = {
-    {  22,  27, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNELB1F_COOLTRAINER_F1 */
-    {  12,  21, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER1 */
-    {   6,  11, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD1 */
-    {  40,  43, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD2 */
-    {  60,  21, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER2 */
-    {  28,  57, 0x06, 0, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNELB1F_COOLTRAINER_F2 */
-    {  66,  11, 0x0e, 0, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER3 */
-    {  52,  61, 0x0c, 0, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD3 */
+    {  22,  27, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNELB1F_COOLTRAINER_F1 */
+    {  12,  21, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER1 */
+    {   6,  11, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD1 */
+    {  40,  43, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD2 */
+    {  60,  21, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER2 */
+    {  28,  57, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNELB1F_COOLTRAINER_F2 */
+    {  66,  11, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROCKTUNNELB1F_HIKER3 */
+    {  52,  61, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD3 */
 };
 
 static const map_warp_t kWarps_SilphCo9F[] = {
@@ -3407,10 +3409,10 @@ static const map_warp_t kWarps_SilphCo9F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo9F[] = {
-    {   6,  29, 0x29, 0, NULL },  /* SPRITE_NURSE, STAY, TEXT_SILPHCO9F_NURSE */
-    {   4,   9, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO9F_ROCKET1 */
-    {  42,  27, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO9F_SCIENTIST */
-    {  26,  33, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO9F_ROCKET2 */
+    {   6,  29, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_SILPHCO9F_NURSE */
+    {   4,   9, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO9F_ROCKET1 */
+    {  42,  27, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO9F_SCIENTIST */
+    {  26,  33, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO9F_ROCKET2 */
 };
 
 static const map_warp_t kWarps_SilphCo10F[] = {
@@ -3423,9 +3425,9 @@ static const map_warp_t kWarps_SilphCo10F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo10F[] = {
-    {   2,  19, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO10F_ROCKET */
-    {  20,   5, 0x20, 0, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO10F_SCIENTIST */
-    {  18,  31, 0x1b, 1, "Waaaaa!\nI'm scared!" },  /* SPRITE_SILPH_WORKER_F, WALK, TEXT_SILPHCO10F_SILPH_WORKER_F */
+    {   2,  19, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO10F_ROCKET */
+    {  20,   5, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_SILPHCO10F_SCIENTIST */
+    {  18,  31, 0x1b, 1, "Waaaaa!\nI'm scared!", NULL },  /* SPRITE_SILPH_WORKER_F, WALK, TEXT_SILPHCO10F_SILPH_WORKER_F */
 };
 
 static const item_event_t kItems_SilphCo10F[] = {
@@ -3442,11 +3444,11 @@ static const map_warp_t kWarps_SilphCo11F[] = {
 };
 
 static const npc_event_t kNpcs_SilphCo11F[] = {
-    {  14,  11, 0x2b, 0, "PRESIDENT: Thank\nyou for saving\nSILPH!\fI will never\nforget you saved\nus in our moment\nof peril!\fI have to thank\nyou in some way!\fBecause I am rich,\nI can give you\nanything!\fHere, maybe this\nwill do!" },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_SILPHCO11F_SILPH_PRESIDENT */
-    {  20,  11, 0x0f, 0, "SECRETARY: Thank\nyou for rescuing\nall of us!\fWe admire your\ncourage." },  /* SPRITE_BEAUTY, STAY, TEXT_SILPHCO11F_BEAUTY */
-    {  12,  19, 0x17, 0, "Ah {PLAYER}!\nSo we meet again!\fThe PRESIDENT and\nI are discussing\na vital business\nproposition.\fKeep your nose\nout of grown-up\nmatters...\fOr, experience a\nworld of pain!" },  /* SPRITE_GIOVANNI, STAY, TEXT_SILPHCO11F_GIOVANNI */
-    {   6,  33, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO11F_ROCKET1 */
-    {  30,  19, 0x18, 0, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO11F_ROCKET2 */
+    {  14,  11, 0x2b, 0, "PRESIDENT: Thank\nyou for saving\nSILPH!\fI will never\nforget you saved\nus in our moment\nof peril!\fI have to thank\nyou in some way!\fBecause I am rich,\nI can give you\nanything!\fHere, maybe this\nwill do!", NULL },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_SILPHCO11F_SILPH_PRESIDENT */
+    {  20,  11, 0x0f, 0, "SECRETARY: Thank\nyou for rescuing\nall of us!\fWe admire your\ncourage.", NULL },  /* SPRITE_BEAUTY, STAY, TEXT_SILPHCO11F_BEAUTY */
+    {  12,  19, 0x17, 0, "Ah {PLAYER}!\nSo we meet again!\fThe PRESIDENT and\nI are discussing\na vital business\nproposition.\fKeep your nose\nout of grown-up\nmatters...\fOr, experience a\nworld of pain!", NULL },  /* SPRITE_GIOVANNI, STAY, TEXT_SILPHCO11F_GIOVANNI */
+    {   6,  33, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO11F_ROCKET1 */
+    {  30,  19, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_SILPHCO11F_ROCKET2 */
 };
 
 static const map_warp_t kWarps_SilphCoElevator[] = {
@@ -3459,11 +3461,11 @@ static const sign_event_t kSigns_SilphCoElevator[] = {
 };
 
 static const npc_event_t kNpcs_TradeCenter[] = {
-    {   4,   5, 0x01, 0, NULL },  /* SPRITE_RED, STAY, TEXT_TRADECENTER_OPPONENT */
+    {   4,   5, 0x01, 0, NULL, NULL },  /* SPRITE_RED, STAY, TEXT_TRADECENTER_OPPONENT */
 };
 
 static const npc_event_t kNpcs_Colosseum[] = {
-    {   4,   5, 0x01, 0, NULL },  /* SPRITE_RED, STAY, TEXT_COLOSSEUM_OPPONENT */
+    {   4,   5, 0x01, 0, NULL, NULL },  /* SPRITE_RED, STAY, TEXT_COLOSSEUM_OPPONENT */
 };
 
 static const map_warp_t kWarps_LoreleisRoom[] = {
@@ -3474,7 +3476,7 @@ static const map_warp_t kWarps_LoreleisRoom[] = {
 };
 
 static const npc_event_t kNpcs_LoreleisRoom[] = {
-    {  10,   5, 0x3b, 0, NULL },  /* SPRITE_LORELEI, STAY, TEXT_LORELEISROOM_LORELEI */
+    {  10,   5, 0x3b, 0, NULL, NULL },  /* SPRITE_LORELEI, STAY, TEXT_LORELEISROOM_LORELEI */
 };
 
 static const map_warp_t kWarps_BrunosRoom[] = {
@@ -3485,7 +3487,7 @@ static const map_warp_t kWarps_BrunosRoom[] = {
 };
 
 static const npc_event_t kNpcs_BrunosRoom[] = {
-    {  10,   5, 0x3a, 0, NULL },  /* SPRITE_BRUNO, STAY, TEXT_BRUNOSROOM_BRUNO */
+    {  10,   5, 0x3a, 0, NULL, NULL },  /* SPRITE_BRUNO, STAY, TEXT_BRUNOSROOM_BRUNO */
 };
 
 static const map_warp_t kWarps_AgathasRoom[] = {
@@ -3496,7 +3498,7 @@ static const map_warp_t kWarps_AgathasRoom[] = {
 };
 
 static const npc_event_t kNpcs_AgathasRoom[] = {
-    {  10,   5, 0x39, 0, NULL },  /* SPRITE_AGATHA, STAY, TEXT_AGATHASROOM_AGATHA */
+    {  10,   5, 0x39, 0, NULL, NULL },  /* SPRITE_AGATHA, STAY, TEXT_AGATHASROOM_AGATHA */
 };
 
 const map_events_t gMapEvents[NUM_MAPS] = {

@@ -55,6 +55,7 @@
 /* ---- Per-NPC runtime state --------------------------------------- */
 
 static int      npc_count = 0;
+static int      npc_last_interacted = -1;  /* index from most recent NPC_FacePlayer call */
 static uint8_t  npc_sprite[MAX_NPCS];      /* sprite_id */
 static uint8_t  npc_x[MAX_NPCS];           /* tile X coordinate */
 static uint8_t  npc_y[MAX_NPCS];           /* tile Y coordinate */
@@ -174,15 +175,76 @@ void NPC_HideSprite(int npc_slot_idx) {
         wShadowOAM[oam + s].y = 0;
 }
 
+void NPC_HideAll(void) {
+    for (int i = 0; i < MAX_NPCS; i++)
+        NPC_HideSprite(i);
+}
+
+void NPC_ShowAll(void) {
+    for (int i = 0; i < MAX_NPCS; i++)
+        npc_hidden[i] = 0;
+}
+
+/* Mirror Gen 1 CheckSpriteAvailability (engine/overworld/movement.asm):
+ * hide any NPC whose 2×2-tile sprite footprint contains a tile slot >= 96
+ * (MAP_TILESET_SIZE=$60 — a text-box/font tile, not a map tile).
+ * Call this after drawing UI boxes; NPC_BuildView restores OAM when UI closes.
+ * Does NOT set npc_hidden. */
+#define MAP_TILESET_SIZE 96
+void NPC_HideOverUITiles(void) {
+    for (int i = 0; i < npc_count; i++) {
+        if (npc_hidden[i]) continue;
+        int nx = (int)npc_x[i] - gCamX;
+        int ny = (int)npc_y[i] - gCamY;
+        /* 2×2 footprint: cols [nx, nx+1], rows [ny-1, ny] */
+        for (int dy = -1; dy <= 0; dy++) {
+            for (int dx = 0; dx <= 1; dx++) {
+                int c = nx + dx;
+                int r = ny + dy;
+                if (c < 0 || c >= SCREEN_WIDTH || r < 0 || r >= SCREEN_HEIGHT)
+                    continue;
+                if (gScrollTileMap[(r + 2) * SCROLL_MAP_W + (c + 2)] >= MAP_TILESET_SIZE) {
+                    int oam = NPC_OAM_BASE + i * 4;
+                    for (int s = 0; s < 4; s++)
+                        wShadowOAM[oam + s].y = 0;
+                    goto next_npc;
+                }
+            }
+        }
+        next_npc:;
+    }
+}
+
 /* Make NPC i face the player (opposite of gPlayerFacing).
  * Mirrors MakeNPCFacePlayer in engine/overworld/movement.asm. */
 void NPC_FacePlayer(int i) {
     if (i < 0 || i >= npc_count) return;
+    npc_last_interacted = i;
     /* Player up→NPC down, player down→NPC up, left→right, right→left */
     static const uint8_t flip[4] = {1, 0, 3, 2};
     npc_facing[i] = flip[gPlayerFacing & 3];
     reload_npc_tiles(i);
     apply_npc_oam_facing(i);
+}
+
+void NPC_SetFacing(int i, int facing) {
+    if (i < 0 || i >= npc_count) return;
+    npc_facing[i] = (uint8_t)(facing & 3);
+    reload_npc_tiles(i);
+    apply_npc_oam_facing(i);
+}
+
+int NPC_GetLastInteracted(void) {
+    return npc_last_interacted;
+}
+
+void NPC_GetScreenPos(int i, int *px, int *py) {
+    if (i < 0 || i >= npc_count) { *px = *py = 0; return; }
+    int oam = NPC_OAM_BASE + i * 4;
+    /* Slot 0 and 1 share the same Y (top row); slot 1 has leftmost X
+     * in NormalOAM layout (down/up/left facing), which the nurse always uses. */
+    *py = (int)wShadowOAM[oam + 0].y - OAM_Y_OFS;
+    *px = (int)wShadowOAM[oam + 1].x - OAM_X_OFS;
 }
 
 /* Returns 1 if any NPC other than skip_idx is at (nx, ny). */

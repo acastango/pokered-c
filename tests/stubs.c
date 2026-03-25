@@ -18,7 +18,20 @@ int  Audio_Init(void)  { return 0; }
 void Audio_Quit(void)  {}
 void Audio_Update(void) {}
 void Audio_WriteReg(int ch, int reg, uint8_t val) { (void)ch;(void)reg;(void)val; }
+void Audio_SetWaveInstrument(int idx) { (void)idx; }
 void Audio_PlaySFX_PressAB(void) {}
+void Audio_PlaySFX_Ledge(void) {}
+void Audio_PlaySFX_GoInside(void) {}
+void Audio_PlaySFX_GoOutside(void) {}
+void Audio_PlaySFX_StartMenu(void) {}
+void Audio_PlaySFX_BattleHit(uint8_t dmg_mult) { (void)dmg_mult; }
+void Audio_PlaySFX_BallPoof(void) {}
+void Audio_PlaySFX_Faint(void) {}
+void Audio_PlaySFX_Run(void) {}
+void Audio_PlaySFX_HealingMachine(void) {}
+void Audio_PlaySFX_LevelUp(void) {}
+void Audio_PlaySFX_Purchase(void) {}
+void Audio_PlayCry(uint8_t species) { (void)species; }
 
 /* save.h stubs */
 int  Save_Load(void) { return -1; }  /* no save = new game */

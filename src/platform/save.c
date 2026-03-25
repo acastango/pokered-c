@@ -23,6 +23,7 @@ typedef struct __attribute__((packed)) {
     uint8_t     letter_delay_flags;
     uint16_t    player_id;
     uint8_t     cur_map;
+    uint8_t     last_map;
     uint8_t     y_coord;
     uint8_t     x_coord;
     uint8_t     event_flags[EVENT_FLAGS_BYTES];
@@ -49,6 +50,7 @@ static void pack_save(void) {
     save.badges     = wObtainedBadges;
     save.player_id  = wPlayerID;
     save.cur_map    = wCurMap;
+    save.last_map   = wLastMap;
     save.y_coord    = wYCoord;
     save.x_coord    = wXCoord;
     memcpy(save.event_flags,    wEventFlags,     EVENT_FLAGS_BYTES);
@@ -73,6 +75,7 @@ static void unpack_save(void) {
     wObtainedBadges = save.badges;
     wPlayerID       = save.player_id;
     wCurMap         = save.cur_map;
+    wLastMap        = save.last_map;
     wYCoord         = save.y_coord;
     wXCoord         = save.x_coord;
     memcpy(wEventFlags,    save.event_flags,   EVENT_FLAGS_BYTES);

@@ -10,8 +10,13 @@
  * ALWAYS refer to the pokered-master ASM before modifying anything here.
  * Every quirk and bug is intentional.
  */
+/* Set to 1 to trace stat mods and damage vars to stdout. */
+#define BATTLE_DEBUG 1
 #include "battle.h"
 #include "../../data/base_stats.h"
+#if BATTLE_DEBUG
+#include <stdio.h>
+#endif
 #include "../../data/type_chart.h"
 
 /* StatModifierRatios — data/battle/stat_modifiers.asm
@@ -424,6 +429,7 @@ void Battle_CalculateModifiedStats(void) {
 
     uint16_t *stat_ptrs[NUM_STATS] = { &mon->atk, &mon->def, &mon->spd, &mon->spc };
 
+    static const char *stat_names[4] = {"ATK","DEF","SPD","SPC"};
     for (int c = 0; c < NUM_STATS; c++) {
         uint8_t stage = mods[c];
         if (stage < 1)  stage = 1;
@@ -433,9 +439,14 @@ void Battle_CalculateModifiedStats(void) {
         uint8_t  den = kBattleStatModRatios[stage - 1][1];
         uint32_t val = (uint32_t)unmod[c] * num / den;
 
-        if (val > MAX_NEUTRAL_DAMAGE) val = MAX_NEUTRAL_DAMAGE;   /* cap at 999 */
-        if (val == 0) val = 1;                                     /* floor at 1 */
+        if (val > MAX_NEUTRAL_DAMAGE) val = MAX_NEUTRAL_DAMAGE;
+        if (val == 0) val = 1;
 
+#if BATTLE_DEBUG
+        printf("[DBG] CalcModStats %s side %s: unmod=%u stage=%d -> %u\n",
+               (wCalculateWhoseStats==0)?"player":"enemy",
+               stat_names[c], unmod[c], (int)stage-7, (unsigned)val);
+#endif
         *stat_ptrs[c] = (uint16_t)val;
     }
 }
@@ -506,10 +517,14 @@ int Battle_GetDamageVarsForPlayerAttack(void) {
         }
     }
 
-    scale_for_damage(&offense, &defense);            /* >> 2 if either >= 256 (core.asm:4107) */
+#if BATTLE_DEBUG
+    printf("[DBG] PlayerAtk: offense(atk)=%u defense(def)=%u power=%u level=%u crit=%d\n",
+           offense, defense, power, wBattleMon.level, wCriticalHitOrOHKO);
+#endif
+    scale_for_damage(&offense, &defense);
 
     uint8_t level = wBattleMon.level;
-    if (wCriticalHitOrOHKO) level = (uint8_t)(level << 1); /* double level on crit (core.asm:4136) */
+    if (wCriticalHitOrOHKO) level = (uint8_t)(level << 1);
 
     return Battle_CalcDamage((uint8_t)offense, (uint8_t)defense, power, level);
 }
@@ -555,6 +570,10 @@ int Battle_GetDamageVarsForEnemyAttack(void) {
         }
     }
 
+#if BATTLE_DEBUG
+    printf("[DBG] EnemyAtk: offense(atk)=%u defense(def)=%u power=%u level=%u crit=%d\n",
+           offense, defense, power, wEnemyMon.level, wCriticalHitOrOHKO);
+#endif
     scale_for_damage(&offense, &defense);
 
     uint8_t level = wEnemyMon.level;

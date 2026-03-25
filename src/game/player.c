@@ -50,6 +50,7 @@
 #include "../platform/display.h"
 #include "../game/constants.h"
 #include "../data/player_sprite.h"
+#include "../platform/audio.h"
 #include <stdio.h>
 
 #define PLAYER_TILE_BASE   64   /* sprite tile slots 64-67 (after 16 NPCs × 4 = 64) */
@@ -171,6 +172,7 @@ int gScrollPxX    = 0;
 int gScrollPxY    = 0;
 
 static int gWalkTimer        = 0;  /* counts WALK_FRAMES..1 while animating */
+int        gStepJustCompleted = 0; /* set to 1 on the frame a step finishes; caller clears */
 static int gWalkDX           = 0;  /* step direction of current/last step */
 static int gWalkDY           = 0;
 static int gBgScrollDX       = 0;  /* camera tile delta this step (0 at map edge) */
@@ -393,6 +395,7 @@ void Player_Update(void) {
         if (--gWalkTimer == 0) {
             /* Snap to zero at step completion to absorb any rounding drift. */
             gScrollPxX = gScrollPxY = gPlayerOffPxX = gPlayerOffPxY = 0;
+            gStepJustCompleted = 1;
             if (gLedgeStep == 1) {
                 /* Auto-advance to step 2: move onto the landing tile.
                  * No collision check — the landing tile is always passable. */
@@ -537,6 +540,7 @@ void Player_Update(void) {
         gLedgeDX   = dx;
         gLedgeDY   = dy;
         gArcFrame  = 0;   /* show arc[0]=0 on this very first frame */
+        Audio_PlaySFX_Ledge();
         begin_step(nx, ny, dx, dy);
         update_player_oam();
         return;
@@ -571,4 +575,21 @@ int Player_IsMoving(void) {
  * to prevent the stale sprite being visible during fade-in. */
 void Player_SyncOAM(void) {
     update_player_oam();
+}
+
+/* Mirror Gen 1 UpdatePlayerSprite .checkIfTextBoxInFrontOfSprite
+ * (engine/overworld/movement.asm line 15-23):
+ * if the tile at the player's lower-left sprite position is >= MAP_TILESET_SIZE
+ * ($60 = 96), hide the player OAM.  Call after drawing UI boxes. */
+void Player_HideIfOverUI(void) {
+    int nx = (int)wXCoord - gCamX;
+    int ny = (int)wYCoord - gCamY;
+    /* lower-left tile of the 2×2 sprite footprint */
+    if (nx < 0 || nx >= SCREEN_WIDTH || ny < 0 || ny >= SCREEN_HEIGHT) return;
+    if (gScrollTileMap[(ny + 2) * SCROLL_MAP_W + (nx + 2)] >= 96) {
+        wShadowOAM[0].y = 0;
+        wShadowOAM[1].y = 0;
+        wShadowOAM[2].y = 0;
+        wShadowOAM[3].y = 0;
+    }
 }
