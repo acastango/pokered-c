@@ -4,7 +4,7 @@ A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
-**Status:** Overworld fully playable. Full Gen 1 battle engine implemented (Mechanics still to be fully tested for acute accuracy, trainer battles not fully implemented). Major UI screens complete (Some buggy, like PokeMart).
+**Status:** Overworld tested up to Cerulean City, data loaded for all of Kanto. Full Gen 1 battle engine implemented (Mechanics still to be fully tested for acute accuracy, trainer battles not fully implemented). Major UI screens complete (Some buggy, like PokeMart).
 
 ## What's implemented
 
