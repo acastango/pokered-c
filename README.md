@@ -4,7 +4,49 @@ A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
-**Status:** Overworld playable — walking, NPCs, warps, map connections, ledge jumping, item pickup, the bag/start menu, and wild encounter detection. Battles not yet implemented.
+**Status:** Overworld fully playable. Full Gen 1 battle engine implemented. Major UI screens complete.
+
+## What's implemented
+
+### Overworld
+- Walking, NPC interaction, map connections, ledge jumping
+- Warps (doors, cave exits) with fade transition
+- Item pickup from overworld
+- Wild encounter detection (grass tiles, random rate)
+- Save/load
+
+### UI screens
+- **Start menu** — Pokémon party, bag, player card, save
+- **Bag** — item list and use
+- **Party menu** — party Pokémon with sprite icons
+- **Summary screen** — stats, moves, Pokédex entry
+- **Pokémart** — buy/sell with Gen 1 item list layout, quantity picker, ¥ pricing
+- **Pokémon Center** — nurse dialogue, healing machine animation, party restore
+
+### Battle engine (Gen 1 faithful)
+- Turn structure: move selection, priority, speed order
+- Damage formula: types, STAB, critical hits, random factor
+- All status conditions (PAR, SLP, PSN, BRN, FRZ) with Gen 1 mechanics
+- Move effects via effect ID table (mirrors pokered effect handler dispatch)
+- Experience gain, level-up, stat recalculation
+- Pokémon switching (voluntary + forced on faint)
+- Item use in battle (Potion, Antidote, status heals, Pokéballs)
+- Catch mechanic — Gen 1 catch rate formula, shake count, critical catch
+- Trainer battles — send-out text, win/loss handling, prize money
+- 8 battle transition animations (wipe patterns, spiral, etc.)
+- Full battle UI: HP bars, status icons, party dots, move menu, bag/switch/run submenus
+
+### Audio
+- Full music playback from pokered-master score data
+- Pokémon cries (pitch + tempo modifiers per species)
+- SFX: purchase kaching, level-up jingle, healing machine, ball poof, faint, run, ledge hop
+
+### Data (extracted from pokered-master)
+- All 151 Pokémon front/back sprites
+- Party icon tiles for all species
+- Level-up movesets and evolution chains
+- All trainer parties
+- Pokémon cry definitions
 
 ## Prerequisites
 
@@ -55,9 +97,9 @@ cd build && ctest
 
 | Key | Action |
 |---|---|
-| Arrow keys | Move |
-| Z | A button |
-| X | B button |
+| Arrow keys | Move / navigate menus |
+| Z | A button (confirm, interact) |
+| X | B button (cancel, back) |
 | Enter | Start |
 
 ## Data extraction tools
@@ -69,12 +111,14 @@ python tools/extract_maps.py
 python tools/extract_events.py
 python tools/extract_data.py
 python tools/extract_sprites.py
-# … etc.
+python tools/extract_audio.py
+python tools/extract_cries.py
+python tools/extract_party_icons.py
 ```
 
 ## Built with
 
-Developed using [Claude Code](https://claude.ai/code) with [monet-code](https://github.com/acastango/monet-code) for persistent project memory across sessions.
+Developed using [Claude Code](https://claude.ai/code) with [mnemo](https://github.com/acastango/mnemo) for persistent project memory across sessions.
 
 ## Legal
 
