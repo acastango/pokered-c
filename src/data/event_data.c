@@ -347,14 +347,46 @@ static const item_event_t kItems_Route2[] = {
 
 static const npc_event_t kNpcs_Route3[] = {
     { 114,  23, 0x0c, 0, "Whew... I better\ntake a rest...\nGroan...\fThat tunnel from\nCERULEAN takes a\nlot out of you!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROUTE3_SUPER_NERD */
-    {  20,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER1 */
-    {  28,   9, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER2 */
-    {  32,  19, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F1 */
-    {  38,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER3 */
-    {  46,   9, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F2 */
-    {  44,  19, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER4 */
-    {  48,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE3_YOUNGSTER5 */
-    {  66,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE3_COOLTRAINER_F3 */
+    {  20,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TRAINER: OPP_BUG_CATCHER #4 */
+    {  28,   9, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TRAINER: OPP_YOUNGSTER #1 */
+    {  32,  19, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TRAINER: OPP_LASS #1 */
+    {  38,  11, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TRAINER: OPP_BUG_CATCHER #5 */
+    {  46,   9, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TRAINER: OPP_LASS #2 */
+    {  44,  19, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TRAINER: OPP_YOUNGSTER #2 */
+    {  48,  13, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TRAINER: OPP_BUG_CATCHER #6 */
+    {  66,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TRAINER: OPP_LASS #3 */
+};
+
+/* Trainer data for Route 3 (pokered scripts/Route3.asm + Route3TrainerHeaders).
+ * flag_bit values: EVENT_BEAT_ROUTE_3_TRAINER_0..7 = 150..157
+ * trainer_class: OPP_BUG_CATCHER=2, OPP_YOUNGSTER=1, OPP_LASS=3
+ * engage_dist from trainer headers: 2,3,2,1,4,3,3,2
+ * text from text/Route3.asm (pokered originals) */
+static const map_trainer_t kTrainers_Route3[] = {
+    /* npc 1 */ { 1, 3, 2, 4, 2, 150,
+        "Hey! I met you in\nVIRIDIAN FOREST!",
+        "There are other\nkinds of #MON\nthan bug types!" },
+    /* npc 2 */ { 2, 0, 1, 1, 3, 151,
+        "Hi! I like shorts!\nThey're comfy and\neasy to wear!",
+        "Heh heh, I like\nshorts!" },
+    /* npc 3 */ { 3, 2, 3, 1, 2, 152,
+        "Hey, boy! Ready\nto play rough?",
+        "You're better\nthan I thought!" },
+    /* npc 4 */ { 4, 0, 2, 5, 1, 153,
+        "Catching bugs is\nbig in VIRIDIAN\nFOREST!",
+        "Wow! You beat me\nbadly!" },
+    /* npc 5 */ { 5, 2, 3, 2, 4, 154,
+        "La la la... Oh!\nYou surprised me!",
+        "That was a great\nbattle!" },
+    /* npc 6 */ { 6, 2, 1, 2, 3, 155,
+        "I've been training\nhard to be the\nbest!",
+        "You're good, but\nI'll beat you\nnext time!" },
+    /* npc 7 */ { 7, 3, 2, 6, 3, 156,
+        "I want to catch\nmore BUG #MON!",
+        "You have some\nreally strong\n#MON!" },
+    /* npc 8 */ { 8, 1, 3, 3, 2, 157,
+        "Hm! I didn't\nexpect to find\nyou here!",
+        "My #MON lost\nbut they'll do\nbetter next time!" },
 };
 
 static const sign_event_t kSigns_Route3[] = {
@@ -3516,7 +3548,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x0b] = { kWarps_SaffronCity, 8, kNpcs_SaffronCity, 15, kSigns_SaffronCity, 10, NULL, 0, 0x0f },
     [0x0c] = { NULL, 0, kNpcs_Route1, 2, kSigns_Route1, 1, NULL, 0, 0x0b },
     [0x0d] = { kWarps_Route2, 6, NULL, 0, kSigns_Route2, 2, kItems_Route2, 2, 0x0f },
-    [0x0e] = { NULL, 0, kNpcs_Route3, 9, kSigns_Route3, 1, NULL, 0, 0x2c },
+    [0x0e] = { NULL, 0, kNpcs_Route3, 9, kSigns_Route3, 1, NULL, 0, 0x2c, kTrainers_Route3, 8 },
     [0x0f] = { kWarps_Route4, 3, kNpcs_Route4, 2, kSigns_Route4, 3, kItems_Route4, 1, 0x2c },
     [0x10] = { kWarps_Route5, 5, NULL, 0, kSigns_Route5, 1, NULL, 0, 0x0a },
     [0x11] = { kWarps_Route6, 4, kNpcs_Route6, 6, kSigns_Route6, 1, NULL, 0, 0x0f },

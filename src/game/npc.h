@@ -48,3 +48,14 @@ int NPC_GetLastInteracted(void);
  * sprite, via the live OAM data.  Assumes NormalOAM layout (down/up/left
  * facing).  Used by pokecenter.c to anchor the healing machine sprites. */
 void NPC_GetScreenPos(int i, int *px, int *py);
+
+/* Returns the current map tile coordinates of NPC i. */
+void NPC_GetTilePos(int i, int *tx, int *ty);
+
+/* Returns 1 if NPC i is mid-step (walk animation in progress). */
+int NPC_IsWalking(int i);
+
+/* Initiate a forced step in direction dir (0=down 1=up 2=left 3=right).
+ * Does nothing if NPC is already mid-walk.
+ * Used by trainer_sight.c to walk trainers toward the player. */
+void NPC_DoScriptedStep(int i, int dir);

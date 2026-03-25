@@ -69,6 +69,7 @@ static const song_t kSongs[] = {
     /* MUSIC_DEFEATED_TRAINER */    { { &kDefeatedTrainer_Ch1,   &kDefeatedTrainer_Ch2,   &kDefeatedTrainer_Ch3   } },
     /* MUSIC_DEFEATED_GYM_LEADER */ { { &kDefeatedGymLeader_Ch1, &kDefeatedGymLeader_Ch2, &kDefeatedGymLeader_Ch3 } },
     /* MUSIC_PKMN_HEALED */        { { &kPkmnHealed_Ch1,        &kPkmnHealed_Ch2,        &kPkmnHealed_Ch3        } },
+    /* MUSIC_TRAINER_BATTLE */     { { &kTrainerBattle_Ch1,     &kTrainerBattle_Ch2,     &kTrainerBattle_Ch3     } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 

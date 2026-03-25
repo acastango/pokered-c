@@ -76,6 +76,7 @@ set(SOURCES
     src/game/battle/battle_trainer.c
     src/game/battle/battle_ui.c
     src/game/battle_transition.c
+    src/game/trainer_sight.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
     src/data/sprite_data.c
@@ -102,7 +103,7 @@ endif()
 
 # Warnings
 target_compile_options(pokered PRIVATE
-    -Wall -Wextra -Wno-unused-parameter
+    -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
     -include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h  # workaround GCC 10 ICE
     $<$<CONFIG:Debug>:-g -O0>
     $<$<CONFIG:Release>:-O2>
@@ -143,6 +144,7 @@ set(TEST_GAME_SOURCES
     src/game/battle/battle_items.c
     src/game/battle/battle_switch.c
     src/game/battle/battle_trainer.c
+    src/game/trainer_sight.c
     src/game/pokemon.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
@@ -169,7 +171,7 @@ set(TEST_SOURCES
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})
 target_include_directories(pokered_tests PRIVATE src tests)
 target_compile_options(pokered_tests PRIVATE
-    -Wall -Wextra -Wno-unused-parameter
+    -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
     -include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h
     $<$<CONFIG:Debug>:-g -O0>
 )

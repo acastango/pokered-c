@@ -32,9 +32,11 @@
 #include "../data/event_data.h"
 #include "../data/wild_data.h"
 #include "battle/battle_init.h"
+#include "battle/battle_trainer.h"
 #include "battle/battle_driver.h"
 #include "battle/battle_ui.h"
 #include "battle_transition.h"
+#include "trainer_sight.h"
 #include "party_menu.h"
 #include "pokecenter.h"
 #include "pokemart.h"
@@ -79,6 +81,7 @@ void GameInit(void) {
     Font_Load();
     Player_Init(wXCoord, wYCoord);
     NPC_Load();
+    Trainer_LoadMap();
     Map_BuildScrollView();
     NPC_BuildView(0, 0);
 
@@ -148,6 +151,11 @@ typedef enum { WARP_NONE = 0, WARP_FADE_OUT } WarpPhase;
 static WarpPhase gWarpPhase    = WARP_NONE;
 static int       gWarpStep     = 0;
 static int       gWarpStepTimer = 0;
+
+/* Set to 1 before BattleTransition_Start when the pending battle is a trainer
+ * battle.  Checked when transition completes to call Battle_StartTrainer
+ * instead of Battle_Start. */
+static int gPendingTrainerBattle = 0;
 
 /* Wild encounter: roll against rate and trigger text if hit */
 static void check_wild_encounter(void) {
@@ -341,7 +349,12 @@ void GameTick(void) {
     if (gScene == SCENE_BTRANS) {
         if (BattleTransition_Tick()) {
             /* Transition complete — launch battle. */
-            Battle_Start();
+            if (gPendingTrainerBattle) {
+                gPendingTrainerBattle = 0;
+                Battle_StartTrainer(gEngagedTrainerClass, gEngagedTrainerNo);
+            } else {
+                Battle_Start();
+            }
             BattleUI_Enter();
             gScene = SCENE_BATTLE;
         }
@@ -350,6 +363,8 @@ void GameTick(void) {
 
     /* ---- Battle scene (non-blocking) ------------------------------ */
     if (gScene == SCENE_BATTLE) {
+        /* Save battle type before Tick() resets wIsInBattle to 0 (BUI_END case). */
+        int was_trainer_battle = (wIsInBattle == 2);
         BattleUI_Tick();
         if (!BattleUI_IsActive()) {
             /* Battle ended — restore overworld GFX and state.
@@ -359,6 +374,12 @@ void GameTick(void) {
              * full rebuild even if gScrollViewReady was set when battle triggered.
              * gStepJustCompleted cleared so check_wild_encounter doesn't fire
              * immediately on the first overworld frame after battle. */
+
+            /* Mark trainer as defeated if the player won a trainer battle.
+             * "Player won" = all enemy mons fainted. */
+            if (was_trainer_battle && !Battle_AnyEnemyPokemonAliveCheck())
+                Trainer_MarkCurrentDefeated();
+
             gScene = SCENE_OVERWORLD;
             gStepJustCompleted = 0;
             memset(wShadowOAM, 0, sizeof(wShadowOAM));
@@ -367,6 +388,8 @@ void GameTick(void) {
             Map_ResetScrollState();
             Font_Load();   /* restore font/box tiles (120-126, 128-255) */
             Music_Play(Music_GetMapID(wCurMap));
+            NPC_Load();
+            Trainer_LoadMap();
             Player_SyncOAM();
             Map_BuildScrollView();
             NPC_BuildView(gScrollPxX, gScrollPxY);
@@ -409,6 +432,7 @@ void GameTick(void) {
                  * iteration.  GBFadeInFromWhite is only used for battle recovery
                  * and fly/dungeon warps. */
                 Warp_Execute();
+                Trainer_LoadMap();
                 Map_BuildScrollView();
                 NPC_BuildView(0, 0);
                 Player_SyncOAM();
@@ -420,6 +444,33 @@ void GameTick(void) {
         return;
     }
 
+
+    /* ---- Trainer engagement (non-blocking) ------------------------ *
+     * While a trainer is walking toward the player or showing text,   *
+     * block all normal overworld input and update the state machine.   *
+     * Mirrors CheckFightingMapTrainers / TrainerWalkUpToPlayer flow.  */
+    if (Trainer_IsEngaging()) {
+        int r = Trainer_SightTick();
+        NPC_Update();
+        Map_BuildScrollView();
+        NPC_BuildView(gScrollPxX, gScrollPxY);
+        if (r) {
+            /* Battle ready — find first non-fainted party mon for transition */
+            int player_level = 5;
+            for (int i = 0; i < wPartyCount; i++) {
+                if (wPartyMons[i].base.hp > 0) {
+                    player_level = wPartyMons[i].level;
+                    break;
+                }
+            }
+            memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+            Music_Play(MUSIC_TRAINER_BATTLE);
+            gPendingTrainerBattle = 1;
+            BattleTransition_Start(0, 0, player_level, 0);
+            gScene = SCENE_BTRANS;
+        }
+        return;
+    }
 
     /* START: open pause menu (only when player is idle, no warp in progress) */
     if ((hJoyPressed & PAD_START) && !Player_IsMoving() && gWarpPhase == WARP_NONE) {
@@ -466,7 +517,11 @@ void GameTick(void) {
      * not every frame.  This prevents immediate re-trigger after a battle ends. */
     if (gStepJustCompleted) {
         gStepJustCompleted = 0;
-        check_wild_encounter();
+        /* Trainer sight check has priority over wild encounters (mirrors
+         * CheckFightingMapTrainers running before CheckForBattleAfterStep). */
+        Trainer_CheckSight();
+        if (!Trainer_IsEngaging())
+            check_wild_encounter();
     }
     /* check_wild_encounter may have flipped gScene to SCENE_BATTLE.
      * Skip the map rebuild in that case — the battle UI owns the tilemap now. */

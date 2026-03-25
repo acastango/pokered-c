@@ -20,6 +20,29 @@ typedef struct {
     npc_script_fn script;    /* NULL = plain text; non-NULL = call this instead */
 } npc_event_t;
 
+/* Per-trainer data — one per trainer NPC on a map.
+ * Stored separately from npc_event_t to avoid breaking all existing NPC data.
+ *
+ * npc_idx:       index into the map's npc array that this trainer occupies
+ * facing:        initial facing direction (0=down 1=up 2=left 3=right)
+ * trainer_class: 1-based class index for Battle_ReadTrainer (1=YOUNGSTER, etc.)
+ * trainer_no:    1-based party index within that class
+ * sight_dist:    line-of-sight in visible tiles (pokered engage_dist blocks)
+ * flag_bit:      bit index in wEventFlags[] — set when trainer is defeated
+ * before_text:   shown when trainer spots/confronts the player (battle start)
+ * after_text:    shown on re-interaction after defeat
+ */
+typedef struct {
+    uint8_t      npc_idx;
+    uint8_t      facing;
+    uint8_t      trainer_class;
+    uint8_t      trainer_no;
+    uint8_t      sight_dist;
+    uint16_t     flag_bit;
+    const char  *before_text;
+    const char  *after_text;
+} map_trainer_t;
+
 typedef struct {
     uint16_t    x, y;       /* tile coords: x = asm_x*2, y = asm_y*2+1 */
     const char *text;       /* decoded sign text, or NULL */
@@ -31,15 +54,17 @@ typedef struct {
 } item_event_t;
 
 typedef struct {
-    const map_warp_t  *warps;
-    uint8_t            num_warps;
-    const npc_event_t *npcs;
-    uint8_t            num_npcs;
-    const sign_event_t *signs;
-    uint8_t             num_signs;
-    const item_event_t *items;
-    uint8_t             num_items;
-    uint8_t            border_block;
+    const map_warp_t    *warps;
+    uint8_t              num_warps;
+    const npc_event_t   *npcs;
+    uint8_t              num_npcs;
+    const sign_event_t  *signs;
+    uint8_t              num_signs;
+    const item_event_t  *items;
+    uint8_t              num_items;
+    uint8_t              border_block;
+    const map_trainer_t *trainers;
+    uint8_t              num_trainers;
 } map_events_t;
 
 #define NUM_MAPS 248

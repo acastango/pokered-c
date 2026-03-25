@@ -247,6 +247,37 @@ void NPC_GetScreenPos(int i, int *px, int *py) {
     *px = (int)wShadowOAM[oam + 1].x - OAM_X_OFS;
 }
 
+void NPC_GetTilePos(int i, int *tx, int *ty) {
+    if (i < 0 || i >= npc_count) { *tx = *ty = 0; return; }
+    *tx = (int)npc_x[i];
+    *ty = (int)npc_y[i];
+}
+
+int NPC_IsWalking(int i) {
+    if (i < 0 || i >= npc_count) return 0;
+    return npc_walk_frames[i] > 0;
+}
+
+void NPC_DoScriptedStep(int i, int dir) {
+    if (i < 0 || i >= npc_count) return;
+    if (npc_walk_frames[i] > 0) return;  /* already mid-step */
+
+    static const int8_t ddx[4] = { 0,  0, -2,  2};
+    static const int8_t ddy[4] = { 2, -2,  0,  0};
+    int ndx = ddx[dir & 3];
+    int ndy = ddy[dir & 3];
+
+    npc_facing[i] = (uint8_t)(dir & 3);
+    reload_npc_tiles(i);
+    apply_npc_oam_facing(i);
+
+    npc_x[i] = (uint8_t)((int)npc_x[i] + ndx);
+    npc_y[i] = (uint8_t)((int)npc_y[i] + ndy);
+    npc_px_off[i] = -ndx * TILE_PX;
+    npc_py_off[i] = -ndy * TILE_PX;
+    npc_walk_frames[i] = NPC_WALK_FRAMES;
+}
+
 /* Returns 1 if any NPC other than skip_idx is at (nx, ny). */
 static int npc_blocked_except(int skip_idx, int nx, int ny) {
     for (int i = 0; i < npc_count; i++) {
