@@ -1033,6 +1033,24 @@ static const item_event_t kItems_ViridianForest[] = {
     {   2,  63, 0x04 },  /* POKE_BALL */
 };
 
+/* Viridian Forest trainers — from scripts/ViridianForest.asm (TrainerHeaders)
+ * and data/maps/objects/ViridianForest.asm (NPC object entries).
+ * NPCs 1-3 are OPP_BUG_CATCHER #1, #2, #3 facing LEFT.
+ * trainer_class=2 (BUG_CATCHER, 1-based).
+ * Event flags: EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_0..2 = 357, 358, 359. */
+static const map_trainer_t kTrainers_ViridianForest[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text */
+    { 1, 2, 2, 1, 4, 357,
+      "Hey! You have\nPOKEMON! Come\non! Let's\nbattle'em!",
+      "Ssh! You'll\nscare the\nbugs away!" },
+    { 2, 2, 2, 2, 4, 358,
+      "Yo! You can't\njam out if\nyou're a POKEMON\ntrainer!",
+      "Darn! I'm going\nto catch some\nstronger ones!" },
+    { 3, 2, 2, 3, 1, 359,
+      "Hey, wait up!\nWhat's the\nhurry?",
+      "Sometimes, you\ncan find stuff\non the ground!" },
+};
+
 static const map_warp_t kWarps_Museum1F[] = {
     {  20,  15, 0xff, 0 },  /* LAST_MAP */
     {  22,  15, 0xff, 0 },  /* LAST_MAP */
@@ -3585,7 +3603,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x30] = { kWarps_Route2TradeHouse, 2, kNpcs_Route2TradeHouse, 2, NULL, 0, NULL, 0, 0x0a },
     [0x31] = { kWarps_Route2Gate, 4, kNpcs_Route2Gate, 2, NULL, 0, NULL, 0, 0x0a },
     [0x32] = { kWarps_ViridianForestSouthGate, 4, kNpcs_ViridianForestSouthGate, 2, NULL, 0, NULL, 0, 0x0a },
-    [0x33] = { kWarps_ViridianForest, 6, kNpcs_ViridianForest, 5, kSigns_ViridianForest, 6, kItems_ViridianForest, 3, 0x03 },
+    [0x33] = { kWarps_ViridianForest, 6, kNpcs_ViridianForest, 5, kSigns_ViridianForest, 6, kItems_ViridianForest, 3, 0x03, kTrainers_ViridianForest, 3 },
     [0x34] = { kWarps_Museum1F, 5, kNpcs_Museum1F, 5, NULL, 0, NULL, 0, 0x0a },
     [0x35] = { kWarps_Museum2F, 1, kNpcs_Museum2F, 5, kSigns_Museum2F, 2, NULL, 0, 0x0a },
     [0x36] = { kWarps_PewterGym, 2, kNpcs_PewterGym, 3, NULL, 0, NULL, 0, 0x03 },

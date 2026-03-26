@@ -28,9 +28,75 @@
 #include "text.h"
 #include "overworld.h"
 #include "../platform/hardware.h"
+#include "../platform/display.h"
 #include "../data/event_data.h"
 #include <stddef.h>
 #include <stdio.h>
+
+/* ---- Shock emote ("!") -------------------------------------------- */
+/* Mirrors EmotionBubble / ShockEmote in engine/overworld/emotion_bubbles.asm.
+ * The original loads 4 tiles into VRAM slot $78 ($f8-$fb) and shows 4 OAM
+ * entries above the trainer for 60 frames.  We use sprite tile slots 64-67
+ * (first free after NPC tiles 0-63) and OAM entries 68-71. */
+
+/* 4 tiles × 16 bytes = 64 bytes, extracted from gfx/emotes/shock.png (16×16 2bpp). */
+/* Extracted directly from pokered-master/gfx/emotes/shock.png via tools/extract_2bpp.py.
+ * Color 1 (light grey in PNG) maps to white via OBP0=0xD0, matching the original. */
+static const uint8_t kShockEmoteTiles[64] = {
+    /* tile 0 — top-left */
+    0x1F, 0x00, 0x3F, 0x1F, 0x7F, 0x20, 0xFF, 0x41,
+    0xFF, 0x41, 0xFF, 0x41, 0xFF, 0x41, 0xFF, 0x41,
+    /* tile 1 — top-right */
+    0xF8, 0x00, 0xFC, 0xF8, 0xFE, 0x04, 0xFF, 0x82,
+    0xFF, 0x82, 0xFF, 0x82, 0xFF, 0x82, 0xFF, 0x82,
+    /* tile 2 — bottom-left */
+    0xFF, 0x40, 0xFF, 0x41, 0xFF, 0x41, 0x7F, 0x20,
+    0x3F, 0x1F, 0x1F, 0x00, 0x01, 0x00, 0x01, 0x00,
+    /* tile 3 — bottom-right */
+    0xFF, 0x02, 0xFF, 0x82, 0xFF, 0x82, 0xFE, 0x04,
+    0xFC, 0xF8, 0xF8, 0xC0, 0xC0, 0x80, 0x80, 0x00,
+};
+
+#define EMOTE_TILE_BASE  68  /* sprite tile slots 68-71 (after player 64-67) */
+#define EMOTE_OAM_BASE   68  /* wShadowOAM entries 68-71 (after NPC 4-67) */
+
+/* Load emote tiles and position 4 OAM entries above trainer npc_idx. */
+static void emote_show(int npc_idx) {
+    for (int i = 0; i < 4; i++)
+        Display_LoadSpriteTile(EMOTE_TILE_BASE + i, kShockEmoteTiles + i * 16);
+
+    int sx, sy;
+    NPC_GetScreenPos(npc_idx, &sx, &sy);
+    /* Place 16×16 emote centered on sprite, 16 px above sprite top.
+     * OAM y = screen_y + 16 (GB hardware offset); OAM x = screen_x + 8. */
+    int ey = sy - 16;
+    wShadowOAM[EMOTE_OAM_BASE + 0].y = (uint8_t)(ey + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 0].x = (uint8_t)(sx + 8);
+    wShadowOAM[EMOTE_OAM_BASE + 0].tile  = EMOTE_TILE_BASE;
+    wShadowOAM[EMOTE_OAM_BASE + 0].flags = 0;
+    wShadowOAM[EMOTE_OAM_BASE + 1].y = (uint8_t)(ey + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 1].x = (uint8_t)(sx + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 1].tile  = EMOTE_TILE_BASE + 1;
+    wShadowOAM[EMOTE_OAM_BASE + 1].flags = 0;
+    wShadowOAM[EMOTE_OAM_BASE + 2].y = (uint8_t)(ey + 24);
+    wShadowOAM[EMOTE_OAM_BASE + 2].x = (uint8_t)(sx + 8);
+    wShadowOAM[EMOTE_OAM_BASE + 2].tile  = EMOTE_TILE_BASE + 2;
+    wShadowOAM[EMOTE_OAM_BASE + 2].flags = 0;
+    wShadowOAM[EMOTE_OAM_BASE + 3].y = (uint8_t)(ey + 24);
+    wShadowOAM[EMOTE_OAM_BASE + 3].x = (uint8_t)(sx + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 3].tile  = EMOTE_TILE_BASE + 3;
+    wShadowOAM[EMOTE_OAM_BASE + 3].flags = 0;
+}
+
+/* Hide emote by pushing all 4 OAM entries off-screen (y=0). */
+static void emote_hide(void) {
+    for (int i = 0; i < 4; i++) {
+        wShadowOAM[EMOTE_OAM_BASE + i].y     = 0;
+        wShadowOAM[EMOTE_OAM_BASE + i].x     = 0;
+        wShadowOAM[EMOTE_OAM_BASE + i].tile  = 0;
+        wShadowOAM[EMOTE_OAM_BASE + i].flags = 0;
+    }
+}
 
 /* ---- Engagement state machine ------------------------------------- */
 typedef enum {
@@ -115,6 +181,7 @@ void Trainer_LoadMap(void) {
     ts_timer           = 0;
     gEngagedTrainerClass = 0;
     gEngagedTrainerNo    = 0;
+    emote_hide();
 
     if (wCurMap >= NUM_MAPS) return;
     const map_events_t *ev = &gMapEvents[wCurMap];
@@ -151,7 +218,7 @@ void Trainer_CheckSight(void) {
         ts_state           = TS_SPOTTED;
         ts_npc_idx         = t->npc_idx;
         ts_map_trainer_idx = i;
-        ts_timer           = 30;  /* ~0.5 s pause (mirrors EmotionBubble timing) */
+        ts_timer           = 60;  /* 60 frames = 1 s (matches EmotionBubble in pokered) */
         gEngagedTrainerClass = t->trainer_class;
         gEngagedTrainerNo    = t->trainer_no;
 
@@ -172,8 +239,11 @@ int Trainer_SightTick(void) {
     switch (ts_state) {
 
     case TS_SPOTTED:
-        /* Count down the "!" pause before trainer walks. */
+        /* Show "!" emote on the first tick, count down, hide on exit. */
+        if (ts_timer == 60)
+            emote_show(ts_npc_idx);
         if (--ts_timer > 0) return 0;
+        emote_hide();
         ts_state = TS_WALKING;
         return 0;
 
@@ -230,6 +300,29 @@ int Trainer_SightTick(void) {
 
 int Trainer_IsEngaging(void) {
     return ts_state != TS_IDLE;
+}
+
+void Trainer_EngageImmediate(int npc_idx) {
+    if (ts_state != TS_IDLE) return;
+
+    if (wCurMap >= NUM_MAPS) return;
+    const map_events_t *ev = &gMapEvents[wCurMap];
+    if (!ev->trainers) return;
+
+    for (int i = 0; i < ev->num_trainers; i++) {
+        const map_trainer_t *t = &ev->trainers[i];
+        if (t->npc_idx != npc_idx) continue;
+        if (event_flag_get(t->flag_bit)) return;  /* already defeated */
+
+        /* Skip SPOTTED (no "!") and WALKING (already adjacent) */
+        ts_state           = TS_TALKING;
+        ts_npc_idx         = npc_idx;
+        ts_map_trainer_idx = i;
+        ts_timer           = 0;
+        gEngagedTrainerClass = t->trainer_class;
+        gEngagedTrainerNo    = t->trainer_no;
+        return;
+    }
 }
 
 void Trainer_MarkCurrentDefeated(void) {

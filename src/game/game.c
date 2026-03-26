@@ -262,6 +262,26 @@ static void check_npc_interact(void) {
             int i = NPC_FindAtTile(fx + dx, fy + dy);
             if (i < 0 || i >= ev->num_npcs) continue;
             NPC_FacePlayer(i);
+
+            /* Trainer NPC: bypass normal text dispatch.
+             * Defeated → show after_text.  Undefeated → engage immediately.
+             * Mirrors CheckInteractionWithMapTrainer (home/trainers.asm). */
+            if (ev->trainers) {
+                int is_trainer = 0;
+                for (int ti = 0; ti < ev->num_trainers; ti++) {
+                    const map_trainer_t *tr = &ev->trainers[ti];
+                    if (tr->npc_idx != i) continue;
+                    is_trainer = 1;
+                    if (CheckEvent(tr->flag_bit)) {
+                        if (tr->after_text) Text_ShowASCII(tr->after_text);
+                    } else {
+                        Trainer_EngageImmediate(i);
+                    }
+                    break;
+                }
+                if (is_trainer) return;
+            }
+
             if (ev->npcs[i].script)
                 ev->npcs[i].script();
             else if (ev->npcs[i].text)
@@ -452,8 +472,12 @@ void GameTick(void) {
     if (Trainer_IsEngaging()) {
         int r = Trainer_SightTick();
         NPC_Update();
-        Map_BuildScrollView();
-        NPC_BuildView(gScrollPxX, gScrollPxY);
+        /* Don't rebuild the map while text is open — Text_ShowASCII already drew
+         * the text box on the tilemap; Map_BuildScrollView would overwrite it. */
+        if (!Text_IsOpen()) {
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
         if (r) {
             /* Battle ready — find first non-fainted party mon for transition */
             int player_level = 5;

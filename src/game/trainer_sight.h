@@ -42,6 +42,13 @@ int Trainer_IsEngaging(void);
  * Call from game.c after a trainer battle ends (player won). */
 void Trainer_MarkCurrentDefeated(void);
 
+/* Trigger engagement for a trainer the player directly interacted with
+ * (A-button, not line-of-sight).  Skips TS_SPOTTED and TS_WALKING and
+ * enters TS_TALKING immediately — no "!" emote, no walk-up animation.
+ * Mirrors DisplayEnemyTrainerTextAndStartBattle (home/trainers.asm:162).
+ * Does nothing if the trainer is already defeated or npc_idx is not a trainer. */
+void Trainer_EngageImmediate(int npc_idx);
+
 /* Trainer class and party number of the engaged trainer.
  * Valid while Trainer_IsEngaging() or after Trainer_SightTick() returns 1. */
 extern uint8_t gEngagedTrainerClass;
