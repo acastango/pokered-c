@@ -42,10 +42,12 @@
 #include "../../data/moves_data.h"
 #include "../../data/base_stats.h"
 #include "../../data/pokemon_sprites.h"
+#include "../../data/trainer_sprites.h"
 #include "../constants.h"
 #include "../text.h"
 #include "../pokemon.h"
 #include "../overworld.h"   /* gScrollTileMap, SCROLL_MAP_W */
+#include "../trainer_sight.h" /* gEngagedTrainerClass */
 #include "../player.h"      /* gScrollPxX, gScrollPxY */
 #include <stdio.h>
 #include <string.h>
@@ -1689,8 +1691,15 @@ void BattleUI_Enter(void) {
     uint8_t e_dex = gSpeciesToDex[wEnemyMon.species];
     uint8_t p_dex = gSpeciesToDex[wBattleMon.species];
 
-    /* Load enemy front sprite into sprite tile slots 0-48. */
-    if (e_dex > 0 && e_dex <= 151) {
+    /* Load enemy front sprite into sprite tile slots 0-48.
+     * Trainer battles: load the trainer's front sprite instead of a pokemon. */
+    if (wIsInBattle == 2) {
+        int tc = (int)gEngagedTrainerClass - 1;
+        if (tc >= 0 && tc < NUM_TRAINERS)
+            for (int i = 0; i < TRAINER_CANVAS_TILES; i++)
+                Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                       gTrainerFrontSprite[tc][i]);
+    } else if (e_dex > 0 && e_dex <= 151) {
         for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
             Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
                                    gPokemonFrontSprite[e_dex][i]);
@@ -1752,8 +1761,9 @@ void BattleUI_Tick(void) {
         int cx = s_slide_cx;
         uint8_t e_dex2 = gSpeciesToDex[wEnemyMon.species];
 
-        /* Enemy: slides right as cx decreases (enters from left edge). */
-        if (e_dex2 > 0 && e_dex2 <= 151) {
+        /* Enemy: slides right as cx decreases (enters from left edge).
+         * Always runs for trainer battles (trainer sprite loaded in BattleUI_Enter). */
+        if (wIsInBattle == 2 || (e_dex2 > 0 && e_dex2 <= 151)) {
             for (int ty = 0; ty < 7; ty++)
                 for (int tx = 0; tx < 7; tx++) {
                     int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
@@ -1777,16 +1787,17 @@ void BattleUI_Tick(void) {
              * and he remains visible during the "appeared!" text, exactly as in the original
              * where his body stays on the BG tilemap through PrintBeginningBattleText. */
             bui_draw_pokeballs();
-            /* "Wild X appeared!" — mirrors PrintBeginningBattleText. */
-            const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-            /* PlayCry — mirrors PrintBeginningBattleText calling PlayCry(wEnemyMonSpecies2)
-             * for wild battles.  Trainer battles play no cry here (they play a SFX instead). */
-            if (wIsInBattle != 2)
+            /* "X wants to fight!" / "Wild X appeared!" — mirrors PrintBeginningBattleText. */
+            if (wIsInBattle == 2) {
+                int tc = (int)gEngagedTrainerClass - 1;
+                const char *t_name = (tc >= 0 && tc < NUM_TRAINERS)
+                                     ? gTrainerClassNames[tc] : "TRAINER";
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nwants to fight!", t_name);
+            } else {
                 Audio_PlayCry(wEnemyMon.species);
-            if (wIsInBattle == 2)
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe %s\nwants to fight!", e_name2);
-            else
+                const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "Wild %s\nappeared!", e_name2);
+            }
             Text_ShowASCII(s_msg_buf);
             bui_state = BUI_SEND_OUT;
         }
