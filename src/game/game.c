@@ -319,7 +319,11 @@ void GameTick(void) {
      * single DelayFrame (not two), so text input is natively 60 Hz.     */
     if (Text_IsOpen()) {
         Text_Update();
-        return;
+        /* If text is still open, stop here.  If text just closed while in
+         * battle, fall through so BattleUI_Tick runs in the SAME frame —
+         * avoids a 1-frame blank text box caused by Text_Close() erasing
+         * rows 12-17 one frame before the battle state machine redraws. */
+        if (Text_IsOpen() || gScene != SCENE_BATTLE) return;
     }
 
     if (Menu_IsOpen()) {

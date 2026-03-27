@@ -79,6 +79,7 @@ set(SOURCES
     src/game/trainer_sight.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
+    src/data/trainer_sprites.c
     src/data/sprite_data.c
     src/data/party_icon_data.c
     src/data/font_data.c
@@ -148,6 +149,7 @@ set(TEST_GAME_SOURCES
     src/game/pokemon.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
+    src/data/trainer_sprites.c
 )
 set(TEST_SOURCES
     tests/main.c

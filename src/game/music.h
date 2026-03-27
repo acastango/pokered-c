@@ -33,6 +33,8 @@
 #define MUSIC_DEFEATED_GYM_LEADER  28
 #define MUSIC_PKMN_HEALED          29
 #define MUSIC_TRAINER_BATTLE       30
+#define MUSIC_MEET_MALE_TRAINER    31
+#define MUSIC_MEET_FEMALE_TRAINER  32
 
 /* Play a music track (stops any current music first).
  * music_id: one of MUSIC_* above; MUSIC_NONE stops playback. */

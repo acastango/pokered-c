@@ -124,6 +124,7 @@ extern uint8_t    wNumBagItems;
 extern uint8_t    wBagItems[BAG_ITEM_CAPACITY * 2 + 1]; /* item_id, qty pairs + 0xFF */
 
 extern uint8_t    wPlayerMoney[3];  /* 3-byte BCD */
+extern uint32_t   wAmountMoneyWon;  /* prize money for current trainer battle */
 extern uint8_t    wPlayerName[NAME_LENGTH];
 extern uint8_t    wRivalName[NAME_LENGTH];
 extern uint16_t   wPlayerID;

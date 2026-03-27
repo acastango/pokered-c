@@ -226,6 +226,15 @@ void Battle_ReadTrainer(uint8_t trainer_class, uint8_t trainer_no) {
         }
     }
 
+    /* Compute prize money: base_money × level of LAST enemy mon.
+     * Per read_trainer_party.asm: after loading all mons, wCurEnemyLevel holds
+     * the last mon's level and is multiplied by wTrainerBaseMoney once. */
+    {
+        uint16_t base = (trainer_class >= 1 && trainer_class <= NUM_TRAINERS)
+                        ? gTrainerBaseMoney[trainer_class - 1] : 0;
+        wAmountMoneyWon = (uint32_t)base * wEnemyMons[wEnemyPartyCount - 1].level;
+    }
+
     /* ---- Signature move injection (read_trainer_party.asm / special_moves.asm) ----
      * Only format B trainers participate (LoneMoves path is gated behind SpecialTrainer).
      * PP is intentionally NOT updated — faithful to Gen 1 behaviour. */

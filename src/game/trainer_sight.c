@@ -30,6 +30,7 @@
 #include "../platform/hardware.h"
 #include "../platform/display.h"
 #include "../data/event_data.h"
+#include "music.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -67,23 +68,25 @@ static void emote_show(int npc_idx) {
 
     int sx, sy;
     NPC_GetScreenPos(npc_idx, &sx, &sy);
-    /* Place 16×16 emote centered on sprite, 16 px above sprite top.
-     * OAM y = screen_y + 16 (GB hardware offset); OAM x = screen_x + 8. */
+    /* NPC_GetScreenPos returns (center_x, top_y): slot 1 x = px+8, slot 0 y = py.
+     * Emote is 16×16, centered over the 16px-wide NPC sprite.
+     * Left tile OAM x = px + OAM_X_OFS = (sx-8) + 8 = sx.
+     * Top row OAM y  = (py-16) + OAM_Y_OFS = sy. */
     int ey = sy - 16;
     wShadowOAM[EMOTE_OAM_BASE + 0].y = (uint8_t)(ey + 16);
-    wShadowOAM[EMOTE_OAM_BASE + 0].x = (uint8_t)(sx + 8);
+    wShadowOAM[EMOTE_OAM_BASE + 0].x = (uint8_t)(sx);
     wShadowOAM[EMOTE_OAM_BASE + 0].tile  = EMOTE_TILE_BASE;
     wShadowOAM[EMOTE_OAM_BASE + 0].flags = 0;
     wShadowOAM[EMOTE_OAM_BASE + 1].y = (uint8_t)(ey + 16);
-    wShadowOAM[EMOTE_OAM_BASE + 1].x = (uint8_t)(sx + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 1].x = (uint8_t)(sx + 8);
     wShadowOAM[EMOTE_OAM_BASE + 1].tile  = EMOTE_TILE_BASE + 1;
     wShadowOAM[EMOTE_OAM_BASE + 1].flags = 0;
     wShadowOAM[EMOTE_OAM_BASE + 2].y = (uint8_t)(ey + 24);
-    wShadowOAM[EMOTE_OAM_BASE + 2].x = (uint8_t)(sx + 8);
+    wShadowOAM[EMOTE_OAM_BASE + 2].x = (uint8_t)(sx);
     wShadowOAM[EMOTE_OAM_BASE + 2].tile  = EMOTE_TILE_BASE + 2;
     wShadowOAM[EMOTE_OAM_BASE + 2].flags = 0;
     wShadowOAM[EMOTE_OAM_BASE + 3].y = (uint8_t)(ey + 24);
-    wShadowOAM[EMOTE_OAM_BASE + 3].x = (uint8_t)(sx + 16);
+    wShadowOAM[EMOTE_OAM_BASE + 3].x = (uint8_t)(sx + 8);
     wShadowOAM[EMOTE_OAM_BASE + 3].tile  = EMOTE_TILE_BASE + 3;
     wShadowOAM[EMOTE_OAM_BASE + 3].flags = 0;
 }
@@ -239,9 +242,12 @@ int Trainer_SightTick(void) {
     switch (ts_state) {
 
     case TS_SPOTTED:
-        /* Show "!" emote on the first tick, count down, hide on exit. */
-        if (ts_timer == 60)
+        /* Show "!" emote on the first tick, count down, hide on exit.
+         * Play trainer encounter jingle (mirrors PlayTrainerEncounterMusic). */
+        if (ts_timer == 60) {
             emote_show(ts_npc_idx);
+            Music_Play(MUSIC_MEET_MALE_TRAINER);
+        }
         if (--ts_timer > 0) return 0;
         emote_hide();
         ts_state = TS_WALKING;

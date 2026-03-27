@@ -870,3 +870,55 @@ const uint8_t * const gTrainerPartyData[NUM_TRAINERS] = {
     gAgathaParties,         /* OPP_AGATHA     = 46 */
     gLanceParties,          /* OPP_LANCE      = 47 */
 };
+
+/* Base money reward — from data/trainers/pic_pointers_money.asm.
+ * Prize = base_money * sum(level_i) across all enemy mons. */
+const uint16_t gTrainerBaseMoney[NUM_TRAINERS] = {
+    1500, /* YOUNGSTER   */
+    1000, /* BUG_CATCHER */
+    1500, /* LASS        */
+    3000, /* SAILOR      */
+    2000, /* JR_TRAINER_M */
+    2000, /* JR_TRAINER_F */
+    5000, /* POKEMANIAC  */
+    2500, /* SUPER_NERD  */
+    3500, /* HIKER       */
+    2000, /* BIKER       */
+    9000, /* BURGLAR     */
+    5000, /* ENGINEER    */
+    3500, /* JUGGLER (1) */
+    3500, /* FISHER      */
+     500, /* SWIMMER     */
+    2500, /* CUE_BALL    */
+    7000, /* GAMBLER     */
+    7000, /* BEAUTY      */
+    1000, /* PSYCHIC     */
+    2500, /* ROCKER      */
+    3500, /* JUGGLER (2) */
+    4000, /* TAMER       */
+    2500, /* BIRD_KEEPER */
+    2500, /* BLACKBELT   */
+    3500, /* RIVAL1      */
+    9900, /* PROF_OAK    */
+    3000, /* CHIEF       */
+    5000, /* SCIENTIST   */
+    9900, /* GIOVANNI    */
+    3000, /* ROCKET      */
+    3500, /* COOLTRAINER_M */
+    3500, /* COOLTRAINER_F */
+    9900, /* BRUNO       */
+    9900, /* BROCK       */
+    9900, /* MISTY       */
+    9900, /* LT_SURGE    */
+    9900, /* ERIKA       */
+    9900, /* KOGA        */
+    9900, /* BLAINE      */
+    9900, /* SABRINA     */
+    7000, /* GENTLEMAN   */
+    6500, /* RIVAL2      */
+    9900, /* RIVAL3      */
+    9900, /* LORELEI     */
+    3000, /* CHANNELER   */
+    9900, /* AGATHA      */
+    9900, /* LANCE       */
+};

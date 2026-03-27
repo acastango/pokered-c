@@ -85,6 +85,7 @@ uint8_t     wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
 uint8_t     wNumBagItems            = 0;
 uint8_t     wBagItems[BAG_ITEM_CAPACITY * 2 + 1];
 uint8_t     wPlayerMoney[3]         = {0};
+uint32_t    wAmountMoneyWon         = 0;   /* prize money for current trainer battle */
 uint8_t     wPlayerName[NAME_LENGTH]= {0x91,0x84,0x83,0x50}; /* RED + term */
 uint8_t     wRivalName[NAME_LENGTH] = {0};
 uint16_t    wPlayerID               = 0;

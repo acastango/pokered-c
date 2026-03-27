@@ -24,3 +24,7 @@
 
 /* Pointer table indexed by [trainer_class - 1] (0-based). */
 extern const uint8_t * const gTrainerPartyData[NUM_TRAINERS];
+
+/* Base money reward per trainer class (from pic_pointers_money.asm).
+ * Prize = base_money * sum(level_i for all enemy mons). */
+extern const uint16_t gTrainerBaseMoney[NUM_TRAINERS];

@@ -17,7 +17,7 @@
 #define TILE_PX             8       /* pixels per tile side */
 #define OAM_Y_OFS           16      /* OAM Y coordinate offset */
 #define OAM_X_OFS           8       /* OAM X coordinate offset */
-#define MAX_SPRITES         110     /* battle: 49 enemy + 49 player + 6 player-balls + 6 enemy-balls = 110; overworld: player(0-3) + NPCs(4-67) + shadow(68-71) = 72 */
+#define MAX_SPRITES         114     /* battle: 4 ball + 49 enemy + 49 player + 6 player-balls + 6 enemy-balls = 114; overworld: player(0-3) + NPCs(4-67) + shadow(68-71) = 72 */
 
 /* ---- Block / map rendering ------------------------------- */
 #define BLOCK_WIDTH         4       /* tiles per block (horizontal) */

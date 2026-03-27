@@ -198,8 +198,10 @@ void Battle_GainExperience(void) {
             *sexp[i]   = (v > 0xFFFF) ? 0xFFFF : (uint16_t)v;
         }
 
-        /* exp = floor(base_exp × enemy_level / 7) (experience.asm:.statExpDone) */
-        uint32_t gained = (uint32_t)base_exp * wCurEnemyLevel / 7;
+        /* exp = floor(base_exp × enemy_level / 7) (experience.asm:.statExpDone)
+         * Use wEnemyMon.level — wCurEnemyLevel is only set for wild encounters
+         * and is NOT updated when a trainer sends out a replacement pokemon. */
+        uint32_t gained = (uint32_t)base_exp * wEnemyMon.level / 7;
 
         /* BoostExp ×1.5 if traded mon (OT ID ≠ player ID) */
         wGainBoostedExp = 0;
