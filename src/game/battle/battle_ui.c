@@ -64,6 +64,7 @@ typedef enum {
     BUI_APPEARED,       /* "Wild X appeared!" + pokeball party display  */
     BUI_SEND_OUT,       /* trigger: reload Red + start trainer slide-out    */
     BUI_TRAINER_SLIDE_OUT, /* Red's OAM slides left off screen (4px/tick)    */
+    BUI_ENEMY_SEND_OUT, /* trainer throws pokeball → enemy grows in (trainer only) */
     BUI_POKEMON_APPEAR, /* pokeball → 3×3 → 5×5 → full 7×7 grow animation  */
     BUI_INTRO,          /* (legacy placeholder — skipped via BUI_SLIDE_IN entry) */
     BUI_DRAW_HUD,       /* refresh HUD + draw main menu             */
@@ -1548,8 +1549,8 @@ static void bui_handle_enemy_fainted(void) {
         bui_exp_dest    = BUI_END;
         s_exp_suffix[0] = '\0';
     } else if (wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
-        /* Mirrors TrainerDefeatedText: "[PLAYER] defeated [TRAINER]!"
-         * We decode wPlayerName from GB charset (0x80='A'..0x99='Z'). */
+        /* Mirrors TrainerDefeatedText + MoneyForWinningText (core.asm:915-949).
+         * Decode player name from GB charset (0x80='A'..0x99='Z'). */
         char player_ascii[NAME_LENGTH] = "RED";
         for (int i = 0; i < NAME_LENGTH - 1; i++) {
             uint8_t c = wPlayerName[i];
@@ -1559,9 +1560,23 @@ static void bui_handle_enemy_fainted(void) {
             else { player_ascii[i] = '?'; }
             player_ascii[i + 1] = '\0';
         }
+        /* Award prize money (mirrors AddBCDPredef in TrainerBattleVictory). */
+        uint32_t money = (uint32_t)(
+            ((wPlayerMoney[0] >> 4) & 0xF) * 100000u +
+            (wPlayerMoney[0] & 0xF)        * 10000u  +
+            ((wPlayerMoney[1] >> 4) & 0xF) * 1000u   +
+            (wPlayerMoney[1] & 0xF)        * 100u     +
+            ((wPlayerMoney[2] >> 4) & 0xF) * 10u      +
+            (wPlayerMoney[2] & 0xF));
+        money += wAmountMoneyWon;
+        if (money > 999999u) money = 999999u;
+        wPlayerMoney[0] = (uint8_t)(((money / 100000u) << 4) | ((money / 10000u) % 10u));
+        wPlayerMoney[1] = (uint8_t)((((money / 1000u) % 10u) << 4) | ((money / 100u) % 10u));
+        wPlayerMoney[2] = (uint8_t)((((money / 10u) % 10u) << 4) | (money % 10u));
         bui_exp_dest = BUI_END;
         snprintf(s_exp_suffix, sizeof(s_exp_suffix),
-                 "%s\ndefeated the trainer!", player_ascii);
+                 "%s\ndefeated the trainer!\fGot $%lu\nfor winning!",
+                 player_ascii, (unsigned long)wAmountMoneyWon);
     } else {
         /* Trainer has more mons — enemy was already replaced by handler.
          * Show "Foe sent out X!" after exp texts are drained. */
@@ -1849,22 +1864,93 @@ void BattleUI_Tick(void) {
         if (s_slide_cx >= 64) {
             for (int i = 0; i < 49; i++)
                 wShadowOAM[PLAYER_SLIDE_OAM_BASE + i].y = 0;
-            /* Load pokemon back sprite BG tiles now (needed for grow animation). */
+            s_grow_stage = 0;
+            s_grow_frame = 0;
+            if (wIsInBattle == 2) {
+                /* Trainer battle: enemy sends out their pokemon first.
+                 * Mirrors EnemySendOutFirstMon (core.asm:1413) before player. */
+                const char *e_name3 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe sent out\n%s!", e_name3);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_ENEMY_SEND_OUT;
+            } else {
+                /* Wild battle: load player back sprite, show "Go! X!" */
+                uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
+                if (p_dex2 > 0 && p_dex2 <= 151) {
+                    for (int i = 0; i < POKEMON_BACK_TILES; i++)
+                        Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
+                                         gPokemonBackSprite[p_dex2][i]);
+                }
+                const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_POKEMON_APPEAR;
+            }
+        }
+        break;
+    }
+
+    /* ---- Enemy send-out: trainer throws pokemon from pokeball --------- *
+     * Trainer battle only. Mirrors EnemySendOutFirstMon (core.asm:1413): *
+     * AnimateSendingOutMon at enemy sprite position.                      *
+     * Stage 0 ( 8f): single pokeball OAM at enemy center.               *
+     * Stage 1 ( 4f): 3×3 center-crop of front sprite via OAM.           *
+     * Stage 2 ( 4f): 5×5 center-crop via OAM.                           *
+     * Stage 3:       full 7×7 → cry → enemy HUD → queue player send-out */
+    case BUI_ENEMY_SEND_OUT: {
+        uint8_t e_dex4 = gSpeciesToDex[wEnemyMon.species];
+        /* One-time setup on first frame after "sent out" text dismissed. */
+        if (s_grow_stage == 0 && s_grow_frame == 0) {
+            bui_set_enemy_oam_visible(0);  /* hide full sprite; crops shown below */
+            wShadowOAM[POKEBALL_OAM_BASE].y    = (uint8_t)(ENEMY_SPR_PX_Y + 6 * 8 + OAM_Y_OFS);
+            wShadowOAM[POKEBALL_OAM_BASE].x    = (uint8_t)(ENEMY_SPR_PX_X + 3 * 8 + OAM_X_OFS);
+            wShadowOAM[POKEBALL_OAM_BASE].tile = POKEBALL_TILE_BASE;
+            wShadowOAM[POKEBALL_OAM_BASE].flags = 0;
+        }
+        s_grow_frame++;
+        if (s_grow_stage == 0 && s_grow_frame >= 8) {
+            Audio_PlaySFX_BallPoof();
+            wShadowOAM[POKEBALL_OAM_BASE].y = 0;  /* hide pokeball */
+            /* 3×3 center-crop: show tiles (2..4, 2..4) of the 7×7 sprite */
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int dty = 0; dty < 3; dty++)
+                    for (int dtx = 0; dtx < 3; dtx++) {
+                        int oidx = ENEMY_SPR_OAM_BASE + (2 + dty) * 7 + (2 + dtx);
+                        wShadowOAM[oidx].y    = (uint8_t)(ENEMY_SPR_PX_Y + (2+dty)*8 + OAM_Y_OFS);
+                        wShadowOAM[oidx].x    = (uint8_t)(ENEMY_SPR_PX_X + (2+dtx)*8 + OAM_X_OFS);
+                        wShadowOAM[oidx].tile = (uint8_t)(ENEMY_SPR_TILE_BASE + (2+dty)*7 + (2+dtx));
+                    }
+            }
+            s_grow_stage = 1;  s_grow_frame = 0;
+        } else if (s_grow_stage == 1 && s_grow_frame >= 4) {
+            /* 5×5 center-crop: show tiles (1..5, 1..5) */
+            bui_set_enemy_oam_visible(0);
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int dty = 0; dty < 5; dty++)
+                    for (int dtx = 0; dtx < 5; dtx++) {
+                        int oidx = ENEMY_SPR_OAM_BASE + (1+dty)*7 + (1+dtx);
+                        wShadowOAM[oidx].y    = (uint8_t)(ENEMY_SPR_PX_Y + (1+dty)*8 + OAM_Y_OFS);
+                        wShadowOAM[oidx].x    = (uint8_t)(ENEMY_SPR_PX_X + (1+dtx)*8 + OAM_X_OFS);
+                        wShadowOAM[oidx].tile = (uint8_t)(ENEMY_SPR_TILE_BASE + (1+dty)*7 + (1+dtx));
+                    }
+            }
+            s_grow_stage = 2;  s_grow_frame = 0;
+        } else if (s_grow_stage == 2 && s_grow_frame >= 4) {
+            /* Full 7×7: restore all OAM, play cry, draw enemy HUD */
+            bui_set_enemy_oam_visible(1);
+            Audio_PlayCry(wEnemyMon.species);
+            bui_draw_enemy_hud();
+            /* Queue player send-out: load back sprite, show "Go! NAME!" */
             uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
             if (p_dex2 > 0 && p_dex2 <= 151) {
                 for (int i = 0; i < POKEMON_BACK_TILES; i++)
                     Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
                                      gPokemonBackSprite[p_dex2][i]);
             }
-            /* "Go! [name]!" — mirrors PrintSendOutMonMessage.
-             * In SendOutMon the text fires BEFORE Draw*HUDAndHPBar, so HUDs
-             * are drawn only after the player dismisses this box (in
-             * BUI_POKEMON_APPEAR's first frame). */
             const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
             snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
             Text_ShowASCII(s_msg_buf);
-            s_grow_stage = 0;
-            s_grow_frame = 0;
+            s_grow_stage = 0;  s_grow_frame = 0;
             bui_state = BUI_POKEMON_APPEAR;
         }
         break;
