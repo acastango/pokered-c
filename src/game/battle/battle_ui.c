@@ -62,9 +62,10 @@ typedef enum {
     BUI_INACTIVE      = 0,
     BUI_SLIDE_IN,       /* enemy + player silhouettes slide from right (72 frames) */
     BUI_APPEARED,       /* "Wild X appeared!" + pokeball party display  */
-    BUI_SEND_OUT,       /* trigger: reload Red + start trainer slide-out    */
-    BUI_TRAINER_SLIDE_OUT, /* Red's OAM slides left off screen (4px/tick)    */
-    BUI_ENEMY_SEND_OUT, /* trainer throws pokeball → enemy grows in (trainer only) */
+    BUI_SEND_OUT,          /* trigger: start slide-outs                        */
+    BUI_ENEMY_SLIDE_OUT,   /* trainer sprite slides right off enemy side       */
+    BUI_TRAINER_SLIDE_OUT, /* Red's OAM slides left off screen (4px/tick)      */
+    BUI_ENEMY_SEND_OUT,    /* trainer throws pokeball → enemy grows in         */
     BUI_POKEMON_APPEAR, /* pokeball → 3×3 → 5×5 → full 7×7 grow animation  */
     BUI_INTRO,          /* (legacy placeholder — skipped via BUI_SLIDE_IN entry) */
     BUI_DRAW_HUD,       /* refresh HUD + draw main menu             */
@@ -1843,8 +1844,35 @@ void BattleUI_Tick(void) {
         if (wIsInBattle == 2)
             bui_clear_rect(0, 0, 11, 3); /* remove enemy HUD border tiles (trainer) */
         bui_draw_box();                  /* keep text box border visible during slide */
-        s_slide_cx = 0;   /* slide-out offset counter (counts up, 4px/tick) */
-        bui_state = BUI_TRAINER_SLIDE_OUT;
+        s_slide_cx = 0;
+        /* Trainer battle: slide trainer pic off right first (EnemySendOutFirstMon).
+         * Wild battle: skip straight to sliding Red off. */
+        bui_state = (wIsInBattle == 2) ? BUI_ENEMY_SLIDE_OUT : BUI_TRAINER_SLIDE_OUT;
+        break;
+    }
+
+    /* ---- Enemy slide-out: trainer sprite exits right ------------- *
+     * Mirrors SlideTrainerPicOffScreen(hlcoord(18,0), a=8) called    *
+     * at the top of EnemySendOutFirstMon (core.asm:1312).            *
+     * 4px/tick, ~80px travel until all 7 cols are off-screen.        */
+    case BUI_ENEMY_SLIDE_OUT: {
+        s_slide_cx += 4;
+        for (int ty = 0; ty < 7; ty++)
+            for (int tx = 0; tx < 7; tx++) {
+                int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                int nx = ENEMY_SPR_PX_X + tx * 8 + OAM_X_OFS + s_slide_cx;
+                wShadowOAM[idx].x = (uint8_t)(nx > 255 ? 0 : nx);
+            }
+        if (s_slide_cx >= 80) {
+            /* Trainer fully off-screen: hide enemy OAM, show "sent out" text */
+            bui_set_enemy_oam_visible(0);
+            const char *e_name3 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe sent out\n%s!", e_name3);
+            Text_ShowASCII(s_msg_buf);
+            s_grow_stage = 0;
+            s_grow_frame = 0;
+            bui_state = BUI_ENEMY_SEND_OUT;
+        }
         break;
     }
 
@@ -1866,15 +1894,8 @@ void BattleUI_Tick(void) {
                 wShadowOAM[PLAYER_SLIDE_OAM_BASE + i].y = 0;
             s_grow_stage = 0;
             s_grow_frame = 0;
-            if (wIsInBattle == 2) {
-                /* Trainer battle: enemy sends out their pokemon first.
-                 * Mirrors EnemySendOutFirstMon (core.asm:1413) before player. */
-                const char *e_name3 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe sent out\n%s!", e_name3);
-                Text_ShowASCII(s_msg_buf);
-                bui_state = BUI_ENEMY_SEND_OUT;
-            } else {
-                /* Wild battle: load player back sprite, show "Go! X!" */
+            if (wIsInBattle != 2) {
+                /* Wild battle: load back sprite and show "Go! X!" now. */
                 uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
                 if (p_dex2 > 0 && p_dex2 <= 151) {
                     for (int i = 0; i < POKEMON_BACK_TILES; i++)
@@ -1884,8 +1905,9 @@ void BattleUI_Tick(void) {
                 const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
                 Text_ShowASCII(s_msg_buf);
-                bui_state = BUI_POKEMON_APPEAR;
             }
+            /* Trainer battle: "Go! X!" already shown in BUI_ENEMY_SEND_OUT stage 3. */
+            bui_state = BUI_POKEMON_APPEAR;
         }
         break;
     }
@@ -1901,6 +1923,12 @@ void BattleUI_Tick(void) {
         uint8_t e_dex4 = gSpeciesToDex[wEnemyMon.species];
         /* One-time setup on first frame after "sent out" text dismissed. */
         if (s_grow_stage == 0 && s_grow_frame == 0) {
+            /* Load enemy pokemon front sprite into tile slots (replaces trainer sprite). */
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
+                    Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                           gPokemonFrontSprite[e_dex4][i]);
+            }
             bui_set_enemy_oam_visible(0);  /* hide full sprite; crops shown below */
             wShadowOAM[POKEBALL_OAM_BASE].y    = (uint8_t)(ENEMY_SPR_PX_Y + 6 * 8 + OAM_Y_OFS);
             wShadowOAM[POKEBALL_OAM_BASE].x    = (uint8_t)(ENEMY_SPR_PX_X + 3 * 8 + OAM_X_OFS);
@@ -1940,7 +1968,7 @@ void BattleUI_Tick(void) {
             bui_set_enemy_oam_visible(1);
             Audio_PlayCry(wEnemyMon.species);
             bui_draw_enemy_hud();
-            /* Queue player send-out: load back sprite, show "Go! NAME!" */
+            /* Load player back sprite and show "Go! X!" before Red slides out. */
             uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
             if (p_dex2 > 0 && p_dex2 <= 151) {
                 for (int i = 0; i < POKEMON_BACK_TILES; i++)
@@ -1951,7 +1979,8 @@ void BattleUI_Tick(void) {
             snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
             Text_ShowASCII(s_msg_buf);
             s_grow_stage = 0;  s_grow_frame = 0;
-            bui_state = BUI_POKEMON_APPEAR;
+            s_slide_cx = 0;
+            bui_state = BUI_TRAINER_SLIDE_OUT;
         }
         break;
     }
