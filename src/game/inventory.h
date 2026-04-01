@@ -33,16 +33,21 @@
 #define ITEM_FIRE_STONE  0x20
 #define ITEM_THUNDER_STONE 0x21
 #define ITEM_WATER_STONE 0x22
-#define ITEM_RARE_CANDY  0x28
+#define ITEM_RARE_CANDY   0x28
+#define ITEM_DOME_FOSSIL  0x29
+#define ITEM_HELIX_FOSSIL 0x2A
 #define ITEM_POKE_DOLL   0x33
 #define ITEM_FULL_HEAL   0x34
 #define ITEM_REVIVE      0x35
 #define ITEM_MAX_REVIVE  0x36
 #define ITEM_SUPER_REPEL 0x38
 #define ITEM_MAX_REPEL   0x39
+#define ITEM_NUGGET      0x31
+#define ITEM_SS_TICKET   0x3F
 #define ITEM_OAKS_PARCEL 0x46
 #define HM01             0xC4
 #define TM01             0xC9
+#define TM_THUNDER_WAVE  0xF5
 
 /* Add qty of item_id to bag.  Returns 0 on success, -1 if bag full. */
 int Inventory_Add(uint8_t item_id, uint8_t qty);

@@ -13,6 +13,8 @@ void Display_SetPalette(uint8_t a, uint8_t b, uint8_t c) { (void)a;(void)b;(void
 void Display_GetTile(uint8_t id, uint8_t out[16]) { (void)id; (void)out; }
 void Display_RenderScrolled(int px, int py, const uint8_t *m, int s) { (void)px;(void)py;(void)m;(void)s; }
 
+void Display_SetWindowTile(int col, int row, uint8_t tile) { (void)col;(void)row;(void)tile; }
+
 /* audio.h stubs */
 int  Audio_Init(void)  { return 0; }
 void Audio_Quit(void)  {}
@@ -31,6 +33,10 @@ void Audio_PlaySFX_Run(void) {}
 void Audio_PlaySFX_HealingMachine(void) {}
 void Audio_PlaySFX_LevelUp(void) {}
 void Audio_PlaySFX_Purchase(void) {}
+void Audio_PlaySFX_Collision(void) {}
+void Audio_PlaySFX_GetKeyItem(void) {}
+int  Audio_IsSFXPlaying_GetKeyItem(void) { return 0; }
+int  Audio_IsSFXPlaying(void)            { return 0; }
 void Audio_PlayCry(uint8_t species) { (void)species; }
 
 /* save.h stubs */
@@ -41,3 +47,5 @@ int  Save_Save(void) { return  0; }
 void Input_Init(void)  {}
 void Input_Quit(void)  {}
 void Input_Update(void) {}
+
+
