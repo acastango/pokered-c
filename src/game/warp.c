@@ -88,6 +88,17 @@ static const uint8_t * const kDoorTilesByTileset[NUM_TILESETS] = {
     /* 23 PLATEAU     */ kDoorTiles_Plateau,
 };
 
+/* Public wrapper — used by debug overlay and any other caller that needs to
+ * know whether a tile ID is a door for the current map's tileset. */
+int Warp_IsDoorTile(uint8_t tile) {
+    if (wCurMapTileset >= NUM_TILESETS) return 0;
+    const uint8_t *p = kDoorTilesByTileset[wCurMapTileset];
+    for (; *p != 0xFF; p++) {
+        if (*p == tile) return 1;
+    }
+    return 0;
+}
+
 /* Returns 1 if the player is standing on a door tile for the current tileset.
  * Mirrors IsPlayerStandingOnDoorTile in engine/overworld/doors.asm. */
 static int is_door_tile(uint8_t tile) {
@@ -166,18 +177,17 @@ static int is_warp_trigger_tile(uint8_t tile) {
 }
 
 /* Mirrors IsPlayerFacingEdgeOfMap (engine/overworld/player_state.asm:86).
- * Original check (block coords): facing==DOWN → wCurMapHeight*2-1 == wYCoord.
- * Our doubled coords: wYCoord_orig = (wYCoord-1)/2, so the boundary maps to
- *   DOWN  → wYCoord == wCurMapHeight*4 - 1
- *   UP    → wYCoord == 1
+ * Game coords now match ASM: wXCoord = 0..mapWidth*2-1, wYCoord = 0..mapHeight*2-1.
+ *   DOWN  → wYCoord == wCurMapHeight*2 - 1
+ *   UP    → wYCoord == 0
  *   LEFT  → wXCoord == 0
- *   RIGHT → wXCoord == wCurMapWidth*4 - 2   (last even x position) */
+ *   RIGHT → wXCoord == wCurMapWidth*2 - 1 */
 static int is_facing_edge_of_map(void) {
     switch (gPlayerFacing & 3) {
-        case 0: return (int)wYCoord == (int)wCurMapHeight * 4 - 1;
-        case 1: return (int)wYCoord == 1;
+        case 0: return (int)wYCoord == (int)wCurMapHeight * 2 - 1;
+        case 1: return (int)wYCoord == 0;
         case 2: return (int)wXCoord == 0;
-        case 3: return (int)wXCoord == (int)wCurMapWidth  * 4 - 2;
+        case 3: return (int)wXCoord == (int)wCurMapWidth  * 2 - 1;
     }
     return 0;
 }
@@ -215,6 +225,66 @@ static int is_outdoor_map(void) {
            wCurMapTileset == TILESET_PLATEAU;
 }
 
+/* Mirrors IsWarpTileInFrontOfPlayer (engine/overworld/player_state.asm:152).
+ * Checks the tile one step ahead of the player in the facing direction.
+ * Returns 1 if that tile is in the tileset's warp-trigger list. */
+static int is_warp_tile_in_front_of_player(void) {
+    int fx = (int)wXCoord;
+    int fy = (int)wYCoord;
+    switch (gPlayerFacing & 3) {
+        case 0: fy += 1; break;  /* DOWN */
+        case 1: fy -= 1; break;  /* UP */
+        case 2: fx -= 1; break;  /* LEFT */
+        case 3: fx += 1; break;  /* RIGHT */
+    }
+    return is_warp_trigger_tile(Map_GetGameTile(fx, fy));
+}
+
+int Warp_HasEventAt(int x, int y) {
+    if (wCurMap >= NUM_MAPS) return 0;
+    const map_events_t *ev = &gMapEvents[wCurMap];
+    if (!ev->warps) return 0;
+    for (int i = 0; i < ev->num_warps; i++) {
+        if (ev->warps[i].x == x && ev->warps[i].y == y) return 1;
+    }
+    return 0;
+}
+
+/* Mirrors CheckWarpsCollision (home/overworld.asm:440).
+ * Pure position match — no tile-type gating.  Called when the player's step
+ * is blocked by a solid tile; the player is still AT the warp event position
+ * and pressing into a wall fires the warp (e.g. outdoor gate buildings). */
+int Warp_CheckCollision(void) {
+    if (wCurMap >= NUM_MAPS) return 0;
+
+    const map_events_t *ev = &gMapEvents[wCurMap];
+    if (!ev->warps || ev->num_warps == 0) return 0;
+
+    for (int i = 0; i < ev->num_warps; i++) {
+        const map_warp_t *w = &ev->warps[i];
+        if (w->x != wXCoord || w->y != wYCoord) continue;
+
+        uint8_t dest_map = w->dest_map;
+        if (dest_map == LAST_MAP) dest_map = wLastMap;
+        if (dest_map >= NUM_MAPS) return 0;
+
+        if (is_outdoor_map()) wLastMap = wCurMap;
+
+        /* Gate buildings: entering always plays GoInside regardless of tile.
+         * (The warp event position has a plain path tile, not the door tile.) */
+        Audio_PlaySFX_GoInside();
+
+        gPendingDestMap  = dest_map;
+        gPendingDestIdx  = w->dest_warp_idx;
+        gWarpPending      = 1;
+        gWarpJustHappened = 1;
+        printf("[warp_collision] map %d -> map %d (warp %d)\n",
+               wCurMap, dest_map, w->dest_warp_idx);
+        return 1;
+    }
+    return 0;
+}
+
 int Warp_Check(void) {
     if (wCurMap >= NUM_MAPS) return 0;
 
@@ -223,7 +293,7 @@ int Warp_Check(void) {
 
     printf("[warp_check] map=%d pos=(%d,%d) facing=%d edge=%d warps=%d\n",
            wCurMap, wXCoord, wYCoord, gPlayerFacing,
-           (int)((wCurMapHeight > 0) ? (wYCoord == (uint16_t)(wCurMapHeight * 4 - 1)) : 0),
+           (int)((wCurMapHeight > 0) ? (wYCoord == (int16_t)(wCurMapHeight * 2 - 1)) : 0),
            ev->num_warps);
 
     for (int i = 0; i < ev->num_warps; i++) {
@@ -243,9 +313,21 @@ int Warp_Check(void) {
          * direction.  Otherwise (e.g. exit mat 0x14 in Red's House) → only
          * fire when the player is at the map boundary facing outward, i.e.
          * they walked directly through the exit, not sideways across the mat. */
-        uint8_t warp_tile = Map_GetTile((int)w->x, (int)w->y);
-        if (!is_warp_trigger_tile(warp_tile) && !is_facing_edge_of_map()) {
-            continue;
+        uint8_t warp_tile = Map_GetGameTile((int)w->x, (int)w->y);
+        if (!is_warp_trigger_tile(warp_tile)) {
+            if (is_outdoor_map()) {
+                /* Mirrors ExtraWarpCheck → IsWarpTileInFrontOfPlayer.
+                 * For outdoor tilesets the original checks the tile one block
+                 * ahead (not the edge of map) and requires a direction button
+                 * to be held — e.g. Route 2 gates where the warp event sits
+                 * one block south of the gate door tile. */
+                if (!is_warp_tile_in_front_of_player()) continue;
+                if (!(hJoyHeld & PAD_CTRL_PAD)) continue;
+            } else if (!is_facing_edge_of_map()) {
+                /* Non-outdoor: mirrors ExtraWarpCheck → IsPlayerFacingEdgeOfMap
+                 * for most indoor maps (exit mats, etc.). */
+                continue;
+            }
         }
 
         /* Warp match — determine destination map */
@@ -306,26 +388,40 @@ void Warp_Execute(void) {
     const map_events_t *dev = &gMapEvents[dest_map];
     if (dev->warps && dest_idx < dev->num_warps) {
         const map_warp_t *dw = &dev->warps[dest_idx];
-        int max_x = (int)wCurMapWidth  * 4 - 1;
-        int max_y = (int)wCurMapHeight * 4 - 1;
+        int max_x = (int)wCurMapWidth  * 2 - 1;
+        int max_y = (int)wCurMapHeight * 2 - 1;
         int nx = (int)dw->x;
         int ny = (int)dw->y;
         if (nx > max_x) nx = max_x;
         if (ny > max_y) ny = max_y;
-        Player_SetPos((uint16_t)nx, (uint16_t)ny);
+        Player_SetPos((int16_t)nx, (int16_t)ny);
     } else {
         Player_SetPos(
-            (uint16_t)((wCurMapWidth  * 4) / 2),
-            (uint16_t)((wCurMapHeight * 4) / 2)
+            (int16_t)(wCurMapWidth),
+            (int16_t)(wCurMapHeight)
         );
     }
 
     /* Check for door step-out: if the arrival tile is a door tile for this
      * tileset, schedule an automatic step south (PlayerStepOutFromDoor).
      * Mirrors the BIT_STANDING_ON_DOOR flag set in WarpFound2 → EnterMap. */
-    gWarpDoorStep = is_door_tile(Map_GetTile((int)wXCoord, (int)wYCoord));
+    gWarpDoorStep = is_door_tile(Map_GetGameTile((int)wXCoord, (int)wYCoord));
 
     NPC_Load();
     printf("[warp] executed -> map %d @ (%d,%d)\n",
            dest_map, wXCoord, wYCoord);
+}
+
+void Warp_ForceTeleport(uint8_t map_id, int tile_x, int tile_y) {
+    Map_Load(map_id);
+    int max_x = (int)wCurMapWidth  * 2 - 1;
+    int max_y = (int)wCurMapHeight * 2 - 1;
+    if (tile_x < 0) tile_x = (int)wCurMapWidth;
+    if (tile_y < 0) tile_y = (int)wCurMapHeight;
+    if (tile_x > max_x) tile_x = max_x;
+    if (tile_y > max_y) tile_y = max_y;
+    Player_SetPos((uint16_t)tile_x, (uint16_t)tile_y);
+    NPC_Load();
+    Player_IgnoreInputFrames(8);
+    printf("[warp] teleport -> map %d @ (%d,%d)\n", map_id, tile_x, tile_y);
 }

@@ -9,9 +9,8 @@
  *   DisplayEnemyTrainerTextAndStartBattle (home/trainers.asm:162)
  *
  * Coordinate system:
- *   wXCoord / wYCoord and npc tile positions use 2-unit steps per visible
- *   block (asm_x*2).  One "sight tile" in pokered (16px block) = 2 units here.
- *   Distance: abs(diff) / 2 <= sight_dist.
+ *   wXCoord / wYCoord and NPC positions are in ASM game coords (1 unit = 1
+ *   visible block = 16px).  Distance: abs(diff) <= sight_dist.
  *
  * Facing / in-front rules (from CheckPlayerIsInFrontOfSprite):
  *   DOWN  (0): trainer_y < player_y  (player south of trainer)
@@ -61,18 +60,14 @@ static const uint8_t kShockEmoteTiles[64] = {
 #define EMOTE_TILE_BASE  68  /* sprite tile slots 68-71 (after player 64-67) */
 #define EMOTE_OAM_BASE   68  /* wShadowOAM entries 68-71 (after NPC 4-67) */
 
-/* Load emote tiles and position 4 OAM entries above trainer npc_idx. */
-static void emote_show(int npc_idx) {
+/* Load emote tiles into sprite tile slots. */
+static void emote_load_tiles(void) {
     for (int i = 0; i < 4; i++)
         Display_LoadSpriteTile(EMOTE_TILE_BASE + i, kShockEmoteTiles + i * 16);
+}
 
-    int sx, sy;
-    NPC_GetScreenPos(npc_idx, &sx, &sy);
-    /* NPC_GetScreenPos returns (center_x, top_y): slot 1 x = px+8, slot 0 y = py.
-     * Emote is 16×16, centered over the 16px-wide NPC sprite.
-     * Left tile OAM x = px + OAM_X_OFS = (sx-8) + 8 = sx.
-     * Top row OAM y  = (py-16) + OAM_Y_OFS = sy. */
-    int ey = sy - 16;
+/* Position 4 OAM entries for the emote at screen position (sx, ey_top). */
+static void emote_position(int sx, int ey) {
     wShadowOAM[EMOTE_OAM_BASE + 0].y = (uint8_t)(ey + 16);
     wShadowOAM[EMOTE_OAM_BASE + 0].x = (uint8_t)(sx);
     wShadowOAM[EMOTE_OAM_BASE + 0].tile  = EMOTE_TILE_BASE;
@@ -89,6 +84,14 @@ static void emote_show(int npc_idx) {
     wShadowOAM[EMOTE_OAM_BASE + 3].x = (uint8_t)(sx + 8);
     wShadowOAM[EMOTE_OAM_BASE + 3].tile  = EMOTE_TILE_BASE + 3;
     wShadowOAM[EMOTE_OAM_BASE + 3].flags = 0;
+}
+
+/* Load emote tiles and position 4 OAM entries above trainer npc_idx. */
+static void emote_show(int npc_idx) {
+    emote_load_tiles();
+    int sx, sy;
+    NPC_GetScreenPos(npc_idx, &sx, &sy);
+    emote_position(sx, sy - 16);
 }
 
 /* Hide emote by pushing all 4 OAM entries off-screen (y=0). */
@@ -118,18 +121,9 @@ static int               ts_timer   = 0;
 /* Public: engaged trainer's class and party number */
 uint8_t gEngagedTrainerClass = 0;
 uint8_t gEngagedTrainerNo    = 0;
+const char *gTrainerAfterText = NULL;
 
-/* ---- Helpers ------------------------------------------------------ */
-
-/* Check wEventFlags bit: return 1 if bit is set (trainer defeated). */
-static int event_flag_get(uint16_t bit) {
-    return (wEventFlags[bit / 8] >> (bit % 8)) & 1;
-}
-
-/* Set wEventFlags bit (mark trainer as defeated). */
-static void event_flag_set(uint16_t bit) {
-    wEventFlags[bit / 8] |= (uint8_t)(1u << (bit % 8));
-}
+/* Event flag access uses CheckEvent/SetEvent from hardware.h (FlagAction port). */
 
 /* ---- TrainerEngage / CheckSpriteCanSeePlayer / CheckPlayerIsInFrontOfSprite
  *
@@ -153,7 +147,7 @@ static int trainer_can_see_player(int tx, int ty, int facing, int sight_dist) {
         /* UP or DOWN: must be same column */
         if (dx != 0) return 0;
         if (dy == 0) return 0;  /* same tile — never engage (pokered: jr z, .noEngage) */
-        dist = (dy < 0 ? -dy : dy) >> 1;  /* divide by 2: 2 units = 1 block */
+        dist = dy < 0 ? -dy : dy;  /* game coords = blocks directly */
         if (dist > sight_dist) return 0;
         /* CheckPlayerIsInFrontOfSprite:
          *   DOWN (0): trainer_y < player_y  → ty < py → dy > 0 */
@@ -164,7 +158,7 @@ static int trainer_can_see_player(int tx, int ty, int facing, int sight_dist) {
         /* LEFT or RIGHT: must be same row */
         if (dy != 0) return 0;
         if (dx == 0) return 0;
-        dist = (dx < 0 ? -dx : dx) >> 1;
+        dist = dx < 0 ? -dx : dx;
         if (dist > sight_dist) return 0;
         /* CheckPlayerIsInFrontOfSprite:
          *   LEFT  (2): trainer_x >= player_x → tx >= px → dx <= 0 (strict: dx < 0) */
@@ -184,14 +178,18 @@ void Trainer_LoadMap(void) {
     ts_timer           = 0;
     gEngagedTrainerClass = 0;
     gEngagedTrainerNo    = 0;
+    gTrainerAfterText    = NULL;
     emote_hide();
 
     if (wCurMap >= NUM_MAPS) return;
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->trainers) return;
 
-    /* Apply initial facing directions for trainer NPCs (from object_event facing
-     * field in pokered map data — trainers have a fixed sight direction). */
+    /* Apply initial facing for all trainers.
+     * Defeated trainers remain visible but won't engage (CheckEvent skips them).
+     * Mirrors original: EndTrainerBattle only calls HideObject for non-trainer
+     * battle types (wEnemyMonOrTrainerClass < OPP_ID_OFFSET); regular trainer
+     * sprites stay on the map after defeat. */
     for (int i = 0; i < ev->num_trainers; i++) {
         const map_trainer_t *t = &ev->trainers[i];
         NPC_SetFacing(t->npc_idx, t->facing);
@@ -209,7 +207,7 @@ void Trainer_CheckSight(void) {
         const map_trainer_t *t = &ev->trainers[i];
 
         /* Skip defeated trainers */
-        if (event_flag_get(t->flag_bit)) continue;
+        if (CheckEvent(t->flag_bit)) continue;
 
         int tx, ty;
         NPC_GetTilePos(t->npc_idx, &tx, &ty);
@@ -224,6 +222,7 @@ void Trainer_CheckSight(void) {
         ts_timer           = 60;  /* 60 frames = 1 s (matches EmotionBubble in pokered) */
         gEngagedTrainerClass = t->trainer_class;
         gEngagedTrainerNo    = t->trainer_no;
+        gTrainerAfterText    = t->after_text;
 
         printf("[trainer] Trainer %d (class %d, no %d) spotted player at (%d,%d)\n",
                i, t->trainer_class, t->trainer_no, (int)wXCoord, (int)wYCoord);
@@ -255,7 +254,7 @@ int Trainer_SightTick(void) {
 
     case TS_WALKING: {
         /* Walk trainer toward player one step at a time (TrainerWalkUpToPlayer).
-         * Stop when 1 tile adjacent (|diff| == 2 in our coord system). */
+         * Stop when 1 tile adjacent (|diff| == 1 in game coords). */
         if (NPC_IsWalking(ts_npc_idx)) return 0;
 
         int tx, ty;
@@ -266,9 +265,9 @@ int Trainer_SightTick(void) {
         int dy = py - ty;
         int facing = t->facing;
 
-        /* Check adjacency: stop when 1 block apart (2 units) */
+        /* Check adjacency: stop when 1 block apart (1 game unit) */
         int adj = (facing == 0 || facing == 1) ? (dy < 0 ? -dy : dy) : (dx < 0 ? -dx : dx);
-        if (adj <= 2) {
+        if (adj <= 1) {
             /* Adjacent — face player and transition to talking. */
             NPC_SetFacing(ts_npc_idx, facing);
             ts_state = TS_TALKING;
@@ -318,7 +317,7 @@ void Trainer_EngageImmediate(int npc_idx) {
     for (int i = 0; i < ev->num_trainers; i++) {
         const map_trainer_t *t = &ev->trainers[i];
         if (t->npc_idx != npc_idx) continue;
-        if (event_flag_get(t->flag_bit)) return;  /* already defeated */
+        if (CheckEvent(t->flag_bit)) return;  /* already defeated */
 
         /* Skip SPOTTED (no "!") and WALKING (already adjacent) */
         ts_state           = TS_TALKING;
@@ -327,6 +326,7 @@ void Trainer_EngageImmediate(int npc_idx) {
         ts_timer           = 0;
         gEngagedTrainerClass = t->trainer_class;
         gEngagedTrainerNo    = t->trainer_no;
+        gTrainerAfterText    = t->after_text;
         return;
     }
 }
@@ -336,6 +336,20 @@ void Trainer_MarkCurrentDefeated(void) {
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->trainers || ts_map_trainer_idx < 0 ||
         ts_map_trainer_idx >= ev->num_trainers) return;
-    event_flag_set(ev->trainers[ts_map_trainer_idx].flag_bit);
+    SetEvent(ev->trainers[ts_map_trainer_idx].flag_bit);
     ts_map_trainer_idx = -1;
 }
+
+/* ---- Public emote API (used by pallet_scripts.c) ---- */
+
+void Emote_ShowOnNPC(int npc_idx) { emote_show(npc_idx); }
+
+void Emote_ShowOnPlayer(void) {
+    emote_load_tiles();
+    /* Player OAM: slot 0 top-left.  Position emote 16px above player sprite. */
+    int py = (int)wShadowOAM[0].y - OAM_Y_OFS;
+    int px = (int)wShadowOAM[0].x - OAM_X_OFS;
+    emote_position(px + OAM_X_OFS, py - 16);
+}
+
+void Emote_Hide(void) { emote_hide(); }

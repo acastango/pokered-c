@@ -53,3 +53,14 @@ void Trainer_EngageImmediate(int npc_idx);
  * Valid while Trainer_IsEngaging() or after Trainer_SightTick() returns 1. */
 extern uint8_t gEngagedTrainerClass;
 extern uint8_t gEngagedTrainerNo;
+/* Defeat quote from the engaged trainer's after_text field.
+ * NULL for gym/scripted battles. Valid until next Trainer_LoadMap() call. */
+extern const char *gTrainerAfterText;
+
+/* ---- Shock emote ("!") — reusable by map scripts ---- */
+/* Show exclamation bubble above NPC npc_idx (loads tiles + positions OAM). */
+void Emote_ShowOnNPC(int npc_idx);
+/* Show exclamation bubble above the player sprite. */
+void Emote_ShowOnPlayer(void);
+/* Hide the emote (zero OAM). */
+void Emote_Hide(void);

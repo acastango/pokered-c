@@ -20,4 +20,15 @@ void Display_SetBGP(uint8_t bgp);  /* change background palette only — sprites
  * Matches the GB window-register offset used by PlayApplyingAttackAnimation.
  * Call Display_SetShakeOffset(0,0) to clear. */
 void Display_SetShakeOffset(int ox, int oy);
+/* Save current framebuffer as a BMP file.  Returns 0 on success, -1 on error. */
+int  Display_SaveScreenshot(const char *path);
+
+/* Per-tile debug overlay: blends a solid RGBA color over screen tiles.
+ * Enable/disable with Display_SetOverlayEnabled.  Set per-tile colors with
+ * Display_SetOverlayTile (tx in [0,SCREEN_WIDTH), ty in [0,SCREEN_HEIGHT)).
+ * rgba = 0xRRGGBBAA; AA = blend alpha (0=transparent, 255=opaque); 0 = no tint. */
+void Display_SetOverlayEnabled(int on);
+void Display_ClearOverlay(void);
+void Display_SetOverlayTile(int tx, int ty, uint32_t rgba);
+
 void Display_Quit(void);

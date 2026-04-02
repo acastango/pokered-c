@@ -1,7 +1,9 @@
 #pragma once
 /* trainer_data.h — Trainer party data tables.
  *
- * Ports from data/trainers/parties.asm.
+ * Generated from pokered-master/data/trainers/parties.asm and
+ * pokered-master/data/trainers/pic_pointers_money.asm.
+ * Regenerate with: python tools/extract_trainers.py
  *
  * Party format A (first byte != 0xFF):
  *   level, species..., 0

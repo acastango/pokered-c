@@ -152,6 +152,9 @@ static const uint8_t kSpecialEffects[] = {
     0xFF
 };
 
+/* Combat log sink — set by debug_overlay.c when logging is enabled. */
+void (*gCombatLogSink)(const char *line) = NULL;
+
 /* ============================================================
  * Internal helper: array membership test.
  * ============================================================ */

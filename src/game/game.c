@@ -81,11 +81,10 @@ void Game_SetScene(int s)  { gScene = (GameScene)s; }
 int gSkipMenu = 0;
 
 /* ---- Enter overworld from loaded wCurMap/wXCoord/wYCoord ---------- */
-static void enter_overworld(void) {
-    Map_Load(wCurMap);
-    Font_Load();
-    Player_Init((uint8_t)wXCoord, (uint8_t)wYCoord);
-    NPC_Load();
+/* Fire all per-map OnMapLoad callbacks.  Called any time the current map
+ * changes: enter_overworld, battle-end reload, warp fade-out, and debug
+ * teleport.  NPC_Load() must have already been called before this. */
+static void fire_map_onload_callbacks(void) {
     PalletScripts_OnMapLoad();
     OaksLabScripts_OnMapLoad();
     ViridianMartScripts_OnMapLoad();
@@ -95,6 +94,14 @@ static void enter_overworld(void) {
     BillsHouseScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
+}
+
+static void enter_overworld(void) {
+    Map_Load(wCurMap);
+    Font_Load();
+    Player_Init((uint8_t)wXCoord, (uint8_t)wYCoord);
+    NPC_Load();
+    fire_map_onload_callbacks();
     Map_BuildScrollView();
     NPC_BuildView(0, 0);
     gScene = SCENE_OVERWORLD;
@@ -389,9 +396,12 @@ void GameTick(void) {
             fscanf(tf, "%d %d %d", &map_id, &tx, &ty);
             fclose(tf);
             remove("bugs/teleport.txt");
-            if (map_id >= 0 && map_id < NUM_MAPS)
+            if (map_id >= 0 && map_id < NUM_MAPS) {
                 Warp_ForceTeleport((uint8_t)map_id, tx, ty);
-            else
+                fire_map_onload_callbacks();
+                Map_BuildScrollView();
+                NPC_BuildView(0, 0);
+            } else
                 printf("[debug] teleport: bad map_id %d (max %d)\n", map_id, NUM_MAPS - 1);
         }
     }
@@ -565,15 +575,7 @@ void GameTick(void) {
             Font_Load();   /* restore font/box tiles (120-126, 128-255) */
             Music_Play(Music_GetMapID(wCurMap));
             NPC_Load();
-            PalletScripts_OnMapLoad();
-            OaksLabScripts_OnMapLoad();
-            ViridianMartScripts_OnMapLoad();
-            MtMoon_OnMapLoad();
-            CeruleanScripts_OnMapLoad();
-            Route24Scripts_OnMapLoad();
-            BillsHouseScripts_OnMapLoad();
-            Trainer_LoadMap();
-            Gate_LoadMap();
+            fire_map_onload_callbacks();
             Player_SyncOAM();
             Map_BuildScrollView();
             NPC_BuildView(gScrollPxX, gScrollPxY);
@@ -626,15 +628,7 @@ void GameTick(void) {
                  * iteration.  GBFadeInFromWhite is only used for battle recovery
                  * and fly/dungeon warps. */
                 Warp_Execute();
-                PalletScripts_OnMapLoad();
-                OaksLabScripts_OnMapLoad();
-                ViridianMartScripts_OnMapLoad();
-                MtMoon_OnMapLoad();
-                CeruleanScripts_OnMapLoad();
-                Route24Scripts_OnMapLoad();
-                BillsHouseScripts_OnMapLoad();
-                Trainer_LoadMap();
-                Gate_LoadMap();
+                fire_map_onload_callbacks();
                 Map_BuildScrollView();
                 NPC_BuildView(0, 0);
                 Player_SyncOAM();

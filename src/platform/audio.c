@@ -468,6 +468,31 @@ void Audio_PlaySFX_Ledge(void) {
     ledge_sfx_timer  = LEDGE_SFX_FRAMES;
 }
 
+/* ---- Collision bump SFX (SFX_COLLISION → SFX_Collision_1_Ch5) -----
+ * audio/sfx/collision_1.asm:
+ *   duty_cycle 2
+ *   pitch_sweep 5, -2          → NR10=0x5A: pace=5, decrease, shift=2
+ *   square_note 15, 15, 1, 768
+ *   pitch_sweep 0, 8           → NR10=0x08 (disable sweep)
+ *
+ * Original only plays if the SFX is not already active (CHAN5 check).
+ */
+#define COLLISION_SFX_FRAMES 18
+static int collision_sfx_active = 0;
+static int collision_sfx_timer  = 0;
+
+void Audio_PlaySFX_Collision(void) {
+    if (collision_sfx_active) return;   /* already playing — skip */
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0x5A);                              /* NR10: pace=5, dec, shift=2 */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                  /* NR11: duty=2 (50%) */
+    Audio_WriteReg(0, 2, 0xF1);                              /* NR12: vol=15, dec, pace=1 */
+    Audio_WriteReg(0, 3, (uint8_t)(768 & 0xFF));             /* NR13: freq low */
+    Audio_WriteReg(0, 4, (uint8_t)(((768 >> 8) & 0x07) | 0x80)); /* NR14: freq high + trigger */
+    collision_sfx_active = 1;
+    collision_sfx_timer  = COLLISION_SFX_FRAMES;
+}
+
 /* ---- Building enter/exit SFX (noise channel, ch[3]) ---------------
  * Original: home/overworld.asm PlayMapChangeSound → SFX_GO_INSIDE /
  *           SFX_GO_OUTSIDE, both on Ch8 (GB CH4, noise).
@@ -826,6 +851,95 @@ void Audio_PlaySFX_Purchase(void) {
     purchase_ch2_fire(0);
 }
 
+/* ---- Get Key Item jingle (SFX_GET_KEY_ITEM → SFX_Get_Key_Item_1) ----
+ * audio/sfx/get_key_item_1.asm — plays when receiving a starter / key item.
+ * Ch5 (square ch[0]):  A#3→C4×3→D#4→F4×3→A#4  (ascending fanfare)
+ * Ch6 (square ch[1]):  G4×3→D#4→G#4×3→A#4×3→D#5  (harmony)
+ * Ch7 (wave ch[2]):    omitted — square channels carry the melody.
+ *
+ * note_type 5 = 5 frames per length unit.  tempo 256 = 1:1. */
+static const sq_sfx_note_t kGetKeyCh1[] = {
+    { 1767, 0xA4, 20 },  /* A#3,  note_type 5,10,4, len 4 */
+    { 1798, 0xB1, 10 },  /* C4,   note_type 5,11,1, len 2 */
+    { 1798, 0xB1,  5 },  /* C4,   len 1 */
+    { 1798, 0xB1,  5 },  /* C4,   len 1 */
+    { 1838, 0xA4, 20 },  /* D#4,  note_type 5,10,4, len 4 */
+    { 1861, 0xB1, 10 },  /* F4,   note_type 5,11,1, len 2 */
+    { 1861, 0xB1,  5 },  /* F4,   len 1 */
+    { 1861, 0xB1,  5 },  /* F4,   len 1 */
+    { 1908, 0xB4, 40 },  /* A#4,  note_type 5,11,4, len 8 */
+};
+static const sq_sfx_note_t kGetKeyCh2[] = {
+    { 1881, 0xD1, 10 },  /* G4,   note_type 5,13,1, len 2 */
+    { 1881, 0xD1,  5 },  /* G4,   len 1 */
+    { 1881, 0xD1,  5 },  /* G4,   len 1 */
+    { 1838, 0xC4, 20 },  /* D#4,  note_type 5,12,4, len 4 */
+    { 1891, 0xD1, 10 },  /* G#4,  note_type 5,13,1, len 2 */
+    { 1891, 0xD1,  5 },  /* G#4,  len 1 */
+    { 1891, 0xD1,  5 },  /* G#4,  len 1 */
+    { 1908, 0xD1, 10 },  /* A#4,  len 2 */
+    { 1908, 0xD1,  5 },  /* A#4,  len 1 */
+    { 1908, 0xD1,  5 },  /* A#4,  len 1 */
+    { 1943, 0xC4, 40 },  /* D#5,  note_type 5,12,4, len 8 */
+};
+#define GET_KEY_CH1_NOTES  9
+#define GET_KEY_CH2_NOTES  11
+
+static int get_key_ch1_step  = -1;
+static int get_key_ch1_timer =  0;
+static int get_key_ch2_step  = -1;
+static int get_key_ch2_timer =  0;
+static int get_key_active    =  0;
+
+static void get_key_ch1_fire(int step) {
+    const sq_sfx_note_t *n = &kGetKeyCh1[step];
+    Audio_WriteReg(0, 0, 0x08);                              /* NR10: disable sweep */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                  /* duty=2 (50%) */
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    get_key_ch1_timer = n->frames;
+}
+
+static void get_key_ch2_fire(int step) {
+    const sq_sfx_note_t *n = &kGetKeyCh2[step];
+    Audio_WriteReg(1, 1, (2 << 6) | 0x3F);                  /* duty=2 (50%) */
+    Audio_WriteReg(1, 2, n->env);
+    Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    get_key_ch2_timer = n->frames;
+}
+
+int Audio_IsSFXPlaying_GetKeyItem(void) { return get_key_active; }
+
+/* Returns 1 if any SFX channel is still active.
+ * Mirrors WaitForSoundToFinish (home/delay.asm): polls wChannelSoundIDs
+ * for Ch5 (sfx_step/ledge/collision), Ch6 (lvl_up/heal/purchase/get_key),
+ * and Ch8 (noise_sfx_step) until all are silent. */
+int Audio_IsSFXPlaying(void) {
+    return sfx_step >= 0
+        || ledge_sfx_active
+        || collision_sfx_active
+        || noise_sfx_step >= 0
+        || lvl_up_step >= 0
+        || heal_sfx_step >= 0
+        || purchase_active
+        || get_key_active;
+}
+
+void Audio_PlaySFX_GetKeyItem(void) {
+    sfx_step        = -1;   /* cancel PressAB if playing */
+    lvl_up_step     = -1;   /* cancel level-up if playing */
+    purchase_active =  0;   /* cancel purchase if playing */
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    get_key_ch1_step = 0;
+    get_key_ch2_step = 0;
+    get_key_active   = 1;
+    get_key_ch1_fire(0);
+    get_key_ch2_fire(0);
+}
+
 void Audio_PlaySFX_Faint(void) {
     Music_SuspendChannel(0);
     /* NR10 = 0xAF: pace=2, decrease, shift=7 — rapid falling sweep */
@@ -949,6 +1063,15 @@ void Audio_Update(void) {
         }
     }
 
+    /* Advance collision-bump SFX */
+    if (collision_sfx_active) {
+        if (--collision_sfx_timer <= 0) {
+            Audio_WriteReg(0, 0, 0x08);  /* NR10: disable sweep */
+            Music_ResumeChannel(0);
+            collision_sfx_active = 0;
+        }
+    }
+
     /* Advance ledge-hop SFX */
     if (ledge_sfx_active) {
         if (--ledge_sfx_timer <= 0) {
@@ -1013,6 +1136,33 @@ void Audio_Update(void) {
         }
         if (purchase_ch1_step < 0 && purchase_ch2_step < 0) {
             purchase_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
+        }
+    }
+
+    /* Advance get-key-item jingle (two independent channels) */
+    if (get_key_active) {
+        if (get_key_ch1_step >= 0) {
+            if (--get_key_ch1_timer <= 0) {
+                get_key_ch1_step++;
+                if (get_key_ch1_step >= GET_KEY_CH1_NOTES)
+                    get_key_ch1_step = -1;
+                else
+                    get_key_ch1_fire(get_key_ch1_step);
+            }
+        }
+        if (get_key_ch2_step >= 0) {
+            if (--get_key_ch2_timer <= 0) {
+                get_key_ch2_step++;
+                if (get_key_ch2_step >= GET_KEY_CH2_NOTES)
+                    get_key_ch2_step = -1;
+                else
+                    get_key_ch2_fire(get_key_ch2_step);
+            }
+        }
+        if (get_key_ch1_step < 0 && get_key_ch2_step < 0) {
+            get_key_active = 0;
             Music_ResumeChannel(0);
             Music_ResumeChannel(1);
         }

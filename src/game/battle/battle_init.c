@@ -15,6 +15,7 @@
 #include "../constants.h"
 #include "../pokemon.h"
 #include "../music.h"
+#include "../pokedex.h"
 #include <string.h>
 
 void Battle_Start(void) {
@@ -95,6 +96,7 @@ void Battle_Start(void) {
                                ((dv_spd & 1) << 1) |  (dv_spc & 1));
 
     wEnemyMon.species    = wCurPartySpecies;  /* internal species ID (core.asm:LoadEnemyMonData) */
+    Pokedex_SetSeen(wCurPartySpecies);
     wEnemyMon.hp         = CalcStat(b->hp,  dv_hp,  0, lv, 1);
     wEnemyMon.party_pos  = 0;
     wEnemyMon.status     = 0;
@@ -232,7 +234,10 @@ void Battle_ReadTrainer(uint8_t trainer_class, uint8_t trainer_no) {
     {
         uint16_t base = (trainer_class >= 1 && trainer_class <= NUM_TRAINERS)
                         ? gTrainerBaseMoney[trainer_class - 1] : 0;
-        wAmountMoneyWon = (uint32_t)base * wEnemyMons[wEnemyPartyCount - 1].level;
+        /* base is from bcd3 in the ASM table (e.g. 1500 for Youngster). Only the
+         * "thousands+hundreds" byte (base/100) is used as the per-level multiplier —
+         * matches AddBCDPredef using wTrainerBaseMoney+1 × wCurEnemyLevel. */
+        wAmountMoneyWon = (uint32_t)(base / 100) * wEnemyMons[wEnemyPartyCount - 1].level;
     }
 
     /* ---- Signature move injection (read_trainer_party.asm / special_moves.asm) ----

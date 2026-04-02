@@ -37,6 +37,10 @@ static uint32_t fb[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 static int g_shake_ox = 0;
 static int g_shake_oy = 0;
 
+/* Debug tile overlay: per-screen-tile RGBA tint blended after rendering. */
+static uint32_t s_tile_ov[SCREEN_HEIGHT * SCREEN_WIDTH];
+static int      s_overlay_on = 0;
+
 /* BG color-index buffer: tracks the 2bpp palette index (0-3) written to each
  * screen pixel by the BG tile pass.  Used to implement OAM_FLAG_PRIORITY:
  * sprites with bit 7 set only draw where BG index == 0 (transparent/white),
@@ -165,6 +169,8 @@ static void blit_tile(int px, int py, uint8_t tile_id,
     }
 }
 
+static void apply_tile_overlay(void);  /* defined below the render functions */
+
 void Display_Render(void) {
     /* 1. Draw background tiles from wTileMap (20×18 visible) */
     for (int ty = 0; ty < SCREEN_HEIGHT; ty++) {
@@ -211,8 +217,9 @@ void Display_Render(void) {
         }
     }
 
-    /* 3. Apply shake offset, upload to GPU and present */
+    /* 3. Apply shake offset, overlay, upload to GPU and present */
     apply_shake_to_fb();
+    apply_tile_overlay();
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
@@ -268,23 +275,89 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
         }
     }
 
-    /* Text box overlay: wTileMap rows 12–17 (6-row box matching original).
-     * Detect open box by checking the top-left border tile at row 12.
-     * draw_box_border sets it to the ┌ tile (≠0); Text_Close clears it to 0. */
-    if (wTileMap[12 * SCREEN_WIDTH] != 0) {
-        for (int ty = 12; ty < 18; ty++) {
-            for (int tx = 0; tx < SCREEN_WIDTH; tx++) {
-                uint8_t tid = wTileMap[ty * SCREEN_WIDTH + tx];
-                blit_tile(tx * TILE_PX, ty * TILE_PX, tid, bg_palette, 0, 0, 0);
+    /* Window layer: mirrors GB Window layer (hWY register).
+     * Drawn after sprites — always in front, simulating how Gen 1 renders
+     * text boxes and UI overlays (YES/NO box, etc.) in front of OBJ sprites.
+     * Tile ID 0 = transparent (passes through to BG/sprites below). */
+    if (hWY < SCREEN_HEIGHT_PX) {
+        int win_row_start = hWY / TILE_PX;
+        for (int wy = win_row_start; wy < SCREEN_HEIGHT; wy++) {
+            for (int wx = 0; wx < SCREEN_WIDTH; wx++) {
+                uint8_t tid = gWindowTileMap[wy][wx];
+                if (tid == 0) continue;
+                blit_tile(wx * TILE_PX, wy * TILE_PX, tid, bg_palette, 0, 0, 0);
             }
         }
     }
 
     apply_shake_to_fb();
+    apply_tile_overlay();
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
     SDL_RenderPresent(renderer);
+}
+
+void Display_SetOverlayEnabled(int on) {
+    s_overlay_on = on;
+    if (!on) memset(s_tile_ov, 0, sizeof(s_tile_ov));
+}
+
+void Display_ClearOverlay(void) {
+    memset(s_tile_ov, 0, sizeof(s_tile_ov));
+}
+
+void Display_SetOverlayTile(int tx, int ty, uint32_t rgba) {
+    if ((unsigned)tx < SCREEN_WIDTH && (unsigned)ty < SCREEN_HEIGHT)
+        s_tile_ov[ty * SCREEN_WIDTH + tx] = rgba;
+}
+
+/* Alpha-blend the per-tile overlay into fb[].  Called after apply_shake_to_fb. */
+static void apply_tile_overlay(void) {
+    if (!s_overlay_on) return;
+    for (int ty = 0; ty < SCREEN_HEIGHT; ty++) {
+        for (int tx = 0; tx < SCREEN_WIDTH; tx++) {
+            uint32_t ov = s_tile_ov[ty * SCREEN_WIDTH + tx];
+            if (!ov) continue;
+            uint8_t oa  = (uint8_t)(ov        & 0xFF);
+            uint8_t ovr = (uint8_t)(ov >> 24);
+            uint8_t ovg = (uint8_t)(ov >> 16);
+            uint8_t ovb = (uint8_t)(ov >>  8);
+            for (int row = 0; row < TILE_PX; row++) {
+                int py = ty * TILE_PX + row;
+                for (int col = 0; col < TILE_PX; col++) {
+                    int px = tx * TILE_PX + col;
+                    uint32_t *p = &fb[py * SCREEN_WIDTH_PX + px];
+                    uint8_t pr = (uint8_t)(*p >> 24);
+                    uint8_t pg = (uint8_t)(*p >> 16);
+                    uint8_t pb = (uint8_t)(*p >>  8);
+                    pr = (uint8_t)((ovr * oa + pr * (255 - oa)) / 255);
+                    pg = (uint8_t)((ovg * oa + pg * (255 - oa)) / 255);
+                    pb = (uint8_t)((ovb * oa + pb * (255 - oa)) / 255);
+                    *p = ((uint32_t)pr << 24) | ((uint32_t)pg << 16) |
+                         ((uint32_t)pb <<  8) | 0xFF;
+                }
+            }
+        }
+    }
+}
+
+int Display_SaveScreenshot(const char *path) {
+    /* fb[] is RGBA8888: R in the highest byte. */
+    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(
+        (void *)fb,
+        SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX,
+        32,                   /* depth */
+        SCREEN_WIDTH_PX * 4, /* pitch */
+        0xFF000000u,          /* Rmask */
+        0x00FF0000u,          /* Gmask */
+        0x0000FF00u,          /* Bmask */
+        0x000000FFu           /* Amask */
+    );
+    if (!surf) return -1;
+    int ret = SDL_SaveBMP(surf, path);
+    SDL_FreeSurface(surf);
+    return ret;
 }
 
 void Display_Quit(void) {

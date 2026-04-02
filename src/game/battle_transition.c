@@ -39,6 +39,38 @@
 #include <stdint.h>
 
 /* ------------------------------------------------------------------ */
+/*  Dungeon map detection — mirrors DungeonMaps1/DungeonMaps2 tables  */
+/*  from data/maps/dungeon_maps.asm + constants/map_constants.asm     */
+/* ------------------------------------------------------------------ */
+#define MAP_VIRIDIAN_FOREST       0x33
+#define MAP_ROCK_TUNNEL_1F        0x52
+#define MAP_ROCK_TUNNEL_B1F       0xE8
+#define MAP_SEAFOAM_ISLANDS_1F    0xC0
+#define MAP_MT_MOON_1F            0x3B
+#define MAP_MT_MOON_B2F           0x3D
+#define MAP_SS_ANNE_1F            0x5F
+#define MAP_HALL_OF_FAME          0x76
+#define MAP_LAVENDER_POKECENTER   0x8D
+#define MAP_LAVENDER_CUBONE_HOUSE 0x97
+#define MAP_SILPH_CO_2F           0xCF
+#define MAP_CERULEAN_CAVE_1F      0xE4
+
+static int is_dungeon_map(void) {
+    uint8_t m = wCurMap;
+    /* DungeonMaps1: individual entries */
+    if (m == MAP_VIRIDIAN_FOREST)    return 1;
+    if (m == MAP_ROCK_TUNNEL_1F)     return 1;
+    if (m == MAP_SEAFOAM_ISLANDS_1F) return 1;
+    if (m == MAP_ROCK_TUNNEL_B1F)    return 1;
+    /* DungeonMaps2: inclusive ranges */
+    if (m >= MAP_MT_MOON_1F          && m <= MAP_MT_MOON_B2F)           return 1;
+    if (m >= MAP_SS_ANNE_1F          && m <= MAP_HALL_OF_FAME)           return 1;
+    if (m >= MAP_LAVENDER_POKECENTER && m <= MAP_LAVENDER_CUBONE_HOUSE)  return 1;
+    if (m >= MAP_SILPH_CO_2F         && m <= MAP_CERULEAN_CAVE_1F)       return 1;
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Internal state machine phases                                      */
 /* ------------------------------------------------------------------ */
 typedef enum {
@@ -244,7 +276,7 @@ static void isp_precompute(void) {
     for (int i = 0; i < c && n < ISP_MAX; i++) {
         g_isp_x[n] = (int8_t)tx; g_isp_y[n++] = (int8_t)ty; ty++;
     }
-    c++;  /* c = 18 */
+    c += 2;  /* c=18 after pre-call + c=19 at .skip label (two inc c in original ASM) */
 
     while (c > 0 && n < ISP_MAX) {
         /* RIGHT c */
@@ -404,12 +436,12 @@ static int tick_split(void) {
 /*  Public API                                                         */
 /* ------------------------------------------------------------------ */
 
-void BattleTransition_Start(int is_trainer, int enemy_level,
-                             int player_level, int is_dungeon) {
+void BattleTransition_Start(int is_trainer, int enemy_level, int player_level) {
     int stronger = (enemy_level >= player_level + 3);
+    int dungeon  = is_dungeon_map();
     int type     = (is_trainer ? 1 : 0)
                  | (stronger   ? 2 : 0)
-                 | (is_dungeon ? 4 : 0);
+                 | (dungeon    ? 4 : 0);
 
     g_type        = type;
     g_step        = 0;

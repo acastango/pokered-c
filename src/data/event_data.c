@@ -1415,8 +1415,8 @@ static const npc_event_t kNpcs_Route5Gate[] = {
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute5[] = {
-    {   3,   7, 0xff, 3 },  /* LAST_MAP */
-    {   4,   7, 0xff, 3 },  /* LAST_MAP */
+    {   3,   7, 0x10, 3 },  /* ROUTE_5 */
+    {   4,   7, 0x10, 3 },  /* ROUTE_5 */
     {   4,   4, 0x77, 0 },  /* UNDERGROUND_PATH_NORTH_SOUTH */
 };
 
@@ -1445,8 +1445,8 @@ static const npc_event_t kNpcs_Route6Gate[] = {
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute6[] = {
-    {   3,   7, 0xff, 3 },  /* LAST_MAP */
-    {   4,   7, 0xff, 3 },  /* LAST_MAP */
+    {   3,   7, 0x11, 3 },  /* ROUTE_6 */
+    {   4,   7, 0x11, 3 },  /* ROUTE_6 */
     {   4,   4, 0x77, 1 },  /* UNDERGROUND_PATH_NORTH_SOUTH */
 };
 

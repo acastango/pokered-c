@@ -16,6 +16,9 @@
  */
 #include <stdint.h>
 
+/* Screen row where the text box starts — used by other modules to set hWY. */
+#define TEXT_BOX_ROW  12
+
 void Text_ShowBox(const uint8_t *str);    /* pokered-encoded string */
 void Text_ShowASCII(const char *str);     /* ASCII: \n=line \f=paragraph @=end */
 int  Text_IsOpen(void);
@@ -29,3 +32,10 @@ void Text_KeepTilesOnClose(void);
  * Matches DisplayTextBoxID(MESSAGE_BOX) in pokered, called before the battle
  * intro slide so the box frame is visible throughout the animation. */
 void Text_DrawEmptyBox(void);
+/* Debug: fills buf with a flat ASCII preview of the current dialog.
+ * Returns 0 if no box is open or text is pokered-encoded. */
+int  Text_GetCurrentStr(char *buf, int size);
+/* wDoNotWaitForButtonPressAfterDisplayingText — when set before Text_ShowASCII,
+ * text prints fully then returns without waiting for A press.  Text box stays
+ * visible so caller can overlay yes/no etc.  Auto-resets after use. */
+extern int wDoNotWaitForButtonPress;

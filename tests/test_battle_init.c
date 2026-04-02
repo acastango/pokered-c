@@ -129,6 +129,52 @@ TEST(ReadTrainer, youngster2_trainer_no) {
     EXPECT_EQ(wEnemyMons[0].level, 14);
 }
 
+/* RIVAL1 (class 25) trainer_no 1/2/3 must match Oak's Lab starter order from ASM */
+TEST(ReadTrainer, rival1_oakslab_party_1_squirtle) {
+    init_reset();
+    Battle_ReadTrainer(25, 1);
+    EXPECT_EQ(wEnemyPartyCount, 1);
+    EXPECT_EQ(wEnemyMons[0].base.species, SPECIES_SQUIRTLE);
+    EXPECT_EQ(wEnemyMons[0].level, 5);
+}
+
+TEST(ReadTrainer, rival1_oakslab_party_2_bulbasaur) {
+    init_reset();
+    Battle_ReadTrainer(25, 2);
+    EXPECT_EQ(wEnemyPartyCount, 1);
+    EXPECT_EQ(wEnemyMons[0].base.species, SPECIES_BULBASAUR);
+    EXPECT_EQ(wEnemyMons[0].level, 5);
+}
+
+TEST(ReadTrainer, rival1_oakslab_party_3_charmander) {
+    init_reset();
+    Battle_ReadTrainer(25, 3);
+    EXPECT_EQ(wEnemyPartyCount, 1);
+    EXPECT_EQ(wEnemyMons[0].base.species, SPECIES_CHARMANDER);
+    EXPECT_EQ(wEnemyMons[0].level, 5);
+}
+
+/* Route 22 Rival1 order should also stay aligned with the imported ASM */
+TEST(ReadTrainer, rival1_route22_party_1_uses_squirtle) {
+    init_reset();
+    Battle_ReadTrainer(25, 4);
+    EXPECT_EQ(wEnemyPartyCount, 2);
+    EXPECT_EQ(wEnemyMons[0].base.species, SPECIES_PIDGEY);
+    EXPECT_EQ(wEnemyMons[0].level, 9);
+    EXPECT_EQ(wEnemyMons[1].base.species, SPECIES_SQUIRTLE);
+    EXPECT_EQ(wEnemyMons[1].level, 8);
+}
+
+TEST(ReadTrainer, rival1_cerulean_party_1_uses_squirtle) {
+    init_reset();
+    Battle_ReadTrainer(25, 7);
+    EXPECT_EQ(wEnemyPartyCount, 4);
+    EXPECT_EQ(wEnemyMons[0].base.species, SPECIES_PIDGEOTTO);
+    EXPECT_EQ(wEnemyMons[0].level, 18);
+    EXPECT_EQ(wEnemyMons[3].base.species, SPECIES_SQUIRTLE);
+    EXPECT_EQ(wEnemyMons[3].level, 17);
+}
+
 /* Trainer party mons should have HP == max_hp (full health) */
 TEST(ReadTrainer, mons_start_at_full_hp) {
     init_reset();

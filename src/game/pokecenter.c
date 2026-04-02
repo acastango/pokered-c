@@ -127,7 +127,7 @@ static void pc_machine_oam_clear(void) {
 
 static void pc_set_tile(int col, int row, uint8_t tile) {
     if (col < 0 || col >= SCREEN_WIDTH || row < 0 || row >= SCREEN_HEIGHT) return;
-    gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)] = tile;
+    gWindowTileMap[row][col] = tile;
 }
 
 /* Convert a single ASCII char to a pokered font tile slot.
@@ -141,6 +141,7 @@ static uint8_t pc_char_tile(char c) {
 }
 
 static void pc_draw_yesno_box(void) {
+    hWY = YESNO_ROW * TILE_PX;  /* lower window to cover YES/NO box rows too */
     /* Top border: ┌────┐ */
     pc_set_tile(YESNO_COL,             YESNO_ROW,     (uint8_t)Font_CharToTile(BC_TL));
     for (int c = 1; c < YESNO_W - 1; c++)
@@ -177,7 +178,8 @@ static void pc_draw_yesno_box(void) {
 static void pc_clear_yesno_box(void) {
     for (int r = 0; r < YESNO_H; r++)
         for (int c = 0; c < YESNO_W; c++)
-            pc_set_tile(YESNO_COL + c, YESNO_ROW + r, (uint8_t)Font_CharToTile(BC_SP));
+            pc_set_tile(YESNO_COL + c, YESNO_ROW + r, 0);  /* 0 = transparent in window */
+    hWY = TEXT_BOX_ROW * TILE_PX;  /* raise window back to text box row (text still showing) */
 }
 
 /* ---- HealParty ----------------------------------------------------- */
@@ -222,6 +224,10 @@ void Pokecenter_Start(void) {
 
 int Pokecenter_IsActive(void) {
     return g_state != PC_IDLE;
+}
+
+int Pokecenter_IsWaitingYesNo(void) {
+    return g_state == PC_YESNO;
 }
 
 void Pokecenter_Tick(void) {
@@ -297,19 +303,20 @@ void Pokecenter_Tick(void) {
         Map_BuildScrollView();
         heal_party();
         Music_Stop();
-        NPC_SetFacing(g_nurse_npc, 1);  /* 1 = UP: nurse turns toward machine */
+        NPC_SetFacing(g_nurse_npc, 2);  /* 2 = LEFT: nurse turns toward machine */
         /* Load heal machine sprite tiles into VRAM slots $7C/$7D
          * (mirrors CopyVideoData for PokeCenterFlashingMonitorAndHealBall). */
         Display_LoadSpriteTile(0x7C, kHealMachineTiles);
         Display_LoadSpriteTile(0x7D, kHealMachineTiles + 16);
         /* Anchor machine sprites to nurse's current screen position.
-         * Camera is player-centred (gCamX = player_x - 8, gCamY = player_y - 9),
-         * so for a pokecenter (player enters at tile ~3,7) the nurse at tile (3,1)
-         * lands at screen pixel (64, 24).  The original PokeCenterOAMData has the
-         * monitor at screen pixel (44, 20) → offset = -20px left, -4px above nurse. */
+         * From dbsprite macro decode of PokeCenterOAMData:
+         *   monitor dbsprite(6,4,4,4) → OAM(36,52) → screen(20,44)
+         *   nurse NPC_GetScreenPos returns npx=right-tile-x=spx+8, npy=spy
+         *   nurse at screen(64,28) → npx=72, npy=28
+         *   dx = 44-72 = -28,  dy = 20-28 = -8 */
         { int npx, npy; NPC_GetScreenPos(g_nurse_npc, &npx, &npy);
           g_machine_px = npx - 28;
-          g_machine_py = npy -  8; }
+          g_machine_py = npy - 8; }
         g_ball_count = 0;
         /* Show monitor sprite immediately (mirrors first CopyHealingMachineOAM call). */
         pc_machine_oam_set(0, g_machine_px, g_machine_py, 0x7C, OAM_PAL1);
@@ -380,21 +387,25 @@ void Pokecenter_Tick(void) {
         /* 32-frame pause after jingle (mirrors DelayFrames 32 in healing_machine.asm). */
         if (--g_heal_timer > 0) break;
         pc_machine_oam_clear();         /* remove heal machine sprites (mirrors pop/UpdateSprites) */
-        NPC_SetFacing(g_nurse_npc, 0);  /* 0 = DOWN: nurse bows toward player */
-        g_heal_timer = 20;              /* mirrors DelayFrames 20 in pokecenter.asm */
-        g_state = PC_NURSE_BOW;
-        break;
-
-    case PC_NURSE_BOW:
-        /* Hold nurse bow pose 20 frames, then restore music and show "Thank you!" text. */
-        if (--g_heal_timer > 0) break;
+        NPC_SetFacing(g_nurse_npc, 0);  /* 0 = DOWN: nurse faces player (mirrors UpdateSprites reset) */
         Music_Play(Music_GetMapID(wCurMap));
         Text_ShowASCII("Thank you!\nYour POKeMON are\nfighting fit!");
         g_state = PC_WAIT_HEALED;
         break;
 
     case PC_WAIT_HEALED:
-        /* "Fighting fit!" text just closed — show farewell (mirrors PokemonCenterFarewellText) */
+        /* "Fighting fit!" text just closed — nurse bows.
+         * Mirrors: ld a,$14 / ld [wSprite01StateData1ImageIndex],a / ld c,a / call DelayFrames
+         * $14 = walk-up animation frame (bow pose), c=$14=20 frames. */
+        NPC_SetFacing(g_nurse_npc, 1);  /* 1 = UP: bow pose ($14 in original) */
+        g_heal_timer = 20;
+        g_state = PC_NURSE_BOW;
+        break;
+
+    case PC_NURSE_BOW:
+        /* Hold bow pose for 20 frames, then restore facing and show farewell. */
+        if (--g_heal_timer > 0) break;
+        NPC_SetFacing(g_nurse_npc, 0);  /* 0 = DOWN: back to normal */
         Text_ShowASCII("We hope to see\nyou again!");
         g_state = PC_WAIT_FAREWELL;
         break;

@@ -12,6 +12,9 @@
 /* Start a battle UI session.
  * Precondition: Battle_Start() (or Battle_StartTrainer()) already called. */
 void BattleUI_Enter(void);
+/* Restore the battle UI to the idle "draw HUD + choose action" state.
+ * Called after loading a save state that was captured mid-battle. */
+void BattleUI_Restore(void);
 
 /* Advance the battle UI by one frame (60 Hz tick).
  * Must only be called when Text_IsOpen() is false. */
@@ -19,3 +22,6 @@ void BattleUI_Tick(void);
 
 /* Returns 1 while a battle is in progress, 0 when it has ended. */
 int BattleUI_IsActive(void);
+
+/* Debug: returns current bui_state_t value as int. */
+int BattleUI_GetState(void);
