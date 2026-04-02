@@ -69,7 +69,7 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 ### Areas beyond Cerulean chapter
 - Route 6, Underground Path, and Vermilion City are accessible but have no story scripts
 - Saffron City gate logic (guards blocking until Silph Co. arc) not yet implemented
-- Gym leaders not yet implemented
+- Gym leaders implemented through Cerulean (Brock, Misty); remaining gyms not yet implemented
 
 ### Trainer AI
 - Currently uses basic move selection; Gen 1 AI heuristics not yet ported
