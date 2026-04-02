@@ -4,24 +4,27 @@ A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
-**Status:** Overworld tested up to Cerulean City, data loaded for all of Kanto. Full Gen 1 battle engine implemented (Mechanics still to be fully tested for acute accuracy, trainer battles not fully implemented). Major UI screens complete (Some buggy, like PokeMart).
+**Status:** Fully playable from intro through Cerulean City and beyond (Nugget Bridge, Route 24/25, Bill's House). Full Gen 1 battle engine with trainer battles. Story scripts and overworld events implemented for the first chapter of the game.
 
 ## What's implemented
 
 ### Overworld
 - Walking, NPC interaction, map connections, ledge jumping
-- Warps (doors, cave exits) with fade transition
+- Warps (doors, cave exits, underground paths) with fade transition
 - Item pickup from overworld
 - Wild encounter detection (grass tiles, random rate)
+- Trainer sight detection — exclamation emote, walk-up, battle trigger
 - Save/load
 
-### UI screens
-- **Start menu** — Pokémon party, bag, player card, save
-- **Bag** — item list and use
-- **Party menu** — party Pokémon with sprite icons
-- **Summary screen** — stats, moves, Pokédex entry
-- **Pokémart** — buy/sell with Gen 1 item list layout, quantity picker, ¥ pricing
-- **Pokémon Center** — nurse dialogue, healing machine animation, party restore
+### Story scripts (Pallet → Cerulean)
+- **Intro & main menu** — Game Freak logo, title screen, new game / continue
+- **Pallet Town** — Oak intro, player naming
+- **Oak's Lab** — starter selection dialogue, rival pick, receive Pokédex, Oak's Parcel delivery chain
+- **Viridian City** — Mart locked until Parcel delivered; Old Man tutorial
+- **Viridian Forest** — trainer encounters (Bug Catcher parties)
+- **Mt. Moon** — trainer encounters, cave exit warps
+- **Cerulean City** — rival battle on arrival, Nugget Bridge trainer gauntlet, Route 24/25 trainers, Bill's House transformation sequence (Bill gives SS Ticket)
+- **Event flags** — persistent across save/load; completed events stay completed
 
 ### Battle engine (Gen 1 faithful)
 - Turn structure: move selection, priority, speed order
@@ -31,15 +34,25 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - Experience gain, level-up, stat recalculation
 - Pokémon switching (voluntary + forced on faint)
 - Item use in battle (Potion, Antidote, status heals, Pokéballs)
-- Catch mechanic — Gen 1 catch rate formula, shake count, critical catch
-- Trainer battles — send-out text, win/loss handling, prize money
-- 8 battle transition animations (wipe patterns, spiral, etc.)
+- Catch mechanic — Gen 1 catch rate formula, shake count
+- Trainer battles — trainer sprite slide-in/out, send-out text, win/loss handling, prize money, badge checks
+- 8 battle transition animations keyed on trainer/wild/dungeon/stronger-enemy
 - Full battle UI: HP bars, status icons, party dots, move menu, bag/switch/run submenus
+
+### UI screens
+- **Start menu** — Pokémon party, bag, player card, save
+- **Bag** — item list and use
+- **Party menu** — party Pokémon with sprite icons
+- **Summary screen** — stats, moves, Pokédex entry
+- **Pokédex** — species list, entry viewer
+- **Pokémart** — buy/sell with Gen 1 item list layout, quantity picker, ¥ pricing
+- **Pokémon Center** — nurse dialogue, healing machine animation, party restore
 
 ### Audio
 - Full music playback from pokered-master score data
+- Per-map music: Pallet Town, Viridian City, Pewter City, Cerulean City, Vermilion City, Lavender Town, Celadon City, Mt. Moon, Oak's Lab, Viridian Forest, and more
 - Pokémon cries (pitch + tempo modifiers per species)
-- SFX: purchase kaching, level-up jingle, healing machine, ball poof, faint, run, ledge hop
+- SFX: purchase, level-up, healing machine, ball poof, faint, run, ledge hop, key item fanfare, collision, go inside/outside
 
 ### Data (extracted from pokered-master)
 - All 151 Pokémon front/back sprites
@@ -48,22 +61,18 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - All trainer parties
 - Pokémon cry definitions
 
-## What's missing
-
-### Trainer Battles
--Trainer alert and battle start not yet implemented
--Trainer Battle transition screens not yet implemented
--Trainer AI not yet implemented
+## What's missing / in progress
 
 ### Evolution
+- Pokémon don't evolve yet — data and chains are loaded, trigger not hooked in
 
--Pokemon don't evolve yet
--Data is in the game, not hooked into an event yet
+### Areas beyond Cerulean chapter
+- Route 6, Underground Path, and Vermilion City are accessible but have no story scripts
+- Saffron City gate logic (guards blocking until Silph Co. arc) not yet implemented
+- Gym leaders not yet implemented
 
-### Scripts
--Story Scripts haven't been attempted yet
--Story Flags not yet set up fully
--After trainer battles, this.
+### Trainer AI
+- Currently uses basic move selection; Gen 1 AI heuristics not yet ported
 
 ## Prerequisites
 
