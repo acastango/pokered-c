@@ -515,4 +515,25 @@
 #define EVENT_HIDE_STARTER_BALL_2 2524u  /* Squirtle ball */
 #define EVENT_HIDE_STARTER_BALL_3 2525u  /* Bulbasaur ball */
 
-/* Total named flags: 510, max value: 2525 */
+/* SS Anne trainer battles */
+#define EVENT_BEAT_SS_ANNE_BOW_TRAINER_0   2526u  /* Sailor (OPP_SAILOR 1) */
+#define EVENT_BEAT_SS_ANNE_BOW_TRAINER_1   2527u  /* Sailor (OPP_SAILOR 2) */
+#define EVENT_BEAT_SS_ANNE_1F_TRAINER_0    2528u  /* Gentleman (OPP_GENTLEMAN 1) */
+#define EVENT_BEAT_SS_ANNE_1F_TRAINER_1    2529u  /* Gentleman (OPP_GENTLEMAN 2) */
+#define EVENT_BEAT_SS_ANNE_1F_TRAINER_2    2530u  /* Youngster (OPP_YOUNGSTER 8) */
+#define EVENT_BEAT_SS_ANNE_1F_TRAINER_3    2531u  /* CooltrainerF (OPP_LASS 11) */
+#define EVENT_BEAT_SS_ANNE_2F_TRAINER_0    2532u  /* Gentleman (OPP_GENTLEMAN 3) */
+#define EVENT_BEAT_SS_ANNE_2F_TRAINER_1    2533u  /* Fisher (OPP_FISHER 1) */
+#define EVENT_BEAT_SS_ANNE_2F_TRAINER_2    2534u  /* Gentleman (OPP_GENTLEMAN 5) */
+#define EVENT_BEAT_SS_ANNE_2F_TRAINER_3    2535u  /* CooltrainerF (OPP_LASS 12) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_0   2536u  /* Sailor (OPP_SAILOR 3) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_1   2537u  /* Sailor (OPP_SAILOR 4) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_2   2538u  /* Sailor (OPP_SAILOR 5) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_3   2539u  /* Sailor (OPP_SAILOR 6) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_4   2540u  /* Sailor (OPP_SAILOR 7) */
+#define EVENT_BEAT_SS_ANNE_B1F_TRAINER_5   2541u  /* Fisher (OPP_FISHER 2) */
+/* SS Anne story events */
+#define EVENT_BEAT_SS_ANNE_RIVAL           2542u
+/* EVENT_GOT_HM01, EVENT_RUBBED_CAPTAINS_BACK, EVENT_SS_ANNE_LEFT defined above (~1504-1506) */
+
+/* Total named flags: 528, max value: 2542 */

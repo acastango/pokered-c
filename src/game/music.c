@@ -49,7 +49,7 @@ static const song_t kSongs[] = {
     /* MUSIC_CINNABAR */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_VERMILION */      { { &kVermilion_Ch1, &kVermilion_Ch2, &kVermilion_Ch3 } },
     /* MUSIC_LAVENDER */       { { NULL,            NULL,            NULL            } },
-    /* MUSIC_SS_ANNE */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_SS_ANNE */        { { &kSSAnne_Ch1,    &kSSAnne_Ch2,    &kSSAnne_Ch3    } },
     /* MUSIC_ROUTES1 */        { { &kRoutes1_Ch1,   &kRoutes1_Ch2,   &kRoutes1_Ch3   } },
     /* MUSIC_ROUTES2 */        { { &kRoutes2_Ch1,   &kRoutes2_Ch2,   &kRoutes2_Ch3   } },
     /* MUSIC_ROUTES3 */        { { &kRoutes3_Ch1,   &kRoutes3_Ch2,   &kRoutes3_Ch3   } },

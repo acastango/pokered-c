@@ -95,6 +95,7 @@ set(SOURCES
     src/game/cerulean_scripts.c
     src/game/route24_scripts.c
     src/game/bills_house_scripts.c
+    src/game/ss_anne_scripts.c
     src/data/dex_data.c
     src/game/debug_overlay.c
     src/game/debug_cli.c
@@ -190,6 +191,7 @@ set(TEST_GAME_SOURCES
     src/game/cerulean_scripts.c
     src/game/route24_scripts.c
     src/game/bills_house_scripts.c
+    src/game/ss_anne_scripts.c
     src/game/pokedex.c
     src/game/pallet_scripts.c
     src/game/pokemon.c

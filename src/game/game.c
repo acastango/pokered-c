@@ -57,6 +57,7 @@
 #include "cerulean_scripts.h"
 #include "route24_scripts.h"
 #include "bills_house_scripts.h"
+#include "ss_anne_scripts.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,6 +93,7 @@ static void fire_map_onload_callbacks(void) {
     CeruleanScripts_OnMapLoad();
     Route24Scripts_OnMapLoad();
     BillsHouseScripts_OnMapLoad();
+    SSAnneScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
 }
@@ -541,6 +543,7 @@ void GameTick(void) {
                 int was_gym_trainer    = GymScripts_ConsumeGymTrainer();
                 int was_cerulean_rival = CeruleanScripts_ConsumeRivalBattle();
                 int was_rocket_r24     = Route24Scripts_ConsumeRocketBattle();
+                int was_ss_anne_rival  = SSAnneScripts_ConsumeRivalBattle();
                 if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
                     if (wGymLeaderNo)
                         GymScripts_OnVictory();
@@ -550,12 +553,16 @@ void GameTick(void) {
                         CeruleanScripts_OnVictory();
                     else if (was_rocket_r24)
                         Route24Scripts_OnVictory();
+                    else if (was_ss_anne_rival)
+                        SSAnneScripts_OnVictory();
                     else
                         Trainer_MarkCurrentDefeated();
                 } else if (was_cerulean_rival) {
                     CeruleanScripts_OnDefeat();
                 } else if (was_rocket_r24) {
                     Route24Scripts_OnDefeat();
+                } else if (was_ss_anne_rival) {
+                    SSAnneScripts_OnDefeat();
                 }
             }
 
@@ -898,6 +905,39 @@ void GameTick(void) {
         }
     }
 
+    /* ---- SS Anne rival battle + captain HM01 script -------------------- */
+    {
+        SSAnneScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (SSAnneScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_MEET_RIVAL);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (SSAnneScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
     /* START: open pause menu (only when player is idle, no warp in progress) */
     if ((hJoyPressed & PAD_START) && !Player_IsMoving() && gWarpPhase == WARP_NONE) {
         Audio_PlaySFX_StartMenu();
@@ -969,6 +1009,7 @@ void GameTick(void) {
         MtMoon_StepCheck();
         CeruleanScripts_StepCheck();
         Route24Scripts_StepCheck();
+        SSAnneScripts_StepCheck();
         if (Text_IsOpen()) return;
         /* Trainer sight check has priority over wild encounters (mirrors
          * CheckFightingMapTrainers running before CheckForBattleAfterStep). */

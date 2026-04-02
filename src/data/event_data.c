@@ -1,5 +1,6 @@
 /* event_data.c -- Generated from pokered-master map object files. */
 #include "event_data.h"
+#include "event_constants.h"
 #include "../game/pokecenter.h"
 #include "../game/pokemart.h"
 #include "../game/oakslab_scripts.h"
@@ -7,6 +8,7 @@
 #include "../game/mtmoon_scripts.h"
 #include "../game/gym_scripts.h"
 #include "../game/bills_house_scripts.h"
+#include "../game/ss_anne_scripts.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {   5,   5, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -1793,7 +1795,7 @@ static const map_warp_t kWarps_SSAnneCaptainsRoom[] = {
 };
 
 static const npc_event_t kNpcs_SSAnneCaptainsRoom[] = {
-    {   4,   2, 0x2e, 0, NULL, NULL },  /* SPRITE_CAPTAIN, STAY, TEXT_SSANNECAPTAINSROOM_CAPTAIN */
+    {   4,   2, 0x2e, 0, NULL, SSAnne_CaptainScript },  /* SPRITE_CAPTAIN, STAY, TEXT_SSANNECAPTAINSROOM_CAPTAIN */
 };
 
 static const sign_event_t kSigns_SSAnneCaptainsRoom[] = {
@@ -1889,6 +1891,84 @@ static const item_event_t kItems_SSAnneB1FRooms[] = {
     {  20,   2, 0x50 },  /* ETHER */
     {  10,   2, 0xf4 },  /* TM_REST */
     {  12,  11, 0x11 },  /* MAX_POTION */
+};
+
+/* ---- SS Anne trainer data -------------------------------------------- */
+
+static const map_trainer_t kTrainers_SSAnneBow[] = {
+    /* NPC 3: Sailor at (4,4), facing DOWN, OPP_SAILOR 1 */
+    { 3, 0, 4, 1, 3, EVENT_BEAT_SS_ANNE_BOW_TRAINER_0,
+      "SAILOR: You want\na piece of me?\fStep right up!",
+      "You're pretty\ngood, kid!" },
+    /* NPC 4: Sailor at (10,8), facing UP, OPP_SAILOR 2 */
+    { 4, 1, 4, 2, 3, EVENT_BEAT_SS_ANNE_BOW_TRAINER_1,
+      "SAILOR: I've\nbattled tough\ntrainers!\fCome on!",
+      "Not bad at all!" },
+};
+
+static const map_trainer_t kTrainers_SSAnne1FRooms[] = {
+    /* NPC 0: Gentleman at (2,3), facing LEFT, OPP_GENTLEMAN 1 */
+    { 0, 2, 41, 1, 2, EVENT_BEAT_SS_ANNE_1F_TRAINER_0,
+      "GENTLEMAN: I can\ntell you've been\naround!\fLet's battle!",
+      "You have good\ntaste in POKEMON!" },
+    /* NPC 1: Gentleman at (11,4), facing UP, OPP_GENTLEMAN 2 */
+    { 1, 1, 41, 2, 2, EVENT_BEAT_SS_ANNE_1F_TRAINER_1,
+      "GENTLEMAN: A\ncruise is perfect\nfor a battle!",
+      "Well done! You\nearned it!" },
+    /* NPC 2: Youngster at (11,14), facing UP, OPP_YOUNGSTER 8 */
+    { 2, 1, 1, 8, 2, EVENT_BEAT_SS_ANNE_1F_TRAINER_2,
+      "YOUNGSTER: I\nlike shorts!\nThey're comfy!\fWanna fight?",
+      "You won this\ntime!" },
+    /* NPC 3: CooltrainerF at (13,11), facing LEFT, OPP_LASS 11 */
+    { 3, 2, 3, 11, 2, EVENT_BEAT_SS_ANNE_1F_TRAINER_3,
+      "LASS: You there!\nWant to have\na battle?",
+      "You're pretty\ngood!" },
+};
+
+static const map_trainer_t kTrainers_SSAnne2FRooms[] = {
+    /* NPC 0: Gentleman at (10,2), facing RIGHT, OPP_GENTLEMAN 3 */
+    { 0, 3, 41, 3, 2, EVENT_BEAT_SS_ANNE_2F_TRAINER_0,
+      "GENTLEMAN: My\nPOKEMON are of\nthe finest breed!",
+      "Impressive\ntraining!" },
+    /* NPC 1: Fisher at (13,4), facing LEFT, OPP_FISHER 1 */
+    { 1, 2, 14, 1, 2, EVENT_BEAT_SS_ANNE_2F_TRAINER_1,
+      "FISHER: Think\nyou can beat a\nFISHER's team?",
+      "Reeling in a\nloss today!" },
+    /* NPC 2: Gentleman at (0,14), facing RIGHT, OPP_GENTLEMAN 5 */
+    { 2, 3, 41, 5, 2, EVENT_BEAT_SS_ANNE_2F_TRAINER_2,
+      "GENTLEMAN: How\nabout a friendly\nbattle?",
+      "Well played,\ntrainer!" },
+    /* NPC 3: CooltrainerF at (2,11), facing DOWN, OPP_LASS 12 */
+    { 3, 0, 3, 12, 2, EVENT_BEAT_SS_ANNE_2F_TRAINER_3,
+      "LASS: Battles\nare so exciting\non a cruise!",
+      "You surprised\nme!" },
+};
+
+static const map_trainer_t kTrainers_SSAnneB1FRooms[] = {
+    /* NPC 0: Sailor at (0,13), facing DOWN, OPP_SAILOR 3 */
+    { 0, 0, 4, 3, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_0,
+      "SAILOR: Down in\nthe engine room\nand ready to\nbattle!",
+      "You fight well!" },
+    /* NPC 1: Sailor at (2,11), facing DOWN, OPP_SAILOR 4 */
+    { 1, 0, 4, 4, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_1,
+      "SAILOR: Nobody\ncomes down here\nand wins!",
+      "Aye, good\nbattle!" },
+    /* NPC 2: Sailor at (12,3), facing LEFT, OPP_SAILOR 5 */
+    { 2, 2, 4, 5, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_2,
+      "SAILOR: I'll\nrattle you like\na rough sea!",
+      "Tough break\nfor me!" },
+    /* NPC 3: Sailor at (22,2), facing DOWN, OPP_SAILOR 6 */
+    { 3, 0, 4, 6, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_3,
+      "SAILOR: Come on\nthen! Show me\nwhat you've got!",
+      "Not bad at all,\nkid!" },
+    /* NPC 4: Sailor at (0,2), facing RIGHT, OPP_SAILOR 7 */
+    { 4, 3, 4, 7, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_4,
+      "SAILOR: I'm the\nstrongest here!\fProve me wrong!",
+      "You proved me\nwrong!" },
+    /* NPC 5: Fisher at (0,4), facing RIGHT, OPP_FISHER 2 */
+    { 5, 3, 14, 2, 2, EVENT_BEAT_SS_ANNE_B1F_TRAINER_5,
+      "FISHER: Down\nhere I fish for\nchallenges too!",
+      "You're a big\ncatch!" },
 };
 
 static const map_warp_t kWarps_LancesRoom[] = {
@@ -3773,12 +3853,12 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x60] = { kWarps_SSAnne2F, 9, kNpcs_SSAnne2F, 2, NULL, 0, NULL, 0, 0x0c },
     [0x61] = { kWarps_SSAnne3F, 2, kNpcs_SSAnne3F, 1, NULL, 0, NULL, 0, 0x0c },
     [0x62] = { kWarps_SSAnneB1F, 6, NULL, 0, NULL, 0, NULL, 0, 0x0c },
-    [0x63] = { kWarps_SSAnneBow, 2, kNpcs_SSAnneBow, 5, NULL, 0, NULL, 0, 0x23 },
+    [0x63] = { kWarps_SSAnneBow, 2, kNpcs_SSAnneBow, 5, NULL, 0, NULL, 0, 0x23, kTrainers_SSAnneBow, 2 },
     [0x64] = { kWarps_SSAnneKitchen, 1, kNpcs_SSAnneKitchen, 7, NULL, 0, NULL, 0, 0x0c },
     [0x65] = { kWarps_SSAnneCaptainsRoom, 1, kNpcs_SSAnneCaptainsRoom, 1, kSigns_SSAnneCaptainsRoom, 2, NULL, 0, 0x0c },
-    [0x66] = { kWarps_SSAnne1FRooms, 6, kNpcs_SSAnne1FRooms, 10, NULL, 0, kItems_SSAnne1FRooms, 1, 0x0c },
-    [0x67] = { kWarps_SSAnne2FRooms, 12, kNpcs_SSAnne2FRooms, 11, NULL, 0, kItems_SSAnne2FRooms, 2, 0x0c },
-    [0x68] = { kWarps_SSAnneB1FRooms, 10, kNpcs_SSAnneB1FRooms, 8, NULL, 0, kItems_SSAnneB1FRooms, 3, 0x0c },
+    [0x66] = { kWarps_SSAnne1FRooms, 6, kNpcs_SSAnne1FRooms, 10, NULL, 0, kItems_SSAnne1FRooms, 1, 0x0c, kTrainers_SSAnne1FRooms, 4 },
+    [0x67] = { kWarps_SSAnne2FRooms, 12, kNpcs_SSAnne2FRooms, 11, NULL, 0, kItems_SSAnne2FRooms, 2, 0x0c, kTrainers_SSAnne2FRooms, 4 },
+    [0x68] = { kWarps_SSAnneB1FRooms, 10, kNpcs_SSAnneB1FRooms, 8, NULL, 0, kItems_SSAnneB1FRooms, 3, 0x0c, kTrainers_SSAnneB1FRooms, 6 },
     [0x69] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6a] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6b] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
