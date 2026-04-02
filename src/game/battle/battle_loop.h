@@ -33,6 +33,7 @@ typedef enum {
 #define BATTLE_OUTCOME_WILD_VICTORY     1   /* wild mon fainted, no replacement */
 #define BATTLE_OUTCOME_TRAINER_VICTORY  2   /* all trainer mons defeated */
 #define BATTLE_OUTCOME_BLACKOUT         3   /* all player mons fainted     */
+#define BATTLE_OUTCOME_CAUGHT           4   /* wild mon caught in a ball   */
 
 /* Battle_TurnPrepare — first half of MainInBattleLoop (core.asm:280-412).
  *

@@ -10,7 +10,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # SDL2 — support both modern targets and legacy variable style
-list(APPEND CMAKE_PREFIX_PATH "C:/msys64/mingw64")
+set(SDL2_VC_ROOT "${CMAKE_SOURCE_DIR}/deps/SDL2-VC/SDL2-2.32.10")
+if(MSVC AND EXISTS "${SDL2_VC_ROOT}/cmake/sdl2-config.cmake")
+  list(PREPEND CMAKE_PREFIX_PATH "${SDL2_VC_ROOT}/cmake")
+elseif(MINGW)
+  list(APPEND CMAKE_PREFIX_PATH "C:/msys64/mingw64")
+endif()
 find_package(SDL2 REQUIRED)
 # Modern SDL2 CMake exports SDL2::SDL2 targets; fallback to legacy variables
 if(TARGET SDL2::SDL2)
@@ -76,8 +81,26 @@ set(SOURCES
     src/game/battle/battle_trainer.c
     src/game/battle/battle_ui.c
     src/game/battle_transition.c
+    src/game/trainer_sight.c
+    src/game/badge.c
+    src/game/gate_scripts.c
+    src/game/pokedex.c
+    src/game/main_menu.c
+    src/game/intro.c
+    src/game/pallet_scripts.c
+    src/game/oakslab_scripts.c
+    src/game/gym_scripts.c
+    src/game/viridian_mart_scripts.c
+    src/game/mtmoon_scripts.c
+    src/game/cerulean_scripts.c
+    src/game/route24_scripts.c
+    src/game/bills_house_scripts.c
+    src/data/dex_data.c
+    src/game/debug_overlay.c
+    src/game/debug_cli.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
+    src/data/trainer_sprites.c
     src/data/sprite_data.c
     src/data/party_icon_data.c
     src/data/font_data.c
@@ -95,6 +118,17 @@ target_link_libraries(pokered
     ${MATH_LIBRARY}
 )
 
+if(MSVC)
+  set(SDL2_VC_DLL "${SDL2_VC_ROOT}/lib/x64/SDL2.dll")
+  if(EXISTS "${SDL2_VC_DLL}")
+    add_custom_command(TARGET pokered POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              "${SDL2_VC_DLL}"
+              "$<TARGET_FILE_DIR:pokered>/SDL2.dll"
+    )
+  endif()
+endif()
+
 # On Windows with MinGW, SDL2main uses WinMain; prefer console for dev builds
 if(WIN32 AND MINGW)
   target_link_options(pokered PRIVATE -mconsole)
@@ -102,10 +136,13 @@ endif()
 
 # Warnings
 target_compile_options(pokered PRIVATE
-    -Wall -Wextra -Wno-unused-parameter
-    -include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h  # workaround GCC 10 ICE
-    $<$<CONFIG:Debug>:-g -O0>
-    $<$<CONFIG:Release>:-O2>
+    $<$<C_COMPILER_ID:MSVC>:/W4 /wd4100>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers>
+    $<$<C_COMPILER_ID:GNU>:-include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h>
+    $<$<CONFIG:Debug>:$<$<C_COMPILER_ID:MSVC>:/Zi /Od>>
+    $<$<CONFIG:Debug>:$<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -O0>>
+    $<$<CONFIG:Release>:$<$<C_COMPILER_ID:MSVC>:/O2>>
+    $<$<CONFIG:Release>:$<$<NOT:$<C_COMPILER_ID:MSVC>>:-O2>>
 )
 
 # ---- Test suite (no SDL2 — uses stubs) ----
@@ -143,9 +180,23 @@ set(TEST_GAME_SOURCES
     src/game/battle/battle_items.c
     src/game/battle/battle_switch.c
     src/game/battle/battle_trainer.c
+    src/game/trainer_sight.c
+    src/game/badge.c
+    src/game/gate_scripts.c
+    src/game/gym_scripts.c
+    src/game/oakslab_scripts.c
+    src/game/viridian_mart_scripts.c
+    src/game/mtmoon_scripts.c
+    src/game/cerulean_scripts.c
+    src/game/route24_scripts.c
+    src/game/bills_house_scripts.c
+    src/game/pokedex.c
+    src/game/pallet_scripts.c
     src/game/pokemon.c
+    src/data/dex_data.c
     src/data/evos_moves_data.c
     src/data/trainer_data.c
+    src/data/trainer_sprites.c
 )
 set(TEST_SOURCES
     tests/main.c
@@ -169,9 +220,11 @@ set(TEST_SOURCES
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})
 target_include_directories(pokered_tests PRIVATE src tests)
 target_compile_options(pokered_tests PRIVATE
-    -Wall -Wextra -Wno-unused-parameter
-    -include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h
-    $<$<CONFIG:Debug>:-g -O0>
+    $<$<C_COMPILER_ID:MSVC>:/W4 /wd4100>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers>
+    $<$<C_COMPILER_ID:GNU>:-include ${CMAKE_SOURCE_DIR}/src/platform/no_avx512.h>
+    $<$<CONFIG:Debug>:$<$<C_COMPILER_ID:MSVC>:/Zi /Od>>
+    $<$<CONFIG:Debug>:$<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -O0>>
 )
 # CTest integration
 enable_testing()

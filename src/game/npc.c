@@ -38,11 +38,13 @@
 /* OAM attribute bit 5: horizontal flip (GB standard). */
 #define OAM_XFLIP  0x20
 
-/* Animation frames per NPC step — matches original wWalkCounter = 8 VBlanks.
- * Main loop runs at 60 Hz; mid-step fires every frame, so 8 frames = 8 VBlanks. */
-#define NPC_WALK_FRAMES   8
-/* Pixels advanced per frame: 2 tiles * TILE_PX / NPC_WALK_FRAMES = 2. */
-#define NPC_WALK_STEP_PX  2
+/* Scripted walk: 8 frames at 2px/frame = 16px (matches player speed, 1 game step).
+ * Random walk: 16 frames at 1px/frame = 16px (ASM: NPC random walk is 2× slower).
+ * Mirrors original wWalkCounter: 8 VBlanks scripted, 16 VBlanks random. */
+#define NPC_WALK_FRAMES_SCRIPTED   8
+#define NPC_WALK_FRAMES_RANDOM    16
+#define NPC_STEP_PX_SCRIPTED       2   /* 16px / 8 frames */
+#define NPC_STEP_PX_RANDOM         1   /* 16px / 16 frames */
 
 /* Frame delay between random-walk move attempts. */
 #define NPC_MOVE_DELAY_MIN  24
@@ -63,6 +65,8 @@ static uint8_t  npc_facing[MAX_NPCS];      /* 0=down 1=up 2=left 3=right */
 static uint8_t  npc_move_type[MAX_NPCS];   /* 0=STAY 1=WALK */
 static int      npc_move_timer[MAX_NPCS];  /* frames until next move attempt */
 static int      npc_walk_frames[MAX_NPCS]; /* animation frames remaining */
+static int      npc_walk_total[MAX_NPCS];  /* total frames for current walk (8 or 16) */
+static int      npc_step_px[MAX_NPCS];     /* px per frame for current walk (1 or 2) */
 static int      npc_px_off[MAX_NPCS];      /* pixel X offset for walk anim */
 static int      npc_py_off[MAX_NPCS];      /* pixel Y offset for walk anim */
 static uint8_t  npc_hidden[MAX_NPCS];      /* 1 = picked up / hidden, skip OAM */
@@ -175,6 +179,11 @@ void NPC_HideSprite(int npc_slot_idx) {
         wShadowOAM[oam + s].y = 0;
 }
 
+void NPC_ShowSprite(int npc_slot_idx) {
+    if (npc_slot_idx < 0 || npc_slot_idx >= MAX_NPCS) return;
+    npc_hidden[npc_slot_idx] = 0;
+}
+
 void NPC_HideAll(void) {
     for (int i = 0; i < MAX_NPCS; i++)
         NPC_HideSprite(i);
@@ -194,8 +203,8 @@ void NPC_ShowAll(void) {
 void NPC_HideOverUITiles(void) {
     for (int i = 0; i < npc_count; i++) {
         if (npc_hidden[i]) continue;
-        int nx = (int)npc_x[i] - gCamX;
-        int ny = (int)npc_y[i] - gCamY;
+        int nx = (int)npc_x[i] * 2     - gCamX;
+        int ny = (int)npc_y[i] * 2 + 1 - gCamY;
         /* 2×2 footprint: cols [nx, nx+1], rows [ny-1, ny] */
         for (int dy = -1; dy <= 0; dy++) {
             for (int dx = 0; dx <= 1; dx++) {
@@ -241,16 +250,65 @@ int NPC_GetLastInteracted(void) {
 void NPC_GetScreenPos(int i, int *px, int *py) {
     if (i < 0 || i >= npc_count) { *px = *py = 0; return; }
     int oam = NPC_OAM_BASE + i * 4;
-    /* Slot 0 and 1 share the same Y (top row); slot 1 has leftmost X
-     * in NormalOAM layout (down/up/left facing), which the nurse always uses. */
+    /* We need OAM_x = px+16 to compute screen-left = px+8 (emote anchor).
+     * NormalOAM (facing != 3): slot 1 has OAM_x = px+8+OAM_X_OFS = px+16.
+     * FlippedOAM (facing == 3): slot 0 has OAM_x = px+8+OAM_X_OFS = px+16. */
+    int ref_slot = (npc_facing[i] == 3) ? 0 : 1;
     *py = (int)wShadowOAM[oam + 0].y - OAM_Y_OFS;
-    *px = (int)wShadowOAM[oam + 1].x - OAM_X_OFS;
+    *px = (int)wShadowOAM[oam + ref_slot].x - OAM_X_OFS;
 }
 
-/* Returns 1 if any NPC other than skip_idx is at (nx, ny). */
+void NPC_GetTilePos(int i, int *tx, int *ty) {
+    if (i < 0 || i >= npc_count) { *tx = *ty = 0; return; }
+    *tx = (int)npc_x[i];
+    *ty = (int)npc_y[i];
+}
+
+void NPC_SetTilePos(int i, int tx, int ty) {
+    if (i < 0 || i >= npc_count) return;
+    npc_x[i]        = (uint8_t)tx;
+    npc_y[i]        = (uint8_t)ty;
+    npc_px_off[i]   = 0;
+    npc_py_off[i]   = 0;
+    npc_walk_frames[i] = 0;
+}
+
+int NPC_IsWalking(int i) {
+    if (i < 0 || i >= npc_count) return 0;
+    return npc_walk_frames[i] > 0;
+}
+
+int NPC_GetCount(void) { return npc_count; }
+
+void NPC_DoScriptedStep(int i, int dir) {
+    if (i < 0 || i >= npc_count) return;
+    if (npc_walk_frames[i] > 0) return;  /* already mid-step */
+
+    static const int8_t ddx[4] = { 0,  0, -1,  1};
+    static const int8_t ddy[4] = { 1, -1,  0,  0};
+    int ndx = ddx[dir & 3];
+    int ndy = ddy[dir & 3];
+
+    npc_facing[i] = (uint8_t)(dir & 3);
+    reload_npc_tiles(i);
+    apply_npc_oam_facing(i);
+
+    npc_x[i] = (uint8_t)((int)npc_x[i] + ndx);
+    npc_y[i] = (uint8_t)((int)npc_y[i] + ndy);
+    /* One game step = 2 tiles = 16px. Pixel offset starts at ∓16, slides to 0. */
+    npc_px_off[i]      = -ndx * 2 * TILE_PX;
+    npc_py_off[i]      = -ndy * 2 * TILE_PX;
+    npc_step_px[i]     = NPC_STEP_PX_SCRIPTED;
+    npc_walk_total[i]  = NPC_WALK_FRAMES_SCRIPTED;
+    npc_walk_frames[i] = NPC_WALK_FRAMES_SCRIPTED;
+}
+
+/* Returns 1 if any visible NPC other than skip_idx is at (nx, ny).
+ * Hidden NPCs (picked-up items, hidden sprites) do not block movement. */
 static int npc_blocked_except(int skip_idx, int nx, int ny) {
     for (int i = 0; i < npc_count; i++) {
         if (i == skip_idx) continue;
+        if (npc_hidden[i]) continue;
         if (nx == (int)npc_x[i] && ny == (int)npc_y[i]) return 1;
     }
     return 0;
@@ -272,27 +330,30 @@ int NPC_FindAtTile(int tx, int ty) {
 /* Per-frame update: advance walk animations and drive random movement.
  * Mirrors UpdateNPCSprite / .randomMovement in engine/overworld/movement.asm. */
 void NPC_Update(void) {
-    /* Step direction table: down, up, left, right (2 tiles per step). */
-    static const int8_t ddx[4] = { 0,  0, -2,  2};
-    static const int8_t ddy[4] = { 2, -2,  0,  0};
+    /* Step direction table: down, up, left, right (1 game unit per step). */
+    static const int8_t ddx[4] = { 0,  0, -1,  1};
+    static const int8_t ddy[4] = { 1, -1,  0,  0};
 
     for (int i = 0; i < npc_count; i++) {
         /* Advance walk animation: pixel offset slides toward 0.
-         * Tile frame alternates Stand→Walk→Stand→Walk over the 8-frame step,
+         * Tile frame alternates Stand→Walk→Stand→Walk over the walk,
          * mirroring UpdateSpriteInWalkingAnimation: AnimFrameCounter advances
-         * every 2 ticks (original: every 4 VBlanks / 2 game-ticks).
+         * every (total/4) ticks → 4 phases per walk.
          * counter 0,2 = stand; counter 1,3 = walk. */
         if (npc_walk_frames[i] > 0) {
             npc_walk_frames[i]--;
-            if (npc_px_off[i] > 0) npc_px_off[i] -= NPC_WALK_STEP_PX;
-            if (npc_px_off[i] < 0) npc_px_off[i] += NPC_WALK_STEP_PX;
-            if (npc_py_off[i] > 0) npc_py_off[i] -= NPC_WALK_STEP_PX;
-            if (npc_py_off[i] < 0) npc_py_off[i] += NPC_WALK_STEP_PX;
+            int spx = npc_step_px[i];
+            if (npc_px_off[i] > 0) npc_px_off[i] -= spx;
+            if (npc_px_off[i] < 0) npc_px_off[i] += spx;
+            if (npc_py_off[i] > 0) npc_py_off[i] -= spx;
+            if (npc_py_off[i] < 0) npc_py_off[i] += spx;
 
-            int elapsed  = NPC_WALK_FRAMES - npc_walk_frames[i]; /* 1..8 */
-            int counter  = (elapsed - 1) / 2;                    /* 0,0,1,1,2,2,3,3 */
+            int total    = npc_walk_total[i];
+            int elapsed  = total - npc_walk_frames[i];     /* 1..total */
+            int divisor  = total / 4;                       /* 2 for 8-frame, 4 for 16-frame */
+            int counter  = (elapsed - 1) / divisor;         /* 0..3 */
             int walking  = (npc_walk_frames[i] > 0) ? (counter & 1) : 0;
-            reload_npc_tiles_ex(i, walking);                      /* odd=walk, even/done=stand */
+            reload_npc_tiles_ex(i, walking);
             continue;
         }
         npc_px_off[i] = 0;
@@ -314,27 +375,30 @@ void NPC_Update(void) {
         int     ny  = (int)npc_y[i] + ndy;
 
         /* Never walk off the map — NPCs must stay in-bounds. */
-        int map_w = (int)wCurMapWidth  * 4;
-        int map_h = (int)wCurMapHeight * 4;
+        int map_w = (int)wCurMapWidth  * 2;
+        int map_h = (int)wCurMapHeight * 2;
         if (nx < 0 || ny < 0 || nx >= map_w || ny >= map_h) {
             npc_move_timer[i] = NPC_MOVE_DELAY_MIN + (int)((r >> 2) & 31);
             continue;
         }
 
-        if (Tile_IsPassable(Map_GetTile(nx, ny))   &&
-            !npc_blocked_except(i, nx, ny)          &&
+        if (Tile_IsPassable(Map_GetGameTile(nx, ny)) &&
+            !npc_blocked_except(i, nx, ny)           &&
             (nx != (int)wXCoord || ny != (int)wYCoord)) {
 
             npc_facing[i] = (uint8_t)dir;
             reload_npc_tiles(i);
             apply_npc_oam_facing(i);
 
-            /* Commit destination, start pixel-offset animation from old pos. */
+            /* Commit destination, start pixel-offset animation from old pos.
+             * One game step = 2 tiles = 16px. Random walk: 16 frames at 1px/frame. */
             npc_x[i]           = (uint8_t)nx;
             npc_y[i]           = (uint8_t)ny;
-            npc_px_off[i]      = -ndx * TILE_PX;
-            npc_py_off[i]      = -ndy * TILE_PX;
-            npc_walk_frames[i] = NPC_WALK_FRAMES;
+            npc_px_off[i]      = -ndx * 2 * TILE_PX;
+            npc_py_off[i]      = -ndy * 2 * TILE_PX;
+            npc_step_px[i]     = NPC_STEP_PX_RANDOM;
+            npc_walk_total[i]  = NPC_WALK_FRAMES_RANDOM;
+            npc_walk_frames[i] = NPC_WALK_FRAMES_RANDOM;
         }
 
         /* Reset timer with random jitter (24–55 frames). */
@@ -347,10 +411,19 @@ void NPC_BuildView(int scroll_px_x, int scroll_px_y) {
     int oy = gCamY;
 
     for (int i = 0; i < npc_count; i++) {
-        if (npc_hidden[i]) continue;
+        if (npc_hidden[i]) {
+            /* Clear OAM so the sprite disappears immediately. */
+            int oam = NPC_OAM_BASE + i * 4;
+            wShadowOAM[oam + 0].y = 0;
+            wShadowOAM[oam + 1].y = 0;
+            wShadowOAM[oam + 2].y = 0;
+            wShadowOAM[oam + 3].y = 0;
+            continue;
+        }
 
-        int nx = (int)npc_x[i] - ox;
-        int ny = (int)npc_y[i] - oy;
+        /* Convert game coords to tile coords relative to camera. */
+        int nx = (int)npc_x[i] * 2     - ox;
+        int ny = (int)npc_y[i] * 2 + 1 - oy;
 
         /* Pixel top-left of the 16×16 sprite.
          * Walk animation offset displaces relative to the committed tile coord.
@@ -395,7 +468,7 @@ void NPC_BuildView(int scroll_px_x, int scroll_px_y) {
          * when the NPC stands on the grass tile (mirrors GrassPriority /
          * update_player_oam grass check in player.c). */
         if (wGrassTile != 0xFF &&
-            Map_GetTile((int)npc_x[i], (int)npc_y[i]) == wGrassTile) {
+            Map_GetGameTile((int)npc_x[i], (int)npc_y[i]) == wGrassTile) {
             wShadowOAM[oam + 2].flags |=  OAM_FLAG_PRIORITY;
             wShadowOAM[oam + 3].flags |=  OAM_FLAG_PRIORITY;
         } else {

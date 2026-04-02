@@ -60,15 +60,17 @@ catch_result_t Battle_CatchAttempt(uint8_t ball_id) {
     /* Master Ball always succeeds (item_effects.asm:194-195) */
     if (ball_id == ITEM_MASTER_BALL) return CATCH_RESULT_SUCCESS;
 
-    /* ---- Rand1 draw with ball-specific ceiling (item_effects.asm:185-214) ---- */
+    /* ---- Rand1 draw with ball-specific ceiling (item_effects.asm:185-214) ---- *
+     * ASM: draw rand; if Poke Ball accept any; if rand>200 retry (all others);   *
+     * if Great Ball accept ≤200; if rand>150 retry (Ultra/Safari); else accept.  */
     uint8_t rand1;
     for (;;) {
         rand1 = BattleRandom();
         if (ball_id == ITEM_POKE_BALL)  break;             /* any value OK */
-        if (rand1 <= 200)               break;             /* Great Ball threshold */
-        if (ball_id == ITEM_GREAT_BALL) continue;          /* re-draw if > 200 */
-        if (rand1 <= 150)               break;             /* Ultra/Safari Ball */
-        /* rand1 > 150 and not Great Ball → re-draw */
+        if (rand1 > 200)                continue;           /* all non-Poke: retry >200 */
+        if (ball_id == ITEM_GREAT_BALL) break;              /* Great Ball: accept ≤200 */
+        if (rand1 > 150)                continue;           /* Ultra/Safari: retry 151-200 */
+        break;                                              /* Ultra/Safari: accept ≤150 */
     }
 
     /* ---- Status ailment bonus (item_effects.asm:216-236) ---- */

@@ -23,6 +23,8 @@
 #endif
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <time.h>
 
 #include "platform/hardware.h"
 #include "platform/input.h"
@@ -30,15 +32,23 @@
 #include "platform/audio.h"
 #include "platform/save.h"
 #include "game/constants.h"
-#include "game/overworld.h"  /* gScrollTileMap, SCROLL_MAP_W */
-#include "game/player.h"     /* gScrollPxX, gScrollPxY */
+#include "game/overworld.h"      /* gScrollTileMap, SCROLL_MAP_W */
+#include "game/player.h"         /* gScrollPxX, gScrollPxY */
+#include "game/debug_overlay.h"  /* F1 grid, F3 overlay, F7 battle dump, F8 WRAM dump */
+#include "game/player.h"         /* gNoClip (F4) */
+#include "platform/input.h"      /* Input_IsRecording/Playing (F9/F10) */
+#include "platform/compiler.h"
+#include "game/debug_cli.h"
+
+extern int gNoWilds;             /* game.c — suppress wild encounters (F6) */
 
 /* Forward declarations — implemented as the game logic is ported */
 extern void GameInit(void);     /* equivalent to Init in home/init.asm */
 extern void GameTick(void);     /* equivalent to OverworldLoop / main game SM */
 
 /* Fallback stubs until game logic is ported */
-__attribute__((weak)) void GameInit(void) {
+#ifndef _MSC_VER
+WEAK void GameInit(void) {
     /* Clear WRAM (home/init.asm zeroes all WRAM on boot) */
     extern void WRAMClear(void);
     WRAMClear();
@@ -49,7 +59,7 @@ __attribute__((weak)) void GameInit(void) {
         printf("[save] No save file, starting new game\n");
 }
 
-__attribute__((weak)) void GameTick(void) {
+WEAK void GameTick(void) {
     /* Placeholder: show a test tile pattern until game logic is ported.
      * Write alternating tile IDs so something visible appears. */
     static uint32_t frame = 0;
@@ -57,6 +67,7 @@ __attribute__((weak)) void GameTick(void) {
         wTileMap[i] = (uint8_t)((i + frame / 4) & 0xFF);
     frame++;
 }
+#endif
 
 /* ---- Random entropy -------------------------------------- */
 static void update_random(uint32_t frame) {
@@ -67,8 +78,12 @@ static void update_random(uint32_t frame) {
 }
 
 /* ---- Main loop ------------------------------------------- */
+extern int gSkipMenu;  /* game.c — bypass main menu when --skip and save exists */
+
 int main(int argc, char *argv[]) {
-    (void)argc; (void)argv;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--skip") == 0) gSkipMenu = 1;
+    }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -103,12 +118,157 @@ int main(int argc, char *argv[]) {
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) running = 0;
             if (ev.type == SDL_KEYDOWN &&
-                ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
-                running = 0;
+                ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                if (DebugCLI_ConsoleIsOpen()) {
+                    DebugCLI_ConsoleClose();
+                    SDL_StopTextInput();
+                } else {
+                    running = 0;
+                }
+            }
+            /* GRAVE (~) = toggle in-game debug console */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_GRAVE) {
+                if (DebugCLI_ConsoleIsOpen()) {
+                    DebugCLI_ConsoleClose();
+                    SDL_StopTextInput();
+                } else {
+                    DebugCLI_ConsoleOpen();
+                    SDL_StartTextInput();
+                }
+            }
+            /* Console: Enter = execute, Backspace = delete char */
+            if (ev.type == SDL_KEYDOWN && DebugCLI_ConsoleIsOpen()) {
+                if (ev.key.keysym.scancode == SDL_SCANCODE_RETURN ||
+                    ev.key.keysym.scancode == SDL_SCANCODE_KP_ENTER) {
+                    DebugCLI_ConsoleExecute();
+                    SDL_StopTextInput();
+                } else if (ev.key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
+                    DebugCLI_ConsoleBackspace();
+                }
+            }
+            /* Console: typed characters */
+            if (ev.type == SDL_TEXTINPUT && DebugCLI_ConsoleIsOpen()) {
+                const char *t = ev.text.text;
+                /* Skip backtick/tilde — those toggle the console */
+                if (t[0] != '`' && t[0] != '~' && t[1] == '\0')
+                    DebugCLI_ConsoleAddChar(t[0]);
+            }
+            /* F1 = debug grid */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F1)
+                Debug_PrintGrid();
+            /* F2 = bug report: screenshot + interactive prompt */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F2) {
+                /* Generate timestamped screenshot path in bugs/inbox/ */
+                char ss_path[256];
+                time_t now = time(NULL);
+                snprintf(ss_path, sizeof(ss_path),
+                         "bugs/inbox/screenshot_%lu.bmp", (unsigned long)now);
+#ifdef _WIN32
+                system("if not exist bugs\\inbox mkdir bugs\\inbox");
+#else
+                system("mkdir -p bugs/inbox");
+#endif
+                if (Display_SaveScreenshot(ss_path) == 0) {
+                    printf("[bug] Screenshot saved: %s\n", ss_path);
+                    char cmd[512];
+#ifdef _WIN32
+                    snprintf(cmd, sizeof(cmd),
+                             "start cmd /k python tools\\bug_report.py \"%s\"", ss_path);
+#else
+                    snprintf(cmd, sizeof(cmd),
+                             "python3 tools/bug_report.py \"%s\" &", ss_path);
+#endif
+                    system(cmd);
+                } else {
+                    printf("[bug] Screenshot failed.\n");
+                }
+            }
+            /* F3 = toggle collision overlay */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F3) {
+                int on = !Debug_CollisionOverlayOn();
+                Debug_SetCollisionOverlay(on);
+                printf("[debug] Collision overlay %s\n", on ? "ON" : "OFF");
+            }
+            /* F4 = toggle no-clip */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F4) {
+                gNoClip = !gNoClip;
+                printf("[debug] No-clip %s\n", gNoClip ? "ON" : "OFF");
+            }
+            /* F6 = toggle wild encounter suppression */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F6) {
+                gNoWilds = !gNoWilds;
+                printf("[debug] Wild encounters %s\n", gNoWilds ? "OFF" : "ON");
+            }
             /* F5 = quick save */
             if (ev.type == SDL_KEYDOWN &&
                 ev.key.keysym.scancode == SDL_SCANCODE_F5) {
                 if (Save_Write() == 0) printf("[save] Saved.\n");
+            }
+            /* F7 = battle state dump  (Shift+F7 toggles combat log) */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F7) {
+                if (ev.key.keysym.mod & KMOD_SHIFT) {
+                    int on = !Debug_CombatLogOn();
+                    Debug_SetCombatLog(on);
+                } else {
+                    Debug_PrintBattleState();
+                }
+            }
+            /* F8 = WRAM dump */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F8) {
+                Debug_DumpWRAM();
+            }
+            /* F9 = toggle input recording */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F9) {
+                if (Input_IsRecording()) {
+                    Input_StopRecording();
+                } else {
+                    char path[256];
+                    snprintf(path, sizeof(path),
+                             "bugs/recording_%lu.bin", (unsigned long)time(NULL));
+                    Input_StartRecording(path);
+                }
+            }
+            /* F10 = toggle input playback (most recent recording) */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F10) {
+                if (Input_IsPlaying()) {
+                    Input_StopPlayback();
+                } else {
+                    Input_StartPlayback("bugs/recording_latest.bin");
+                }
+            }
+            /* F11 = save state */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F11) {
+                if (Save_StateWrite("bugs/savestate.bin") == 0)
+                    printf("[state] State saved.\n");
+                else
+                    printf("[state] State save failed.\n");
+            }
+            /* F12 = load state */
+            if (ev.type == SDL_KEYDOWN &&
+                ev.key.keysym.scancode == SDL_SCANCODE_F12) {
+                if (Save_StateLoad("bugs/savestate.bin") == 0) {
+                    extern void Map_Load(uint8_t map_id);
+                    extern void NPC_Load(void);
+                    extern void BattleUI_Restore(void);
+                    Map_Load(wCurMap);
+                    NPC_Load();
+                    if (Save_StateWasBattle()) BattleUI_Restore();
+                    Player_IgnoreInputFrames(4);
+                    printf("[state] State loaded.\n");
+                } else {
+                    printf("[state] No save state found.\n");
+                }
             }
         }
 
@@ -120,6 +280,8 @@ int main(int argc, char *argv[]) {
 
         GameTick();             /* all game logic */
         Audio_Update();         /* audio sequencer tick */
+        if (Debug_CollisionOverlayOn()) Debug_UpdateOverlay();
+        DebugCLI_ConsoleRender();
         Display_RenderScrolled(gScrollPxX, gScrollPxY,
                                gScrollTileMap, SCROLL_MAP_W);
 

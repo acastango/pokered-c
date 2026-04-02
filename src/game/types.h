@@ -1,16 +1,21 @@
 #pragma once
 #include <stdint.h>
+#include "../platform/compiler.h"
 
 /* ============================================================
  * types.h — C struct definitions derived from pokered macros/ram.asm
  * All structs are byte-exact matches to the original Game Boy layout.
  * ============================================================ */
 
+#if defined(_MSC_VER)
+#pragma pack(push, 1)
+#endif
+
 /* ---- Pokémon data structs --------------------------------- */
 
 /* box_mon_t: 33 bytes — matches box_struct in macros/ram.asm
  * Used in PC boxes and as the base for party mons. */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  species;           /* species ID (internal dex order) */
     uint16_t hp;                /* current HP (big-endian on GB, use BE accessors) */
     uint8_t  box_level;         /* level as stored in box (may differ from stat level) */
@@ -32,7 +37,7 @@ typedef struct __attribute__((packed)) {
 
 /* party_mon_t: 44 bytes (0x2C) — matches party_struct in macros/ram.asm
  * Extends box_mon_t with computed stats and actual level. */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     box_mon_t base;             /* all box fields (33 bytes) */
     uint8_t   level;            /* actual level used for stat calculation */
     uint16_t  max_hp;           /* max HP */
@@ -43,7 +48,7 @@ typedef struct __attribute__((packed)) {
 } party_mon_t; /* 44 bytes */
 
 /* battle_mon_t — battle copy of mon data (in wBattleMon / wEnemyMon WRAM) */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  species;
     uint16_t hp;
     uint8_t  party_pos;
@@ -65,7 +70,7 @@ typedef struct __attribute__((packed)) {
 /* ---- Move data -------------------------------------------- */
 
 /* move_t: 6 bytes — matches Moves table in data/moves/moves.asm */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t anim;       /* animation ID (same as move ID) */
     uint8_t effect;     /* effect ID (see EFFECT_* constants) */
     uint8_t power;      /* base power (0 = no damage) */
@@ -77,7 +82,7 @@ typedef struct __attribute__((packed)) {
 /* ---- Sprite state ----------------------------------------- */
 
 /* sprite_state_data1_t: 16 bytes — per-sprite, indexed by sprite slot (0–15) */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t picture_id;         /* sprite picture ID */
     uint8_t movement_status;    /* 0=ready, 1=moving, 2=delayed */
     uint8_t image_index;        /* current frame/facing */
@@ -96,7 +101,7 @@ typedef struct __attribute__((packed)) {
 } sprite_state_data1_t; /* 16 bytes */
 
 /* sprite_state_data2_t: 16 bytes */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t walk_animation_counter;
     uint8_t movement_byte1;     /* movement script type ($FF=no move) */
     uint8_t _unk1;
@@ -110,7 +115,7 @@ typedef struct __attribute__((packed)) {
 } sprite_state_data2_t; /* 16 bytes */
 
 /* OAM entry — one hardware sprite */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t y;          /* Y position + 16 */
     uint8_t x;          /* X position + 8 */
     uint8_t tile;       /* tile index */
@@ -120,7 +125,7 @@ typedef struct __attribute__((packed)) {
 /* ---- Map structures --------------------------------------- */
 
 /* map_header_t — mirrors wCurMapHeader in WRAM */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  tileset;           /* tileset ID */
     uint8_t  height;            /* map height in blocks */
     uint8_t  width;             /* map width in blocks */
@@ -131,7 +136,7 @@ typedef struct __attribute__((packed)) {
 } map_header_t; /* 9 bytes */
 
 /* map_connection_t — one adjacent map connection strip (11 bytes) */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  map_id;
     uint16_t strip_src_ptr;     /* source strip pointer in connected map */
     uint16_t strip_dst_ptr;     /* destination strip pointer in current map */
@@ -142,7 +147,7 @@ typedef struct __attribute__((packed)) {
 } map_connection_t; /* 11 bytes */
 
 /* warp_event_t: 4 bytes */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t y;
     uint8_t x;
     uint8_t dest_warp_id;       /* warp index in destination map (0-based) */
@@ -150,7 +155,7 @@ typedef struct __attribute__((packed)) {
 } warp_event_t;
 
 /* bg_event_t (sign): 3 bytes */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t y;
     uint8_t x;
     uint8_t text_id;
@@ -159,7 +164,7 @@ typedef struct __attribute__((packed)) {
 /* ---- Tileset ---------------------------------------------- */
 
 /* tileset_header_t: 12 bytes — matches Tilesets table */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  bank;              /* ROM bank containing tileset GFX */
     uint16_t blocks_ptr;        /* pointer to block→tile mapping data */
     uint16_t gfx_ptr;           /* pointer to 2bpp tile graphics */
@@ -172,7 +177,7 @@ typedef struct __attribute__((packed)) {
 /* ---- Base stats ------------------------------------------- */
 #define NUM_TM_HM_BYTES  7      /* ceil(55 TMs + HMs / 8) */
 
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t  dex_id;
     uint8_t  hp, atk, def, spd, spc;
     uint8_t  type1, type2;
@@ -189,13 +194,18 @@ typedef struct __attribute__((packed)) {
 /* ---- Wild encounter data ---------------------------------- */
 #define NUM_WILD_SLOTS  10
 
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t encounter_rate;
     struct { uint8_t level; uint8_t species; } slots[NUM_WILD_SLOTS];
 } wild_data_t; /* 21 bytes */
 
 /* ---- Inventory item slot ---------------------------------- */
-typedef struct __attribute__((packed)) {
+typedef struct PACKED {
     uint8_t item_id;
     uint8_t quantity;
 } item_slot_t;
+
+#if defined(_MSC_VER)
+#pragma pack(pop)
+#endif
+

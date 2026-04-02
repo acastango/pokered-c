@@ -33,3 +33,12 @@ const char *Pokemon_GetName(uint8_t dex);
  * slot 3 (the "last 4 learned" Gen 1 behaviour). */
 void Pokemon_WriteMovesForLevel(uint8_t *moves, uint8_t *pp,
                                 uint8_t species_id, uint8_t level);
+
+/* Add a new Pokémon to the player's party at the given level with random DVs.
+ * Mirrors _AddPartyMon (engine/pokemon/add_mon.asm).
+ * Does nothing if the party is already full (PARTY_LENGTH). */
+void Pokemon_AddToParty(uint8_t species, uint8_t level);
+
+/* Restore HP, PP, and status for all party Pokémon.
+ * Mirrors HealParty (engine/events/heal_party.asm). */
+void Pokemon_HealParty(void);

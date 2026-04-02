@@ -30,16 +30,33 @@
 #include "constants.h"
 #include "../data/font_data.h"
 #include "../data/event_data.h"
+#include "../data/event_constants.h"
 #include "../data/wild_data.h"
 #include "battle/battle_init.h"
+#include "battle/battle_trainer.h"
 #include "battle/battle_driver.h"
 #include "battle/battle_ui.h"
+#include "battle/battle_loop.h"
 #include "battle_transition.h"
+#include "trainer_sight.h"
 #include "party_menu.h"
 #include "pokecenter.h"
 #include "pokemart.h"
 #include "music.h"
 #include "../platform/audio.h"
+#include "debug_cli.h"
+#include "gate_scripts.h"
+#include "pokedex.h"
+#include "main_menu.h"
+#include "intro.h"
+#include "pallet_scripts.h"
+#include "oakslab_scripts.h"
+#include "gym_scripts.h"
+#include "viridian_mart_scripts.h"
+#include "mtmoon_scripts.h"
+#include "cerulean_scripts.h"
+#include "route24_scripts.h"
+#include "bills_house_scripts.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,18 +65,47 @@
 /* ---- Scene state ------------------------------------------------- */
 typedef enum {
     SCENE_OVERWORLD = 0,
-    SCENE_BTRANS,       /* battle transition animation */
+    SCENE_BTRANS,        /* battle transition animation   */
     SCENE_BATTLE,
-    SCENE_MENU,         /* future */
+    SCENE_MENU,          /* future */
+    SCENE_MAIN_MENU,     /* startup: CONTINUE / NEW GAME */
+    SCENE_INTRO,         /* Oak's speech, new-game setup  */
 } GameScene;
 
 static GameScene gScene = SCENE_OVERWORLD;
 
-/* Debug spawn: Viridian City (map 1), in front of the mart. */
-#define MAP_PALLET_TOWN     0x01
+int  Game_GetScene(void)   { return (int)gScene; }
+void Game_SetScene(int s)  { gScene = (GameScene)s; }
 
-#define PLAYER_START_X      58
-#define PLAYER_START_Y      41
+/* Set by --skip flag in main.c: bypass main menu when a save exists */
+int gSkipMenu = 0;
+
+/* ---- Enter overworld from loaded wCurMap/wXCoord/wYCoord ---------- */
+/* Fire all per-map OnMapLoad callbacks.  Called any time the current map
+ * changes: enter_overworld, battle-end reload, warp fade-out, and debug
+ * teleport.  NPC_Load() must have already been called before this. */
+static void fire_map_onload_callbacks(void) {
+    PalletScripts_OnMapLoad();
+    OaksLabScripts_OnMapLoad();
+    ViridianMartScripts_OnMapLoad();
+    MtMoon_OnMapLoad();
+    CeruleanScripts_OnMapLoad();
+    Route24Scripts_OnMapLoad();
+    BillsHouseScripts_OnMapLoad();
+    Trainer_LoadMap();
+    Gate_LoadMap();
+}
+
+static void enter_overworld(void) {
+    Map_Load(wCurMap);
+    Font_Load();
+    Player_Init((uint8_t)wXCoord, (uint8_t)wYCoord);
+    NPC_Load();
+    fire_map_onload_callbacks();
+    Map_BuildScrollView();
+    NPC_BuildView(0, 0);
+    gScene = SCENE_OVERWORLD;
+}
 
 void GameInit(void) {
     extern void WRAMClear(void);
@@ -68,44 +114,19 @@ void GameInit(void) {
     int save_ok = (Save_Load() == 0);
     if (save_ok)
         printf("[save] Save loaded OK — map %d @ (%d,%d)\n", wCurMap, wXCoord, wYCoord);
-    else {
-        printf("[save] No save, starting new game\n");
-        wCurMap = MAP_PALLET_TOWN;
-        wXCoord = PLAYER_START_X;
-        wYCoord = PLAYER_START_Y;
-    }
+    else
+        printf("[save] No save found — showing main menu\n");
 
-    Map_Load(wCurMap);
     Font_Load();
-    Player_Init(wXCoord, wYCoord);
-    NPC_Load();
-    Map_BuildScrollView();
-    NPC_BuildView(0, 0);
-
-    /* Give player starters if no save was loaded (new game only). */
-    if (!save_ok && wPartyCount == 0) {
-        wPlayerID = 12345;   /* test trainer ID — would be randomised in a full game */
-
-        Pokemon_InitMon(&wPartyMons[0], SPECIES_BULBASAUR,  6);
-        /* Give Bulbasaur Absorb (move 71) for drain testing — replaces Growl slot */
-        wPartyMons[0].base.moves[1] = 71;
-        wPartyMons[0].base.pp[1]    = 20;
-        Pokemon_InitMon(&wPartyMons[1], SPECIES_CHARMANDER, 6);
-        Pokemon_InitMon(&wPartyMons[2], SPECIES_SQUIRTLE,   6);
-        wPartyCount = 3;
-
-        /* Debug: max money for testing */
-        wPlayerMoney[0] = 0x99;
-        wPlayerMoney[1] = 0x99;
-        wPlayerMoney[2] = 0x99;
-
-        /* Copy player name to OT field for each starter
-         * (mirrors SetPartyMonOT / CopyPlayerNameToStringBuffer in pokered) */
-        for (int i = 0; i < 3; i++)
-            memcpy(wPartyMonOT[i], wPlayerName, NAME_LENGTH);
-
-        printf("[party] Started with Bulbasaur (Tackle/Absorb), Charmander, Squirtle (all Lv.6)\n");
+    /* --skip flag: jump straight to overworld when a save is available */
+    if (gSkipMenu && save_ok) {
+        enter_overworld();
+        return;
     }
+    /* Always show main menu first (CONTINUE if save found, NEW GAME otherwise).
+     * Mirrors MainMenu in engine/menus/main_menu.asm. */
+    MainMenu_Open(save_ok);
+    gScene = SCENE_MAIN_MENU;
 }
 
 /* Wild encounter message: "Wild <POKEMON>!" placeholder */
@@ -135,6 +156,7 @@ static const uint8_t kWildText[] = {
  */
 #define FADE_TICKS_PER_STEP  4   /* 4 overworld ticks = 8 VBlanks at 60 Hz */
 #define FADE_OUT_STEPS       4
+#define FADE_IN_STEPS        4
 
 static const uint8_t kFadeOut[FADE_OUT_STEPS][3] = {
     {0xE4, 0xD0, 0xE0},
@@ -143,14 +165,30 @@ static const uint8_t kFadeOut[FADE_OUT_STEPS][3] = {
     {0xFF, 0xFF, 0xFF},
 };
 
+/* GBFadeInFromWhite — FadePalWhite4→1 from fade.asm (white → normal). */
+static const uint8_t kFadeInFromWhite[FADE_IN_STEPS][3] = {
+    {0x00, 0x00, 0x00},  /* all white */
+    {0x0A, 0x01, 0x08},  /* near white */
+    {0x28, 0x04, 0x20},  /* mid */
+    {0xE4, 0xD0, 0xE0},  /* normal */
+};
 
-typedef enum { WARP_NONE = 0, WARP_FADE_OUT } WarpPhase;
+typedef enum { WARP_NONE = 0, WARP_FADE_OUT, WARP_FADE_IN } WarpPhase;
 static WarpPhase gWarpPhase    = WARP_NONE;
 static int       gWarpStep     = 0;
 static int       gWarpStepTimer = 0;
 
+/* Set to 1 before BattleTransition_Start when the pending battle is a trainer
+ * battle.  Checked when transition completes to call Battle_StartTrainer
+ * instead of Battle_Start. */
+static int gPendingTrainerBattle = 0;
+
+/* Debug: set to 1 to suppress wild encounters. */
+int gNoWilds = 0;
+
 /* Wild encounter: roll against rate and trigger text if hit */
 static void check_wild_encounter(void) {
+    if (gNoWilds) return;
     if (wCurMap >= NUM_MAPS) return;
     const wild_mons_t *w = &gWildGrass[wCurMap];
     if (!w->rate) return;
@@ -158,7 +196,7 @@ static void check_wild_encounter(void) {
     /* Grass tile check: wGrassTile is set by Map_Load from the tileset header.
      * 0xFF = no grass for this tileset (towns, indoor maps, etc.). */
     if (wGrassTile == 0xFF) return;
-    uint8_t cur_tile = Map_GetTile((int)wXCoord, (int)wYCoord);
+    uint8_t cur_tile = Map_GetGameTile((int)wXCoord, (int)wYCoord);
     if (cur_tile != wGrassTile) return;
 
     /* Encounter probability: rate/256 per step (simplified) */
@@ -188,7 +226,7 @@ static void check_wild_encounter(void) {
      * stays visible throughout the flash and animation phases. */
     memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
 
-    BattleTransition_Start(0, wCurEnemyLevel, player_level, 0);
+    BattleTransition_Start(0, wCurEnemyLevel, player_level);
     gScene = SCENE_BTRANS;
 }
 
@@ -244,22 +282,81 @@ static void check_npc_interact(void) {
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->npcs) return;
 
-    /* Search within ±2 coords of the facing tile.
-     * Our tile coords are doubled (asm_x*2), so ±2 = 1 asm tile in each direction.
-     * This range is needed for counter NPCs (e.g. nurse): the player stands at the
-     * counter tile (1 asm tile away from the nurse), so the facing tile is the
-     * counter, not the nurse — ±2 bridges that extra tile. */
-    for (int dy = -2; dy <= 2; dy++) {
-        for (int dx = -2; dx <= 2; dx++) {
-            int i = NPC_FindAtTile(fx + dx, fy + dy);
-            if (i < 0 || i >= ev->num_npcs) continue;
-            NPC_FacePlayer(i);
-            if (ev->npcs[i].script)
-                ev->npcs[i].script();
-            else if (ev->npcs[i].text)
-                Text_ShowASCII(ev->npcs[i].text);
-            return;
+    /* Search for an NPC along the player's line of sight only — no diagonals.
+     * Mirrors the original's CheckInteractionWithNPC: checks the tile in front,
+     * then steps further along the same axis (for counter-style NPCs like the
+     * nurse across a desk).  Perpendicular offset stays 0 so a nearby NPC in a
+     * different row/column never accidentally fires (e.g. gym guide beside a statue). */
+    int facing = gPlayerFacing & 3;  /* 0=down 1=up 2=left 3=right */
+    int best_i = -1;
+    int best_score = 9999;
+    for (int dist = 0; dist <= 2; dist++) {
+        int tx = fx, ty = fy;
+        switch (facing) {
+            case 0: ty = fy + dist; break;  /* down  — search further south */
+            case 1: ty = fy - dist; break;  /* up    — search further north */
+            case 2: tx = fx - dist; break;  /* left  — search further west  */
+            case 3: tx = fx + dist; break;  /* right — search further east  */
         }
+        int i = NPC_FindAtTile(tx, ty);
+        if (i < 0 || i >= ev->num_npcs) continue;
+        if (dist < best_score) { best_score = dist; best_i = i; }
+        break;  /* take the closest hit along the axis */
+    }
+
+    if (best_i < 0) return;
+
+    NPC_FacePlayer(best_i);
+
+    /* Trainer NPC: bypass normal text dispatch.
+     * Defeated → show after_text.  Undefeated → engage immediately.
+     * Mirrors CheckInteractionWithMapTrainer (home/trainers.asm). */
+    if (ev->trainers) {
+        int is_trainer = 0;
+        for (int ti = 0; ti < ev->num_trainers; ti++) {
+            const map_trainer_t *tr = &ev->trainers[ti];
+            if (tr->npc_idx != best_i) continue;
+            is_trainer = 1;
+            if (CheckEvent(tr->flag_bit)) {
+                if (tr->after_text) Text_ShowASCII(tr->after_text);
+            } else {
+                Trainer_EngageImmediate(best_i);
+            }
+            break;
+        }
+        if (is_trainer) return;
+    }
+
+    if (ev->npcs[best_i].script)
+        ev->npcs[best_i].script();
+    else if (ev->npcs[best_i].text)
+        Text_ShowASCII(ev->npcs[best_i].text);
+}
+
+/* A-button interaction: check hidden events at the tile in front of the player.
+ * Mirrors CheckForHiddenEvent / CheckIfCoordsInFrontOfPlayerMatch from
+ * engine/overworld/hidden_events.asm.  Fires when the player faces a tile
+ * that has a registered hidden event for the current map (bench guys, PCs,
+ * posters, bookcases, etc.).  No sprite is involved — the trigger is purely
+ * positional. */
+static void check_hidden_event(void) {
+    if (!(hJoyPressed & PAD_A)) return;
+
+    int fx, fy;
+    Player_GetFacingTile(&fx, &fy);
+
+    if (wCurMap >= NUM_MAPS) return;
+    const map_events_t *ev = &gMapEvents[wCurMap];
+    if (!ev->hidden_events) return;
+
+    for (int i = 0; i < ev->num_hidden_events; i++) {
+        const hidden_event_t *h = &ev->hidden_events[i];
+        if ((int)h->x != fx || (int)h->y != fy) continue;
+        if (h->script)
+            h->script();
+        else if (h->text)
+            Text_ShowASCII(h->text);
+        return;
     }
 }
 
@@ -284,14 +381,80 @@ static void check_sign_interact(void) {
 }
 
 void GameTick(void) {
+    DebugCLI_Tick();
+
+    /* ---- Debug: file-based teleport (bugs/teleport.txt) -------------- *
+     * Format:  map_id [tile_x tile_y]                                    *
+     * Written by Claude Code; consumed and deleted on detection.         *
+     * Checked once per second (every 60 frames) to avoid fs overhead.   */
+    static int s_tele_timer = 0;
+    if (++s_tele_timer >= 60) {
+        s_tele_timer = 0;
+        FILE *tf = fopen("bugs/teleport.txt", "r");
+        if (tf) {
+            int map_id = -1, tx = -1, ty = -1;
+            fscanf(tf, "%d %d %d", &map_id, &tx, &ty);
+            fclose(tf);
+            remove("bugs/teleport.txt");
+            if (map_id >= 0 && map_id < NUM_MAPS) {
+                Warp_ForceTeleport((uint8_t)map_id, tx, ty);
+                fire_map_onload_callbacks();
+                Map_BuildScrollView();
+                NPC_BuildView(0, 0);
+            } else
+                printf("[debug] teleport: bad map_id %d (max %d)\n", map_id, NUM_MAPS - 1);
+        }
+    }
+
     /* ---- Text dialog: always runs at 60 Hz --------------------------- *
      * hJoyPressed is an edge signal valid for exactly one VBlank frame.  *
      * Polling it after the 30 Hz gate would silently discard presses on  *
      * odd frames.  The original WaitForTextScrollButtonPress uses a       *
      * single DelayFrame (not two), so text input is natively 60 Hz.     */
+    /* ---- Main menu (startup) -------------------------------------- */
+    if (gScene == SCENE_MAIN_MENU) {
+        if (MainMenu_IsOpen()) {
+            MainMenu_Tick();
+        } else {
+            int result = MainMenu_GetResult();
+            if (result == MAIN_MENU_CONTINUE) {
+                enter_overworld();
+            } else if (result == MAIN_MENU_NEW_GAME) {
+                Intro_Start();
+                gScene = SCENE_INTRO;
+            }
+        }
+        return;
+    }
+
+    /* ---- Intro (Oak's speech / new-game setup) -------------------- */
+    if (gScene == SCENE_INTRO) {
+        if (Text_IsOpen()) { Text_Update(); return; }
+        if (Intro_IsActive()) {
+            Intro_Tick();
+        } else {
+            /* Intro done — wCurMap/wXCoord/wYCoord set to bedroom */
+            enter_overworld();
+        }
+        return;
+    }
+
     if (Text_IsOpen()) {
         Text_Update();
-        return;
+        /* If text is still open, stop here.  If text just closed while in
+         * battle, fall through so BattleUI_Tick runs in the SAME frame —
+         * avoids a 1-frame blank text box caused by Text_Close() erasing
+         * rows 12-17 one frame before the battle state machine redraws.
+         * Draw the empty box border immediately so rows 12-17 show a
+         * proper bordered box even if the next BUI state doesn't redraw
+         * the box this frame (e.g. BUI_TURN_END transitions to BUI_DRAW_HUD
+         * without calling bui_draw_box). */
+        if (Text_IsOpen() || gScene != SCENE_BATTLE) return;
+        /* ASM: JoypadLowSensitivity suppresses held A/B after text closes,
+         * preventing the A press that dismissed text from also triggering a
+         * menu selection in BattleUI_Tick on the same frame.  Mirror this by
+         * consuming the input that closed the text. */
+        hJoyPressed = 0;
     }
 
     if (Menu_IsOpen()) {
@@ -301,6 +464,11 @@ void GameTick(void) {
 
     if (BagMenu_IsOpen()) {
         BagMenu_Tick();
+        return;
+    }
+
+    if (Pokedex_IsOpen()) {
+        Pokedex_Tick();
         return;
     }
 
@@ -341,7 +509,12 @@ void GameTick(void) {
     if (gScene == SCENE_BTRANS) {
         if (BattleTransition_Tick()) {
             /* Transition complete — launch battle. */
-            Battle_Start();
+            if (gPendingTrainerBattle) {
+                gPendingTrainerBattle = 0;
+                Battle_StartTrainer(gEngagedTrainerClass, gEngagedTrainerNo);
+            } else {
+                Battle_Start();
+            }
             BattleUI_Enter();
             gScene = SCENE_BATTLE;
         }
@@ -350,6 +523,10 @@ void GameTick(void) {
 
     /* ---- Battle scene (non-blocking) ------------------------------ */
     if (gScene == SCENE_BATTLE) {
+        /* Save before BattleUI_Tick(): BUI_END clears both wIsInBattle and
+         * wBattleResult in the same tick as setting bui_state=BUI_INACTIVE,
+         * so we must snapshot them here to know the outcome after the tick. */
+        uint8_t saved_battle_result = wBattleResult;
         BattleUI_Tick();
         if (!BattleUI_IsActive()) {
             /* Battle ended — restore overworld GFX and state.
@@ -359,14 +536,46 @@ void GameTick(void) {
              * full rebuild even if gScrollViewReady was set when battle triggered.
              * gStepJustCompleted cleared so check_wild_encounter doesn't fire
              * immediately on the first overworld frame after battle. */
+
+            {
+                int was_gym_trainer    = GymScripts_ConsumeGymTrainer();
+                int was_cerulean_rival = CeruleanScripts_ConsumeRivalBattle();
+                int was_rocket_r24     = Route24Scripts_ConsumeRocketBattle();
+                if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
+                    if (wGymLeaderNo)
+                        GymScripts_OnVictory();
+                    else if (was_gym_trainer)
+                        GymScripts_OnGymTrainerVictory();
+                    else if (was_cerulean_rival)
+                        CeruleanScripts_OnVictory();
+                    else if (was_rocket_r24)
+                        Route24Scripts_OnVictory();
+                    else
+                        Trainer_MarkCurrentDefeated();
+                } else if (was_cerulean_rival) {
+                    CeruleanScripts_OnDefeat();
+                } else if (was_rocket_r24) {
+                    Route24Scripts_OnDefeat();
+                }
+            }
+
             gScene = SCENE_OVERWORLD;
             gStepJustCompleted = 0;
             memset(wShadowOAM, 0, sizeof(wShadowOAM));
-            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
+                /* Palette is already white from BUI_FADE_WHITE — fade in from white. */
+                gWarpPhase     = WARP_FADE_IN;
+                gWarpStep      = 0;
+                gWarpStepTimer = FADE_TICKS_PER_STEP;
+            } else {
+                Display_SetPalette(0xE4, 0xD0, 0xE0);
+            }
             Map_ReloadGfx();
             Map_ResetScrollState();
             Font_Load();   /* restore font/box tiles (120-126, 128-255) */
             Music_Play(Music_GetMapID(wCurMap));
+            NPC_Load();
+            fire_map_onload_callbacks();
             Player_SyncOAM();
             Map_BuildScrollView();
             NPC_BuildView(gScrollPxX, gScrollPxY);
@@ -386,8 +595,18 @@ void GameTick(void) {
      *  which calls DelayFrame twice, so steps are 8×2=16 VBlanks.)   *
      * Future scenes (SCENE_BATTLE, SCENE_MENU) run at full 60 Hz.   */
     if (gScene == SCENE_OVERWORLD) {
-        static int ow_phase = 0;
-        if (ow_phase ^= 1) return;
+        static int     ow_phase          = 0;
+        static uint8_t ow_pressed_latch  = 0;
+        if (ow_phase ^= 1) {
+            /* Skip frame: latch any presses so the next active frame sees them.
+             * Mirrors original: Joypad was read once per 30 Hz OverworldLoop
+             * iteration, so presses between iterations were never lost. */
+            ow_pressed_latch |= hJoyPressed;
+            return;
+        }
+        /* Active frame: fold latched presses in so interactions aren't missed. */
+        hJoyPressed      |= ow_pressed_latch;
+        ow_pressed_latch  = 0;
     }
 
     /* Warp fade transition: GBFadeOutToBlack → swap map → GBFadeInFromWhite */
@@ -409,6 +628,7 @@ void GameTick(void) {
                  * iteration.  GBFadeInFromWhite is only used for battle recovery
                  * and fly/dungeon warps. */
                 Warp_Execute();
+                fire_map_onload_callbacks();
                 Map_BuildScrollView();
                 NPC_BuildView(0, 0);
                 Player_SyncOAM();
@@ -420,6 +640,263 @@ void GameTick(void) {
         return;
     }
 
+    /* GBFadeInFromWhite — used after trainer battle victory. */
+    if (gWarpPhase == WARP_FADE_IN) {
+        Display_SetPalette(kFadeInFromWhite[gWarpStep][0],
+                           kFadeInFromWhite[gWarpStep][1],
+                           kFadeInFromWhite[gWarpStep][2]);
+        if (--gWarpStepTimer == 0) {
+            gWarpStep++;
+            gWarpStepTimer = FADE_TICKS_PER_STEP;
+            if (gWarpStep >= FADE_IN_STEPS) {
+                Display_SetPalette(0xE4, 0xD0, 0xE0);
+                gWarpPhase = WARP_NONE;
+            }
+        }
+        return;
+    }
+
+    /* ---- Trainer engagement (non-blocking) ------------------------ *
+     * While a trainer is walking toward the player or showing text,   *
+     * block all normal overworld input and update the state machine.   *
+     * Mirrors CheckFightingMapTrainers / TrainerWalkUpToPlayer flow.  */
+    if (Trainer_IsEngaging()) {
+        int r = Trainer_SightTick();
+        NPC_Update();
+        /* Don't rebuild the map while text is open — Text_ShowASCII already drew
+         * the text box on the tilemap; Map_BuildScrollView would overwrite it. */
+        if (!Text_IsOpen()) {
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
+        if (r) {
+            /* Battle ready — find first non-fainted party mon for transition */
+            int player_level = 5;
+            for (int i = 0; i < wPartyCount; i++) {
+                if (wPartyMons[i].base.hp > 0) {
+                    player_level = wPartyMons[i].level;
+                    break;
+                }
+            }
+            memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+            Music_Play(wGymLeaderNo ? MUSIC_GYM_LEADER_BATTLE : MUSIC_TRAINER_BATTLE);
+            gPendingTrainerBattle = 1;
+            BattleTransition_Start(1, 0, player_level);
+            gScene = SCENE_BTRANS;
+        }
+        return;
+    }
+
+    /* ---- Pallet Town map scripts ---------------------------------- *
+     * Run before normal overworld input/movement so Oak can interrupt
+     * the player at the north exit before an actual step/connection
+     * begins. This matches the original script timing more closely.   */
+    {
+        int pallet_was_active = PalletScripts_IsActive();
+        PalletScripts_Tick();
+        if (PalletScripts_IsActive()) {
+            /* If Oak just interrupted the player at the town edge, do not
+             * advance the player's pre-trigger movement on that same frame.
+             * On subsequent frames, keep scripted movement progressing. */
+            if (pallet_was_active) {
+                Player_Update();
+                if (Warp_JustHappened()) {
+                    gWarpPhase    = WARP_FADE_OUT;
+                    gWarpStep     = 0;
+                    gWarpStepTimer = FADE_TICKS_PER_STEP;
+                    return;
+                }
+            }
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    {
+        /* OaksLabScripts_Tick may set gPendingBattle via OLS_BATTLE_TRIGGER;
+         * check for it after each tick and start the battle transition. */
+        int oakslab_was_active = OaksLabScripts_IsActive();
+        OaksLabScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (OaksLabScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(wGymLeaderNo ? MUSIC_GYM_LEADER_BATTLE : MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (OaksLabScripts_IsActive()) {
+            /* ShowPokedexData takes over the screen — skip overworld rendering.
+             * OaksLabScripts_Tick already ran above, advancing the state machine. */
+            if (Pokedex_IsShowingData()) {
+                Pokedex_ShowDataTick();
+                return;
+            }
+            if (oakslab_was_active) {
+                Player_Update();
+                if (Warp_JustHappened()) {
+                    gWarpPhase    = WARP_FADE_OUT;
+                    gWarpStep     = 0;
+                    gWarpStepTimer = FADE_TICKS_PER_STEP;
+                    return;
+                }
+            }
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                OaksLabScripts_PostRender();
+            }
+            /* Always rebuild NPC OAM — the window layer masks sprites under the
+             * text box, so calling this while text is open is safe and ensures
+             * the rival sprite is visible above the box throughout the sequence. */
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+            return;
+        }
+    }
+
+    /* ---- Viridian Mart parcel-giving sequence ----------------------- *
+     * Mirrors ViridianMartDefaultScript: entry text → auto-walk to      *
+     * counter → parcel quest text → give OAK's PARCEL.                  */
+    {
+        ViridianMartScripts_Tick();
+        if (ViridianMartScripts_IsActive()) {
+            Player_Update();
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Gym scripts (gym leader pre/post-battle text) ------------- */
+    {
+        GymScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (GymScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(wGymLeaderNo ? MUSIC_GYM_LEADER_BATTLE : MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (GymScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Cerulean City rival battle script ----------------------------- */
+    {
+        CeruleanScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (CeruleanScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (CeruleanScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Route 24 Rocket scripted encounter ----------------------------- */
+    {
+        Route24Scripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (Route24Scripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (Route24Scripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Bill's House transformation script ---------------------------- */
+    {
+        BillsHouseScripts_Tick();
+        if (BillsHouseScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
 
     /* START: open pause menu (only when player is idle, no warp in progress) */
     if ((hJoyPressed & PAD_START) && !Player_IsMoving() && gWarpPhase == WARP_NONE) {
@@ -429,16 +906,28 @@ void GameTick(void) {
     }
 
     check_item_pickup();
+    /* Mt. Moon fossil sequence: tick runs before text check so yes/no
+     * state machine can process input.  PostRender redraws the box
+     * after Map_BuildScrollView overwrites the tilemap (same as oakslab). */
+    if (MtMoon_IsActive()) {
+        MtMoon_Tick();
+        NPC_Update();           /* needed for Super Nerd scripted walk */
+        Map_BuildScrollView();
+        MtMoon_PostRender();
+        NPC_BuildView(gScrollPxX, gScrollPxY);
+        return;
+    }
     if (Text_IsOpen()) return;
-    check_npc_interact();
-    /* If the NPC script just activated the mart or pokecenter, stop overworld
-     * processing immediately.  They will call NPC_HideInRect before any
-     * NPC_BuildView runs, so stopping here prevents the end-of-tick
-     * NPC_BuildView from undoing the selective hide on this same frame. */
-    if (Pokemart_IsActive() || Pokecenter_IsActive()) return;
+    if (!Gate_PewterIsActive())
+        check_npc_interact();
+    /* If the NPC script just activated the mart, pokecenter, or oakslab
+     * script (e.g. ball callback), stop overworld processing immediately. */
+    if (Pokemart_IsActive() || Pokecenter_IsActive() || OaksLabScripts_IsActive() || ViridianMartScripts_IsActive()) return;
     /* Flush OAM positions so NPC_FacePlayer's tile/flag changes are applied
      * before the dialog box renders. Player is idle so scroll is 0. */
     NPC_BuildView(0, 0);
+    if (Text_IsOpen()) return;
+    check_hidden_event();
     if (Text_IsOpen()) return;
     check_sign_interact();
     if (Text_IsOpen()) return;
@@ -448,6 +937,12 @@ void GameTick(void) {
     if (Warp_HasDoorStep()) {
         Player_ForceStepDown();
     }
+
+    /* Deferred south push from Viridian old man block — runs here so
+     * begin_step's camera update is in sync with Map_BuildScrollView below,
+     * preventing the scroll snap that occurs when text is open. */
+    Gate_ViridianDoPush();
+    Gate_PewterTick();
 
     Player_Update();
 
@@ -462,11 +957,24 @@ void GameTick(void) {
     }
 
     NPC_Update();
+
     /* Encounter check mirrors CheckForBattleAfterStep: only fires on step completion,
      * not every frame.  This prevents immediate re-trigger after a battle ends. */
     if (gStepJustCompleted) {
         gStepJustCompleted = 0;
-        check_wild_encounter();
+        /* Position triggers that fire on step arrival (mirrors map scripts
+         * that check wXCoord/wYCoord every frame in the original). */
+        Gate_ViridianStepCheck();
+        Gate_PewterEastCheck();
+        MtMoon_StepCheck();
+        CeruleanScripts_StepCheck();
+        Route24Scripts_StepCheck();
+        if (Text_IsOpen()) return;
+        /* Trainer sight check has priority over wild encounters (mirrors
+         * CheckFightingMapTrainers running before CheckForBattleAfterStep). */
+        Trainer_CheckSight();
+        if (!Trainer_IsEngaging())
+            check_wild_encounter();
     }
     /* check_wild_encounter may have flipped gScene to SCENE_BATTLE.
      * Skip the map rebuild in that case — the battle UI owns the tilemap now. */

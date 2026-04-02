@@ -23,8 +23,9 @@
  * wait_input values:
  *   0 = not waiting
  *   1 = paragraph break (clear box on A, restart from line 1)
- *   2 = end of string   (close box on A)
+ *   2 = end of string   (close box on A press → transitions to 4)
  *   3 = scroll          (scroll line2→line1 on A, continue on line2)
+ *   4 = waiting for A release before closing (HoldTextDisplayOpen)
  *
  * After each pause, the ▼ cursor appears in the bottom-right corner.
  */
@@ -33,7 +34,7 @@
 #include "../platform/audio.h"
 #include "../data/font_data.h"
 #include "../game/constants.h"
-#include "overworld.h"   /* gScrollTileMap, SCROLL_MAP_W — tiles go here, not wTileMap */
+/* gWindowTileMap and hWY come from hardware.h (already included above) */
 #include <string.h>
 
 /* Control character codes from pokered charmap.asm */
@@ -77,6 +78,10 @@ static const char    *ascii_ptr  = NULL;
 static int            ascii_mode = 0;
 static int            text_open  = 0;
 static int            wait_input = 0;
+/* wDoNotWaitForButtonPressAfterDisplayingText — when set, end-of-text
+ * skips the A-press wait and goes straight to HoldTextDisplayOpen
+ * (wait for A release, then return with box still visible). */
+int wDoNotWaitForButtonPress = 0;
 static int            letter_timer = 0;   /* frames remaining before next char */
 /* cursor position saved so scroll can clear it before copying */
 static int            cur_col    = TEXT_COL0;
@@ -89,6 +94,25 @@ static int            cur_row    = TEXT_ROW1;
 static int            blink_timer1  = 0;   /* inner counter (counts down each frame) */
 static int            blink_timer2  = 0;   /* outer counter (counts down each inner wrap) */
 static int            blink_on      = 0;   /* 1 = cursor currently shown */
+
+/* ---- Public debug accessor ---------------------------------- */
+
+/* Fills buf with a flat ASCII preview of the current dialog (newlines
+ * replaced with spaces, control chars stripped).  Returns 0 if no box
+ * is open or the string is pokered-encoded (unreadable without decode). */
+int Text_GetCurrentStr(char *buf, int size) {
+    if (!text_open || !ascii_mode || !ascii_ptr || size <= 0) return 0;
+    const char *p = ascii_ptr;
+    int i = 0;
+    while (*p && i < size - 1) {
+        char c = *p++;
+        if (c == '@') break;
+        if (c == '\n' || c == '\f') { if (i > 0 && buf[i-1] != ' ') buf[i++] = ' '; }
+        else if ((unsigned char)c >= 0x20) buf[i++] = c;
+    }
+    buf[i] = '\0';
+    return i > 0;
+}
 
 /* ---- Internal helpers --------------------------------------- */
 
@@ -109,16 +133,18 @@ static int ascii_to_tile(unsigned char c) {
     if (c == ')')              return Font_CharToTile(0x9B);
     if (c == '/')              return Font_CharToTile(0xF3);
     if (c == '!')              return Font_CharToTile(0xE7);
-    if (c == 0xA5)             return Font_CharToTile(0xF0); /* ¥ (ISO-8859-1 0xA5 → pokered CHAR_YEN) */
+    if (c == 0xA5)             return Font_CharToTile(0xF0); /* YEN (ISO-8859-1 0xA5) */
     return BLANK_TILE_SLOT;
 }
 
 static void set_tile(int col, int row, uint8_t tile_id) {
-    gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)] = tile_id;
+    if (col < 0 || col >= SCREEN_WIDTH || row < 0 || row >= SCREEN_HEIGHT) return;
+    gWindowTileMap[row][col] = tile_id;
 }
 
 static uint8_t get_tile(int col, int row) {
-    return gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)];
+    if (col < 0 || col >= SCREEN_WIDTH || row < 0 || row >= SCREEN_HEIGHT) return 0;
+    return gWindowTileMap[row][col];
 }
 
 static void show_cursor(void) {
@@ -236,6 +262,17 @@ static int print_one_char(void) {
         }
         if (ac == '\f') { ascii_ptr++; show_cursor(); wait_input = 1; return 0; }
 
+        /* # — POKé token (charmap 0x54): expands to "POKé" per PlacePOKe
+         * in home/text.asm → PlacePOKeText db "POKé@" */
+        if (ac == '#') {
+            ascii_ptr++;
+            if (cur_col < TEXT_COL0 + TEXT_COLS) set_tile(cur_col++, cur_row, (uint8_t)Font_CharToTile(0x8F)); /* P */
+            if (cur_col < TEXT_COL0 + TEXT_COLS) set_tile(cur_col++, cur_row, (uint8_t)Font_CharToTile(0x8E)); /* O */
+            if (cur_col < TEXT_COL0 + TEXT_COLS) set_tile(cur_col++, cur_row, (uint8_t)Font_CharToTile(0x8A)); /* K */
+            if (cur_col < TEXT_COL0 + TEXT_COLS) set_tile(cur_col++, cur_row, (uint8_t)Font_CharToTile(0xBA)); /* é */
+            return 1;
+        }
+
         /* {PLAYER} / {RIVAL} — expand inline (all name chars printed at once,
          * same frame; matches PlaceString which loops without per-char delay
          * in the name substitution path). */
@@ -305,6 +342,7 @@ void Text_ShowBox(const uint8_t *str) {
     wait_input   = 0;
     letter_timer = 0;   /* first char prints on the very next Text_Update call */
 
+    hWY = BOX_ROW * TILE_PX;   /* enable window layer at text box row */
     draw_box_border();
     clear_text_rows();
 
@@ -319,6 +357,7 @@ void Text_ShowASCII(const char *str) {
     wait_input   = 0;
     letter_timer = 0;
 
+    hWY = BOX_ROW * TILE_PX;   /* enable window layer at text box row */
     draw_box_border();
     clear_text_rows();
 
@@ -345,10 +384,43 @@ void Text_Update(void) {
                 else          { hide_cursor(); blink_timer1 = 4; blink_timer2 = 2; }
             }
         }
+        /* wait_input == 4: A was pressed at end-of-text; hold open until A released.
+         * Mirrors HoldTextDisplayOpen (home/text_script.asm:99-103):
+         *   loop { Joypad; if hJoyHeld & PAD_A → loop }; then CloseTextDisplay. */
+        if (wait_input == 4) {
+            if (!(hJoyHeld & PAD_A))
+                Text_Close();
+            return;
+        }
+
+        /* wait_input == 5: wDoNotWaitForButtonPress path — HoldTextDisplayOpen
+         * without closing.  Wait for A release, then mark text as no longer
+         * waiting (but keep box visible).  Mirrors ASM: loop until A released,
+         * then return without calling CloseTextDisplay. */
+        if (wait_input == 5) {
+            if (!(hJoyHeld & PAD_A)) {
+                wait_input = 0;
+                text_open  = 0;  /* text system done, box tiles stay on screen */
+                wDoNotWaitForButtonPress = 0;  /* reset flag (like EnableAutoTextBoxDrawing) */
+            }
+            return;
+        }
+
         if (!(hJoyPressed & PAD_A)) return;
         Audio_PlaySFX_PressAB();
 
-        if (wait_input == 2) { Text_Close(); return; }
+        /* End of text: normally transition to release-wait then close.
+         * If wDoNotWaitForButtonPress is set, skip the A-press wait entirely:
+         * just wait for A release, then leave text open (mirrors ASM
+         * HoldTextDisplayOpen path when wDoNotWaitForButtonPressAfterDisplayingText). */
+        if (wait_input == 2) {
+            if (wDoNotWaitForButtonPress) {
+                /* Go straight to hold-open: wait for A release, stay open */
+                wait_input = 5;  /* new state: no-wait hold */
+                return;
+            }
+            wait_input = 4; return;
+        }
 
         if (wait_input == 3) {
             /* Scroll: line 2 → line 1, continue printing on line 2 */
@@ -404,6 +476,8 @@ void Text_Close(void) {
         for (int r = BOX_ROW; r < BOX_ROW + BOX_ROWS; r++)
             for (int c = 0; c < SCREEN_WIDTH; c++)
                 set_tile(c, r, 0);
+        hWY = SCREEN_HEIGHT_PX;  /* disable window layer */
     }
+    /* if keep_tiles: hWY stays active so caller can draw YES/NO box on top */
     s_keep_tiles_on_close = 0;
 }

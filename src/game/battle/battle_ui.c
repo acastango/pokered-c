@@ -30,7 +30,10 @@
 #include "battle_exp.h"
 #include "battle_switch.h"
 #include "battle_trainer.h"
+#include "battle_catch.h"
 #include "../party_menu.h"
+#include "../bag_menu.h"
+#include "../inventory.h"
 #include "../../platform/hardware.h"
 #include "../../platform/display.h"
 #include "../../platform/audio.h"
@@ -39,10 +42,12 @@
 #include "../../data/moves_data.h"
 #include "../../data/base_stats.h"
 #include "../../data/pokemon_sprites.h"
+#include "../../data/trainer_sprites.h"
 #include "../constants.h"
 #include "../text.h"
 #include "../pokemon.h"
 #include "../overworld.h"   /* gScrollTileMap, SCROLL_MAP_W */
+#include "../trainer_sight.h" /* gEngagedTrainerClass */
 #include "../player.h"      /* gScrollPxX, gScrollPxY */
 #include <stdio.h>
 #include <string.h>
@@ -57,8 +62,10 @@ typedef enum {
     BUI_INACTIVE      = 0,
     BUI_SLIDE_IN,       /* enemy + player silhouettes slide from right (72 frames) */
     BUI_APPEARED,       /* "Wild X appeared!" + pokeball party display  */
-    BUI_SEND_OUT,       /* trigger: reload Red + start trainer slide-out    */
-    BUI_TRAINER_SLIDE_OUT, /* Red's OAM slides left off screen (4px/tick)    */
+    BUI_SEND_OUT,          /* trigger: start slide-outs                        */
+    BUI_ENEMY_SLIDE_OUT,   /* trainer sprite slides right off enemy side       */
+    BUI_TRAINER_SLIDE_OUT, /* Red's OAM slides left off screen (4px/tick)      */
+    BUI_ENEMY_SEND_OUT,    /* trainer throws pokeball → enemy grows in         */
     BUI_POKEMON_APPEAR, /* pokeball → 3×3 → 5×5 → full 7×7 grow animation  */
     BUI_INTRO,          /* (legacy placeholder — skipped via BUI_SLIDE_IN entry) */
     BUI_DRAW_HUD,       /* refresh HUD + draw main menu             */
@@ -71,6 +78,11 @@ typedef enum {
     BUI_TURN_END,       /* after second move text: check + loop     */
     BUI_TURN_FINISH,    /* after residual-B message: cleanup + loop */
     BUI_EXP_DRAIN,      /* drain exp/level-up texts after faint     */
+    BUI_TRAINER_VICTORY_SLIDE, /* trainer sprite slides in from right (56px, 4px/tick) */
+    BUI_TRAINER_VICTORY_PAUSE, /* 40-frame hold after slide completes                  */
+    BUI_TRAINER_VICTORY_TEXT,  /* defeat quote dismissed: wait for SFX                 */
+    BUI_WAIT_SOUND,            /* WaitForSoundToFinish then show money text            */
+    BUI_FADE_WHITE,            /* white palette hold ~30f then BUI_END                 */
     BUI_LEVELUP_STATS,  /* wait for A on the level-up stats box     */
     BUI_ENEMY_FAINT_ANIM, /* enemy sprite slides down off-screen (14f) */
     BUI_PLAYER_FAINTED, /* player mon fainted: checks + open menu   */
@@ -79,6 +91,11 @@ typedef enum {
     BUI_SWITCH_SELECT,  /* voluntary: party menu for mid-turn switch */
     BUI_RETREAT_ANIM,   /* voluntary: player sprite shrink (7×7→3×3) */
     BUI_SWITCH_ENEMY_TURN, /* voluntary: enemy executes their pre-selected move */
+    BUI_BAG_BATTLE,     /* bag menu open during battle                       */
+    BUI_BALL_THROW,     /* pokéball arc animation (player → enemy)           */
+    BUI_BALL_POOF,      /* pokéball poof cloud (24f, Subanim_0BallPoofEnemy) */
+    BUI_BALL_SHAKE,     /* pokéball shake animation (0–3 rocks)              */
+    BUI_CAUGHT,         /* add caught mon to party / box, end battle         */
     BUI_END,            /* battle over                              */
 } bui_state_t;
 
@@ -96,9 +113,10 @@ static char s_pfx_b[8];
 /* Shared message buffer — never modified while Text_IsOpen() */
 static char s_msg_buf[384];
 
-/* BUI_EXP_DRAIN destination and optional suffix message */
-static bui_state_t   bui_exp_dest   = BUI_END;
+/* BUI_EXP_DRAIN destination and optional suffix messages (2 pages, like original) */
+static bui_state_t   bui_exp_dest    = BUI_END;
 static char          s_exp_suffix[64];
+static char          s_exp_suffix2[64];  /* second page shown after s_exp_suffix */
 
 /* BUI_ENEMY_FAINT_ANIM state
  * Mirrors SlideDownFaintedMonPic (engine/battle/core.asm:1181):
@@ -110,12 +128,18 @@ static int s_faint_timer = 0;
 /* Pending level-up stats box — drawn after the "grew to level N!" text closes */
 static levelup_stats_t s_pending_lvl_stats;
 
+/* Trainer victory sequence (BUI_TRAINER_VICTORY_SLIDE/PAUSE/TEXT/FADE_WHITE) */
+static int  s_victory_timer      = 0;
+static char s_trainer_money_text[80];
+
 /* Pokemon appear (grow) animation state — AnimateSendingOutMon equivalent.
  * stage 0 = pokeball OAM at center; 1 = 3×3 crop; 2 = 5×5 crop; 3 → BUI_DRAW_HUD */
 static int s_grow_stage;
 static int s_grow_frame;
 /* 1 = grow animation was triggered by a voluntary mid-turn switch (→ BUI_SWITCH_ENEMY_TURN) */
 static int s_grow_after_switch;
+/* 1 = BUI_ENEMY_SEND_OUT entered from a mid-battle trainer replacement (not battle intro) */
+static int s_mid_battle_send;
 
 /* Retreat animation state (AnimateRetreatingPlayerMon equivalent).
  * stage 0 = full 7×7 (4f); 1 = 5×5 crop (4f); 2 = 3×3 crop (4f); 3 = done */
@@ -123,6 +147,122 @@ static int     s_retreat_stage;
 static int     s_retreat_frame;
 static uint8_t s_retreat_species;  /* old mon species for sprite tile lookup */
 static uint8_t s_switch_slot;      /* party slot chosen for voluntary switch */
+
+/* ---- Ball-throw / catch animation state (BUI_BAG_BATTLE → BUI_BALL_THROW → *
+ *       BUI_BALL_SHAKE → BUI_CAUGHT)                                          *
+ *                                                                             *
+ * Animation data sourced directly from pokered-master:                        *
+ *                                                                             *
+ * THROW ARC — Subanim_0BallTossHigh (subanimations.asm:139)                  *
+ *   11 frame-block entries; each entry shown for 3 frames                    *
+ *   (BallTossAnim: battle_anim NO_MOVE, SUBANIM_0_BALL_TOSS_HIGH, 0, 3).    *
+ *   Waypoints = BASECOORD_30,A2,93,61,73,A7,33,A8,0E,A9,34 (base_coords.asm)*
+ *   OAM coords are raw (Y = screen_Y+16, X = screen_X+8).                   *
+ *                                                                             *
+ * SPRITE — FrameBlock03 (frame_blocks.asm:158): 2×2 tile block (16×16px).   *
+ *   TL/TR: tile 2 of move_anim_0, TR is X-flipped.                          *
+ *   BL/BR: tile 18 of move_anim_0, BR is X-flipped.                         *
+ *   4 OAM entries at THROW_BALL_OAM_BASE (slots 0-3) — must have LOWER OAM  *
+ *   index than enemy (4-52) so ball renders on top (lower index = higher    *
+ *   visual priority in display.c).  Original game had ball at OAM[0] with  *
+ *   enemy on BG tiles; we replicate priority by keeping ball at index 0.   *
+ *                                                                             *
+ * SHAKE — Subanim_0BallShakeEnemy (subanimations.asm:153)                   *
+ *   4 frame-block entries at BASECOORD_21; each shown for 4 frames           *
+ *   (BallShakeAnim: battle_anim NO_MOVE, SUBANIM_0_BALL_SHAKE_ENEMY, 0, 4). *
+ *   FrameBlock03 = neutral, FrameBlock04 = tilt-right, FrameBlock05 = left.  *
+ *   DoBallShakeSpecialEffects (animations.asm:739):                          *
+ *     fires at start of each shake → SFX_TINK + DelayFrames 40.             *
+ *   Per-shake total: 40 pause + 4×4 visual = 56 frames.                     *
+ *                                                                             *
+ * SHAKE POSITION — BASECOORD_21 (base_coords.asm:36):                       *
+ *   OAM Y = $38 = 56, OAM X = $78 = 120.                                   */
+
+/* 4-OAM ball sprite block: OAM[0..3] — must be lowest index to beat enemy priority */
+#define THROW_BALL_OAM_BASE  0
+/* Shake rest position (BASECOORD_21, base_coords.asm:36) */
+#define BALL_SHAKE_OAM_Y     56   /* OAM Y = $38 */
+#define BALL_SHAKE_OAM_X     120  /* OAM X = $78 */
+/* Throw timing from BallTossAnim: 3 frames per waypoint */
+#define THROW_FPW            3    /* frames per waypoint */
+/* Shake timing from DoBallShakeSpecialEffects (animations.asm:739):
+ *   40-frame pause (SFX_TINK + DelayFrames 40) + 4 entries × 4 frames = 56 */
+#define SHAKE_DELAY          40
+#define SHAKE_CYCLE          56   /* frames per shake (40+16) */
+
+/* Sprite tile IDs loaded into sprite_tile_gfx for the ball animation.
+ * Sourced from gfx/battle/move_anim_0.png (tiles 0-based):
+ *   tile 2  → top half (FrameBlock03/throw + neutral)
+ *   tile 18 → bottom half
+ *   tiles 6,7,22,23 → tilted-right (FrameBlock04)
+ *   tiles 7,6,23,22 + XFLIP → tilted-left (FrameBlock05) */
+#define BALL_TILE_NEUT_TOP   114  /* move_anim_0 tile #2  */
+#define BALL_TILE_NEUT_BOT   115  /* move_anim_0 tile #18 */
+#define BALL_TILE_TILT_TL    116  /* move_anim_0 tile #6  */
+#define BALL_TILE_TILT_TR    117  /* move_anim_0 tile #7  */
+#define BALL_TILE_TILT_BL    118  /* move_anim_0 tile #22 */
+#define BALL_TILE_TILT_BR    119  /* move_anim_0 tile #23 */
+
+/* move_anim_0 tile data — extracted from gfx/battle/move_anim_0.png (128×40, 16 tiles/row) */
+static const uint8_t kBallTileNeutTop[16] = /* tile 2  */
+    {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0x03,0x0c,0x0f,0x11,0x1e,0x11,0x1e};
+static const uint8_t kBallTileNeutBot[16] = /* tile 18 */
+    {0x20,0x3f,0x20,0x3f,0x38,0x27,0x3f,0x20,0x1f,0x10,0x1f,0x10,0x0f,0x0c,0x03,0x03};
+static const uint8_t kBallTileTiltTL[16] = /* tile 6  */
+    {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,0x07,0x18,0x1f,0x23,0x3c,0x23,0x3c};
+static const uint8_t kBallTileTiltTR[16] = /* tile 7  */
+    {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80,0x80,0x60,0xe0,0x10,0xf0,0x10,0xf0};
+static const uint8_t kBallTileTiltBL[16] = /* tile 22 */
+    {0x40,0x7f,0x40,0x7f,0x40,0x7f,0x41,0x7e,0x3f,0x20,0x3f,0x20,0x1f,0x18,0x07,0x07};
+static const uint8_t kBallTileTiltBR[16] = /* tile 23 */
+    {0x08,0xf8,0x18,0xe8,0x38,0xc8,0xf8,0x08,0xf0,0x10,0xf0,0x10,0xe0,0x60,0x80,0x80};
+
+/* Poof cloud tile data — Subanim_0BallPoofEnemy (subanimations.asm:160).
+ * FrameBlocks 06-0A use tiles $20-$25, $30-$34 of move_anim_0.
+ * Sprite tile slots POOF_TILE_BASE+0..+9 (reuse player-slide OAM sprite slots
+ * which are idle after the intro slide; BG tile slots 49-97 are unaffected). */
+#define POOF_TILE_BASE    53   /* sprite_tile_gfx slots 53-62 */
+#define POOF_OAM_BASE     53   /* wShadowOAM slots 53-68 (max 16 per frame) */
+#define POOF_OAM_COUNT    16
+/* tile index helpers: POOF_TILE(anim_id) maps move_anim tile $20-$34 → slot */
+#define POOF_T20  (POOF_TILE_BASE + 0)
+#define POOF_T21  (POOF_TILE_BASE + 1)
+#define POOF_T23  (POOF_TILE_BASE + 2)
+#define POOF_T24  (POOF_TILE_BASE + 3)
+#define POOF_T25  (POOF_TILE_BASE + 4)
+#define POOF_T30  (POOF_TILE_BASE + 5)
+#define POOF_T31  (POOF_TILE_BASE + 6)
+#define POOF_T32  (POOF_TILE_BASE + 7)
+#define POOF_T33  (POOF_TILE_BASE + 8)
+#define POOF_T34  (POOF_TILE_BASE + 9)
+
+static const uint8_t kPoofTile20[16] = /* $20 */
+    {0x00,0x00,0x00,0x01,0x01,0x02,0x01,0x02,0x03,0x1C,0x1D,0x22,0x1F,0x20,0x3E,0x41};
+static const uint8_t kPoofTile21[16] = /* $21 */
+    {0x00,0x00,0x00,0xF0,0xF0,0x08,0xF8,0x07,0xFD,0x02,0xF0,0x0F,0xE0,0x1E,0x40,0xBC};
+static const uint8_t kPoofTile23[16] = /* $23 */
+    {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x06,0x06,0x39,0x3F,0x40};
+static const uint8_t kPoofTile24[16] = /* $24 */
+    {0x00,0x00,0x00,0x01,0x01,0x06,0x07,0x08,0x0E,0x11,0x1E,0x21,0x1C,0x22,0x30,0x4C};
+static const uint8_t kPoofTile25[16] = /* $25 */
+    {0x00,0x70,0x70,0x8C,0xF0,0x0E,0x80,0x7C,0x00,0xC0,0x00,0x80,0x00,0x00,0x00,0x00};
+static const uint8_t kPoofTile30[16] = /* $30 */
+    {0x3E,0x41,0x1C,0x63,0x00,0x7F,0x00,0x7F,0x00,0x3F,0x00,0x1F,0x00,0x1F,0x00,0x1C};
+static const uint8_t kPoofTile31[16] = /* $31 */
+    {0x00,0xFC,0x00,0xFC,0x00,0xF8,0x00,0xE0,0x00,0xE0,0x00,0xC0,0x00,0x00,0x00,0x00};
+static const uint8_t kPoofTile32[16] = /* $32 */
+    {0x00,0x00,0x00,0x01,0x01,0x02,0x01,0x02,0x01,0x02,0x03,0x04,0x03,0x04,0x01,0x02};
+static const uint8_t kPoofTile33[16] = /* $33 */
+    {0x7F,0x80,0xFE,0x01,0xF8,0x07,0xF8,0x07,0xF0,0x0E,0xC0,0x3E,0xC0,0x3C,0x80,0x70};
+static const uint8_t kPoofTile34[16] = /* $34 */
+    {0x30,0x4C,0x60,0x98,0x60,0x98,0x60,0x90,0x00,0x70,0x00,0x60,0x00,0x20,0x00,0x00};
+
+static uint8_t        s_ball_item     = 0;
+static catch_result_t s_catch_result  = CATCH_RESULT_0_SHAKES;
+static int            s_throw_frame   = 0;  /* counts 0..11*THROW_FPW-1 */
+static int            s_shake_total   = 0;  /* 0-3 shakes */
+static int            s_shake_frame   = 0;
+static int            s_poof_frame    = 0;  /* counts 0..23 (6 entries × 4 frames) */
 
 /* Move animation state — PlayApplyingAttackAnimation equivalent.
  * type: 0=none  1=vert-shake(b=8)  2=horiz-heavy(b=8)  4=blink-enemy  5=horiz-light(b=2)
@@ -183,6 +323,207 @@ static int bui_char_to_tile(unsigned char c) {
 }
 
 static void bui_place_player_sprite(void);  /* forward decl — defined after bui_load_sprites */
+static void bui_ball_load_poof_tiles(void); /* forward decl — defined after poof data */
+
+/* Decode a pokéred-encoded name (0x50-terminated) to null-terminated ASCII.
+ * Mirrors the decode table in inventory.c:Inventory_DecodeASCII. */
+static void bui_decode_poke_str(const uint8_t *src, char *dst, int max) {
+    int out = 0;
+    for (int i = 0; out < max - 1 && src[i] != 0x50; i++) {
+        uint8_t c = src[i];
+        if      (c >= 0x80 && c <= 0x99) dst[out++] = (char)('A' + (c - 0x80));
+        else if (c >= 0xA0 && c <= 0xB9) dst[out++] = (char)('a' + (c - 0xA0));
+        else if (c == 0x7F)               dst[out++] = ' ';
+        else if (c >= 0xF6)               dst[out++] = (char)('0' + (c - 0xF6));
+        else if (c == 0xE8)               dst[out++] = '.';
+        else if (c == 0xE3)               dst[out++] = '-';
+        else                              dst[out++] = '?';
+    }
+    dst[out] = '\0';
+}
+
+/* Returns 1 if item_id is a pokéball (ITEM_MASTER/ULTRA/GREAT/POKE/SAFARI_BALL). */
+static int bui_is_ball(uint8_t id) {
+    return id == ITEM_MASTER_BALL || id == ITEM_ULTRA_BALL ||
+           id == ITEM_GREAT_BALL  || id == ITEM_POKE_BALL  ||
+           id == ITEM_SAFARI_BALL;
+}
+
+/* Load the 6 ball throw/shake tiles + 10 poof cloud tiles into sprite_tile_gfx.
+ * Called once when BUI_BAG_BATTLE transitions to BUI_BALL_THROW. */
+static void bui_ball_load_tiles(void) {
+    Display_LoadSpriteTile(BALL_TILE_NEUT_TOP, kBallTileNeutTop);
+    Display_LoadSpriteTile(BALL_TILE_NEUT_BOT, kBallTileNeutBot);
+    Display_LoadSpriteTile(BALL_TILE_TILT_TL,  kBallTileTiltTL);
+    Display_LoadSpriteTile(BALL_TILE_TILT_TR,  kBallTileTiltTR);
+    Display_LoadSpriteTile(BALL_TILE_TILT_BL,  kBallTileTiltBL);
+    Display_LoadSpriteTile(BALL_TILE_TILT_BR,  kBallTileTiltBR);
+    bui_ball_load_poof_tiles();
+}
+
+/* Set the 4-OAM ball sprite (FrameBlock03/04/05) at OAM base position (baseY, baseX).
+ * fb: 0 = neutral (FrameBlock03), 1 = tilt-right (FrameBlock04), 2 = tilt-left (FrameBlock05) */
+static void bui_ball_set_oam(uint8_t baseY, uint8_t baseX, int fb) {
+    int b = THROW_BALL_OAM_BASE;
+    switch (fb) {
+    case 0: /* FrameBlock03: neutral / throw */
+        wShadowOAM[b+0].y = baseY;          wShadowOAM[b+0].x = baseX;
+        wShadowOAM[b+0].tile = BALL_TILE_NEUT_TOP; wShadowOAM[b+0].flags = 0;
+        wShadowOAM[b+1].y = baseY;          wShadowOAM[b+1].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+1].tile = BALL_TILE_NEUT_TOP; wShadowOAM[b+1].flags = OAM_FLAG_FLIP_X;
+        wShadowOAM[b+2].y = (uint8_t)(baseY + 8); wShadowOAM[b+2].x = baseX;
+        wShadowOAM[b+2].tile = BALL_TILE_NEUT_BOT; wShadowOAM[b+2].flags = 0;
+        wShadowOAM[b+3].y = (uint8_t)(baseY + 8); wShadowOAM[b+3].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+3].tile = BALL_TILE_NEUT_BOT; wShadowOAM[b+3].flags = OAM_FLAG_FLIP_X;
+        break;
+    case 1: /* FrameBlock04: tilt right */
+        wShadowOAM[b+0].y = baseY;          wShadowOAM[b+0].x = baseX;
+        wShadowOAM[b+0].tile = BALL_TILE_TILT_TL;  wShadowOAM[b+0].flags = 0;
+        wShadowOAM[b+1].y = baseY;          wShadowOAM[b+1].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+1].tile = BALL_TILE_TILT_TR;  wShadowOAM[b+1].flags = 0;
+        wShadowOAM[b+2].y = (uint8_t)(baseY + 8); wShadowOAM[b+2].x = baseX;
+        wShadowOAM[b+2].tile = BALL_TILE_TILT_BL;  wShadowOAM[b+2].flags = 0;
+        wShadowOAM[b+3].y = (uint8_t)(baseY + 8); wShadowOAM[b+3].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+3].tile = BALL_TILE_TILT_BR;  wShadowOAM[b+3].flags = 0;
+        break;
+    case 2: /* FrameBlock05: tilt left (XFLIP of FrameBlock04, tiles swapped per column) */
+        wShadowOAM[b+0].y = baseY;          wShadowOAM[b+0].x = baseX;
+        wShadowOAM[b+0].tile = BALL_TILE_TILT_TR;  wShadowOAM[b+0].flags = OAM_FLAG_FLIP_X;
+        wShadowOAM[b+1].y = baseY;          wShadowOAM[b+1].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+1].tile = BALL_TILE_TILT_TL;  wShadowOAM[b+1].flags = OAM_FLAG_FLIP_X;
+        wShadowOAM[b+2].y = (uint8_t)(baseY + 8); wShadowOAM[b+2].x = baseX;
+        wShadowOAM[b+2].tile = BALL_TILE_TILT_BR;  wShadowOAM[b+2].flags = OAM_FLAG_FLIP_X;
+        wShadowOAM[b+3].y = (uint8_t)(baseY + 8); wShadowOAM[b+3].x = (uint8_t)(baseX + 8);
+        wShadowOAM[b+3].tile = BALL_TILE_TILT_BL;  wShadowOAM[b+3].flags = OAM_FLAG_FLIP_X;
+        break;
+    }
+}
+
+/* Hide the 4-OAM ball sprite by moving all entries off-screen (Y=0). */
+static void bui_ball_hide(void) {
+    for (int i = 0; i < 4; i++)
+        wShadowOAM[THROW_BALL_OAM_BASE + i].y = 0;
+}
+
+/* Load 10 poof cloud tiles into sprite_tile_gfx (reuses player-slide sprite slots). */
+static void bui_ball_load_poof_tiles(void) {
+    Display_LoadSpriteTile(POOF_T20, kPoofTile20);
+    Display_LoadSpriteTile(POOF_T21, kPoofTile21);
+    Display_LoadSpriteTile(POOF_T23, kPoofTile23);
+    Display_LoadSpriteTile(POOF_T24, kPoofTile24);
+    Display_LoadSpriteTile(POOF_T25, kPoofTile25);
+    Display_LoadSpriteTile(POOF_T30, kPoofTile30);
+    Display_LoadSpriteTile(POOF_T31, kPoofTile31);
+    Display_LoadSpriteTile(POOF_T32, kPoofTile32);
+    Display_LoadSpriteTile(POOF_T33, kPoofTile33);
+    Display_LoadSpriteTile(POOF_T34, kPoofTile34);
+}
+
+/* Poof cloud sprite entry: column/row tile offsets, tile ID, OAM flags.
+ * Mirrors the dbsprite macro in frame_blocks.asm. */
+typedef struct { int8_t col; int8_t row; uint8_t tile; uint8_t flags; } poof_spr_t;
+
+/* FrameBlock06 (12 sprites) — BASECOORD_1B (Y=48, X=112), frames 0-1 of poof */
+static const poof_spr_t kFB06[12] = {
+    {1,0,POOF_T23,0},                        {0,1,POOF_T32,0},  {1,1,POOF_T33,0},
+    {2,0,POOF_T23,OAM_FLAG_FLIP_X},          {2,1,POOF_T33,OAM_FLAG_FLIP_X},
+    {3,1,POOF_T32,OAM_FLAG_FLIP_X},
+    {0,2,POOF_T32,OAM_FLAG_FLIP_Y},          {1,2,POOF_T33,OAM_FLAG_FLIP_Y},
+    {1,3,POOF_T23,OAM_FLAG_FLIP_Y},
+    {2,2,POOF_T33,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {3,2,POOF_T32,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {2,3,POOF_T23,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+};
+/* FrameBlock07 (16 sprites) — BASECOORD_1B, frame 1 of poof */
+static const poof_spr_t kFB07[16] = {
+    {0,0,POOF_T20,0}, {1,0,POOF_T21,0}, {0,1,POOF_T30,0}, {1,1,POOF_T31,0},
+    {2,0,POOF_T21,OAM_FLAG_FLIP_X}, {3,0,POOF_T20,OAM_FLAG_FLIP_X},
+    {2,1,POOF_T31,OAM_FLAG_FLIP_X}, {3,1,POOF_T30,OAM_FLAG_FLIP_X},
+    {0,2,POOF_T30,OAM_FLAG_FLIP_Y}, {1,2,POOF_T31,OAM_FLAG_FLIP_Y},
+    {0,3,POOF_T20,OAM_FLAG_FLIP_Y}, {1,3,POOF_T21,OAM_FLAG_FLIP_Y},
+    {2,2,POOF_T31,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {3,2,POOF_T30,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {2,3,POOF_T21,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {3,3,POOF_T20,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+};
+/* FrameBlock08 (16 sprites) — BASECOORD_36 (Y=44, X=108), frames 2-3 of poof */
+static const poof_spr_t kFB08[16] = {
+    {0,0,POOF_T20,0}, {1,0,POOF_T21,0}, {0,1,POOF_T30,0}, {1,1,POOF_T31,0},
+    {3,0,POOF_T21,OAM_FLAG_FLIP_X}, {4,0,POOF_T20,OAM_FLAG_FLIP_X},
+    {3,1,POOF_T31,OAM_FLAG_FLIP_X}, {4,1,POOF_T30,OAM_FLAG_FLIP_X},
+    {0,3,POOF_T30,OAM_FLAG_FLIP_Y}, {1,3,POOF_T31,OAM_FLAG_FLIP_Y},
+    {0,4,POOF_T20,OAM_FLAG_FLIP_Y}, {1,4,POOF_T21,OAM_FLAG_FLIP_Y},
+    {3,3,POOF_T31,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {4,3,POOF_T30,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {3,4,POOF_T21,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {4,4,POOF_T20,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+};
+/* FrameBlock09 (12 sprites) — BASECOORD_36, frame 3 of poof */
+static const poof_spr_t kFB09[12] = {
+    {0,0,POOF_T24,0}, {1,0,POOF_T25,0}, {0,1,POOF_T34,0},
+    {3,0,POOF_T25,OAM_FLAG_FLIP_X}, {4,0,POOF_T24,OAM_FLAG_FLIP_X},
+    {4,1,POOF_T34,OAM_FLAG_FLIP_X},
+    {0,3,POOF_T34,OAM_FLAG_FLIP_Y}, {0,4,POOF_T24,OAM_FLAG_FLIP_Y},
+    {1,4,POOF_T25,OAM_FLAG_FLIP_Y},
+    {4,3,POOF_T34,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {3,4,POOF_T25,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {4,4,POOF_T24,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+};
+/* FrameBlock0A (12 sprites) — BASECOORD_15 (Y=40, X=104), frames 4-5 of poof */
+static const poof_spr_t kFB0A[12] = {
+    {0,0,POOF_T24,0}, {1,0,POOF_T25,0}, {0,1,POOF_T34,0},
+    {4,0,POOF_T25,OAM_FLAG_FLIP_X}, {5,0,POOF_T24,OAM_FLAG_FLIP_X},
+    {5,1,POOF_T34,OAM_FLAG_FLIP_X},
+    {0,4,POOF_T34,OAM_FLAG_FLIP_Y}, {0,5,POOF_T24,OAM_FLAG_FLIP_Y},
+    {1,5,POOF_T25,OAM_FLAG_FLIP_Y},
+    {5,4,POOF_T34,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {4,5,POOF_T25,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+    {5,5,POOF_T24,OAM_FLAG_FLIP_X|OAM_FLAG_FLIP_Y},
+};
+
+/* Draw one poof frame block at POOF_OAM_BASE.
+ * Subanim_0BallPoofEnemy: 6 entries using FB06,07,08,09,0A,0A
+ * at BASECOORD_1B(Y=48,X=112), 1B, 36(Y=44,X=108), 36, 15(Y=40,X=104), 15.
+ * Transform = SUBANIMTYPE_NORMAL for player turn (GetSubanimationTransform1
+ * returns NORMAL for non-ENEMY type on player's turn) so coords are direct. */
+static void bui_draw_poof_frame(int entry) {
+    static const uint8_t kBaseY[6] = {48, 48, 44, 44, 40, 40};
+    static const uint8_t kBaseX[6] = {112,112,108,108,104,104};
+    static const poof_spr_t * const kFB[6]  = {kFB06,kFB07,kFB08,kFB09,kFB0A,kFB0A};
+    static const int                kSz[6]  = {12,16,16,12,12,12};
+
+    uint8_t baseY = kBaseY[entry], baseX = kBaseX[entry];
+    const poof_spr_t *fb = kFB[entry];
+    int n = kSz[entry];
+    for (int i = 0; i < n; i++) {
+        int idx = POOF_OAM_BASE + i;
+        wShadowOAM[idx].y     = (uint8_t)(baseY + fb[i].row * 8);
+        wShadowOAM[idx].x     = (uint8_t)(baseX + fb[i].col * 8);
+        wShadowOAM[idx].tile  = fb[i].tile;
+        wShadowOAM[idx].flags = fb[i].flags;
+    }
+}
+
+/* Draw one player-side poof frame block at POOF_OAM_BASE.
+ * Subanim_0BallPoof (player): 3 entries, FB06→FB07→FB08.
+ * BASECOORD_82 (Y=72, X=32) for entries 0-1; BASECOORD_96 (Y=68, X=28) for entry 2. */
+static void bui_draw_player_poof_frame(int entry) {
+    static const uint8_t kPBaseY[3] = {72, 72, 68};
+    static const uint8_t kPBaseX[3] = {32, 32, 28};
+    static const poof_spr_t * const kPFB[3]  = {kFB06, kFB07, kFB08};
+    static const int                kPSz[3]  = {12, 16, 16};
+
+    uint8_t baseY = kPBaseY[entry], baseX = kPBaseX[entry];
+    const poof_spr_t *fb = kPFB[entry];
+    int n = kPSz[entry];
+    for (int i = 0; i < n; i++) {
+        int idx = POOF_OAM_BASE + i;
+        wShadowOAM[idx].y     = (uint8_t)(baseY + fb[i].row * 8);
+        wShadowOAM[idx].x     = (uint8_t)(baseX + fb[i].col * 8);
+        wShadowOAM[idx].tile  = fb[i].tile;
+        wShadowOAM[idx].flags = fb[i].flags;
+    }
+}
 
 static void bui_set_tile(int col, int row, uint8_t tile) {
     if (col >= 0 && col < SCREEN_WIDTH && row >= 0 && row < SCREEN_HEIGHT)
@@ -260,28 +601,35 @@ static void bui_draw_levelup_stats(const levelup_stats_t *s) {
  * OBJ tile slots (sprite_tile_gfx):                                    *
  *   0-48  : enemy front sprite (7×7 canvas, 49 tiles)                  *
  * BG tile slots (tile_gfx, safe to overwrite during battle):           *
- *   49-97 : player back sprite (7×7 canvas, 49 tiles)                  *
+ *   53-101: player back sprite (7×7 canvas, 49 tiles)                  *
  *                                                                       *
  * OAM entries:                                                          *
- *   0-48  : enemy sprite tiles (7×7 grid, screen pixel 88,0)           */
+ *   0- 3  : pokeball throw sprite (4 tiles, highest priority)          *
+ *   4-52  : enemy sprite tiles (7×7 grid, screen pixel 88,0)           */
 #define ENEMY_SPR_TILE_BASE   0
-#define PLAYER_SPR_BG_BASE    49   /* BG tile slots for back sprite */
-#define ENEMY_SPR_OAM_BASE    0
+#define PLAYER_SPR_BG_BASE    53   /* BG tile slots for back sprite (53-101) */
+#define ENEMY_SPR_OAM_BASE    53   /* OAM 53-101: renders below player (higher index = lower priority) */
 /* Enemy: top-left at tile col 11, row 0 = pixel (88, 0) */
 #define ENEMY_SPR_PX_X        88
+/* Victory slide final X: col 14 = pixel 112.  Rightmost tile (tx=6) lands at
+ * pixel 160 = just off-screen right, matching ASM scroll (6 of 7 cols visible). */
+#define VICTORY_TRAINER_PX_X  112
 #define ENEMY_SPR_PX_Y        0
 /* Player back: hlcoord(1,5) = tile col 1, row 5 = pixel (8, 40) */
 #define PLAYER_SPR_COL        1
 #define PLAYER_SPR_ROW        5
 
 /* Slide-in intro: player back sprite as OAM during the 72-frame slide animation.
- * Uses sprite tile slots 49-97 (separate from BG tile slots 49-97 for the same gfx). */
-#define PLAYER_SLIDE_OAM_BASE 49    /* OAM entries 49-97, sprite tiles 49-97 */
+ * Uses sprite tile slots 53-101 (separate from BG tile slots 49-97 for the same gfx).
+ * Poof animation (BUI_BALL_POOF) reuses slots 53-68 once the slide is done. */
+#define PLAYER_SLIDE_OAM_BASE 4     /* OAM entries 4-52: renders above enemy (lower index = higher priority) */
+#define PLAYER_SLIDE_TILE_BASE 53   /* sprite tile VRAM slots 53-101 (independent of OAM index) */
 /* Party pokeball OAM (DrawAllPokeballs): 6 entries after the two sprite blocks. */
-#define POKEBALL_OAM_BASE          98   /* player party balls: OAM 98-103 */
-#define ENEMY_POKEBALL_OAM_BASE   104   /* enemy party balls (trainer only): OAM 104-109 */
-#define POKEBALL_TILE_BASE    110   /* sprite tile 110=normal,111=status,112=fainted,113=empty
-                                    * Must not overlap player slide tiles 49-97 or enemy tiles 0-48. */
+#define POKEBALL_OAM_BASE         102   /* player party balls: OAM 102-107 */
+#define ENEMY_POKEBALL_OAM_BASE   108   /* enemy party balls (trainer only): OAM 108-113 */
+#define POKEBALL_TILE_BASE    120   /* sprite tile 120=normal,121=status,122=fainted,123=empty
+                                    * Must not overlap player slide tiles 53-101, enemy 0-48,
+                                    * or ball throw tiles 114-119. */
 /* Pokeball screen position: row 10 = pixel Y 80; OAM Y includes +16 hardware offset. */
 #define POKEBALL_OAM_Y        96    /* 80 + 16 = 96 */
 /* Pokeball X: screen X starts at 88 (matching wBaseCoordX=$60 in the original).
@@ -442,7 +790,7 @@ static void bui_load_sprites(void) {
     }
 
     /* Player back sprite: drawn as BG tiles (CopyUncompressedPicToTilemap).
-     * Tiles go into tile_gfx slots 49-97, written to gScrollTileMap at (col 1-7, row 5-11).
+     * Tiles go into tile_gfx slots 49-97 (PLAYER_SPR_BG_BASE), written to gScrollTileMap.
      * PP box / move menu naturally overwrites the overlap area when drawn. */
     if (p_dex > 0 && p_dex <= 151) {
         for (int i = 0; i < POKEMON_BACK_TILES; i++)
@@ -1221,15 +1569,20 @@ static void bui_handle_enemy_fainted(void) {
 
     Audio_PlaySFX_Faint();
     Battle_HandleEnemyMonFainted();   /* sets wBattleResult, awards exp, queues exp texts */
-    bui_draw_enemy_hud();
+    /* For mid-battle trainer replacement (OUTCOME_NONE), Battle_HandleEnemyMonFainted
+     * already swapped in the new mon.  Don't draw the enemy HUD yet — it will be
+     * drawn in BUI_ENEMY_SEND_OUT stage 2 when the Pokémon actually materialises.
+     * For wild/trainer victory the fainted mon is still in wEnemyMon, so drawing
+     * here (showing 0 HP) is correct. */
+    if (wBattleResult != BATTLE_OUTCOME_NONE)
+        bui_draw_enemy_hud();
     bui_draw_player_hud();
 
-    /* Play victory jingle — mirrors PlayBattleVictoryMusic (core.asm:959).
-     * Fires on wild victory and trainer victory; silence on mid-trainer faint. */
+    /* Play wild victory jingle now; trainer victory music fires later in
+     * BUI_EXP_DRAIN just before showing "PLAYER defeated TRAINER!" —
+     * matching PlayBattleVictoryMusic order in core.asm:TrainerBattleVictory. */
     if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY)
         Music_Play(MUSIC_DEFEATED_WILD_MON);
-    else if (wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY)
-        Music_Play(MUSIC_DEFEATED_TRAINER);
 
     /* Show "[Enemy] fainted!" — exp texts drained afterward in BUI_EXP_DRAIN */
     snprintf(s_msg_buf, sizeof(s_msg_buf), "%s%s\nfainted!", faint_pfx, faint_name);
@@ -1238,9 +1591,10 @@ static void bui_handle_enemy_fainted(void) {
     if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY) {
         bui_exp_dest    = BUI_END;
         s_exp_suffix[0] = '\0';
+        s_exp_suffix2[0] = '\0';
     } else if (wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
-        /* Mirrors TrainerDefeatedText: "[PLAYER] defeated [TRAINER]!"
-         * We decode wPlayerName from GB charset (0x80='A'..0x99='Z'). */
+        /* Mirrors TrainerDefeatedText + MoneyForWinningText (core.asm:915-949).
+         * Decode player name from GB charset (0x80='A'..0x99='Z'). */
         char player_ascii[NAME_LENGTH] = "RED";
         for (int i = 0; i < NAME_LENGTH - 1; i++) {
             uint8_t c = wPlayerName[i];
@@ -1250,14 +1604,37 @@ static void bui_handle_enemy_fainted(void) {
             else { player_ascii[i] = '?'; }
             player_ascii[i + 1] = '\0';
         }
-        bui_exp_dest = BUI_END;
+        /* Award prize money (mirrors AddBCDPredef in TrainerBattleVictory). */
+        uint32_t money = (uint32_t)(
+            ((wPlayerMoney[0] >> 4) & 0xF) * 100000u +
+            (wPlayerMoney[0] & 0xF)        * 10000u  +
+            ((wPlayerMoney[1] >> 4) & 0xF) * 1000u   +
+            (wPlayerMoney[1] & 0xF)        * 100u     +
+            ((wPlayerMoney[2] >> 4) & 0xF) * 10u      +
+            (wPlayerMoney[2] & 0xF));
+        money += wAmountMoneyWon;
+        if (money > 999999u) money = 999999u;
+        wPlayerMoney[0] = (uint8_t)(((money / 100000u) << 4) | ((money / 10000u) % 10u));
+        wPlayerMoney[1] = (uint8_t)((((money / 1000u) % 10u) << 4) | ((money / 100u) % 10u));
+        wPlayerMoney[2] = (uint8_t)((((money / 10u) % 10u) << 4) | (money % 10u));
+        /* TrainerDefeatedText: "[PLAYER] defeated\n[TRAINER CLASS]!" */
+        int tc2 = (int)gEngagedTrainerClass - 1;
+        const char *tname = (tc2 >= 0 && tc2 < NUM_TRAINERS) ? gTrainerClassNames[tc2] : "TRAINER";
+        bui_exp_dest = BUI_TRAINER_VICTORY_SLIDE;
         snprintf(s_exp_suffix, sizeof(s_exp_suffix),
-                 "%s\ndefeated the trainer!", player_ascii);
+                 "%s defeated\n%s!", player_ascii, tname);
+        s_exp_suffix2[0] = '\0';
+        /* Money text shown after trainer slide-in + defeat quote */
+        snprintf(s_trainer_money_text, sizeof(s_trainer_money_text),
+                 "%s got \xA5%lu\nfor winning!", player_ascii, (unsigned long)wAmountMoneyWon);
+        s_slide_cx      = 48;  /* 6 tile-columns × 8px — matches scrollLoop c=1..6 */
+        s_victory_timer = 0;
     } else {
         /* Trainer has more mons — enemy was already replaced by handler.
          * Show "Foe sent out X!" after exp texts are drained. */
         const char *new_name = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-        bui_exp_dest = BUI_DRAW_HUD;
+        s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
+        bui_exp_dest = BUI_ENEMY_SEND_OUT;
         snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", new_name);
     }
     bui_state = BUI_EXP_DRAIN;
@@ -1353,6 +1730,14 @@ static void bui_exec_second_move(void) {
 
 /* ---- Public API ---------------------------------------------------- */
 
+void BattleUI_Restore(void) {
+    /* Reset the UI state machine to BUI_DRAW_HUD: the normal idle state
+     * after both mons are on screen.  BUI_DRAW_HUD reloads sprites and
+     * redraws the HUD, then transitions to BUI_PLAYER_ACTION_SELECTION,
+     * reconstructing the full battle screen from the restored WRAM state. */
+    bui_state = BUI_DRAW_HUD;
+}
+
 void BattleUI_Enter(void) {
     /* SlidePlayerAndEnemySilhouettesOnScreen setup:
      * Music is already playing (started before the transition in game.c).
@@ -1382,8 +1767,15 @@ void BattleUI_Enter(void) {
     uint8_t e_dex = gSpeciesToDex[wEnemyMon.species];
     uint8_t p_dex = gSpeciesToDex[wBattleMon.species];
 
-    /* Load enemy front sprite into sprite tile slots 0-48. */
-    if (e_dex > 0 && e_dex <= 151) {
+    /* Load enemy front sprite into sprite tile slots 0-48.
+     * Trainer battles: load the trainer's front sprite instead of a pokemon. */
+    if (wIsInBattle == 2) {
+        int tc = (int)gEngagedTrainerClass - 1;
+        if (tc >= 0 && tc < NUM_TRAINERS)
+            for (int i = 0; i < TRAINER_CANVAS_TILES; i++)
+                Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                       gTrainerFrontSprite[tc][i]);
+    } else if (e_dex > 0 && e_dex <= 151) {
         for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
             Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
                                    gPokemonFrontSprite[e_dex][i]);
@@ -1393,7 +1785,7 @@ void BattleUI_Enter(void) {
      * Matches LoadPlayerBackPic (core.asm:6202) which loads RedPicBack (not the pokemon).
      * The pokemon back sprite is loaded later in BUI_SEND_OUT via bui_load_sprites(). */
     for (int i = 0; i < 49; i++)
-        Display_LoadSpriteTile((uint8_t)(PLAYER_SLIDE_OAM_BASE + i), kRedBackSprite[i]);
+        Display_LoadSpriteTile((uint8_t)(PLAYER_SLIDE_TILE_BASE + i), kRedBackSprite[i]);
 
     /* Enemy: initial OAM off-screen LEFT — enters from left, slides right.
      * Mirrors pokered SCX $90→$00: BG tiles at a fixed position appear to enter
@@ -1419,7 +1811,7 @@ void BattleUI_Enter(void) {
                 int idx = PLAYER_SLIDE_OAM_BASE + ty * 7 + tx;
                 wShadowOAM[idx].y     = (uint8_t)(PLAYER_SPR_ROW * 8 + ty * 8 + 16);
                 wShadowOAM[idx].x     = (uint8_t)((PLAYER_SPR_COL * 8 + 144 + tx * 8 + 8) & 0xFF);
-                wShadowOAM[idx].tile  = (uint8_t)(PLAYER_SLIDE_OAM_BASE + ty * 7 + tx);
+                wShadowOAM[idx].tile  = (uint8_t)(PLAYER_SLIDE_TILE_BASE + ty * 7 + tx);
                 wShadowOAM[idx].flags = 0;
             }
         }
@@ -1428,6 +1820,10 @@ void BattleUI_Enter(void) {
 
 int BattleUI_IsActive(void) {
     return bui_state != BUI_INACTIVE;
+}
+
+int BattleUI_GetState(void) {
+    return (int)bui_state;
 }
 
 void BattleUI_Tick(void) {
@@ -1445,8 +1841,14 @@ void BattleUI_Tick(void) {
         int cx = s_slide_cx;
         uint8_t e_dex2 = gSpeciesToDex[wEnemyMon.species];
 
-        /* Enemy: slides right as cx decreases (enters from left edge). */
-        if (e_dex2 > 0 && e_dex2 <= 151) {
+        /* First frame: draw empty textbox — mirrors DisplayTextBoxID call in
+         * SlidePlayerAndEnemySilhouettesOnScreen before the slide loop begins. */
+        if (cx == 144)
+            bui_draw_box();
+
+        /* Enemy: slides right as cx decreases (enters from left edge).
+         * Always runs for trainer battles (trainer sprite loaded in BattleUI_Enter). */
+        if (wIsInBattle == 2 || (e_dex2 > 0 && e_dex2 <= 151)) {
             for (int ty = 0; ty < 7; ty++)
                 for (int tx = 0; tx < 7; tx++) {
                     int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
@@ -1465,21 +1867,22 @@ void BattleUI_Tick(void) {
             s_slide_cx -= 2;
         } else {
             /* Slide complete (cx == 0).
-             * Pokeball tiles are loaded to sprite slots 110-113 (POKEBALL_TILE_BASE),
-             * well clear of Red's slide sprite tiles 49-97 — so Red's OAM stays active
+             * Pokeball tiles are loaded to sprite slots 120-123 (POKEBALL_TILE_BASE),
+             * well clear of Red's slide sprite tiles 53-101 — so Red's OAM stays active
              * and he remains visible during the "appeared!" text, exactly as in the original
              * where his body stays on the BG tilemap through PrintBeginningBattleText. */
             bui_draw_pokeballs();
-            /* "Wild X appeared!" — mirrors PrintBeginningBattleText. */
-            const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-            /* PlayCry — mirrors PrintBeginningBattleText calling PlayCry(wEnemyMonSpecies2)
-             * for wild battles.  Trainer battles play no cry here (they play a SFX instead). */
-            if (wIsInBattle != 2)
+            /* "X wants to fight!" / "Wild X appeared!" — mirrors PrintBeginningBattleText. */
+            if (wIsInBattle == 2) {
+                int tc = (int)gEngagedTrainerClass - 1;
+                const char *t_name = (tc >= 0 && tc < NUM_TRAINERS)
+                                     ? gTrainerClassNames[tc] : "TRAINER";
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nwants to fight!", t_name);
+            } else {
                 Audio_PlayCry(wEnemyMon.species);
-            if (wIsInBattle == 2)
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe %s\nwants to fight!", e_name2);
-            else
+                const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "Wild %s\nappeared!", e_name2);
+            }
             Text_ShowASCII(s_msg_buf);
             bui_state = BUI_SEND_OUT;
         }
@@ -1510,8 +1913,36 @@ void BattleUI_Tick(void) {
         if (wIsInBattle == 2)
             bui_clear_rect(0, 0, 11, 3); /* remove enemy HUD border tiles (trainer) */
         bui_draw_box();                  /* keep text box border visible during slide */
-        s_slide_cx = 0;   /* slide-out offset counter (counts up, 4px/tick) */
-        bui_state = BUI_TRAINER_SLIDE_OUT;
+        s_slide_cx = 0;
+        /* Trainer battle: slide trainer pic off right first (EnemySendOutFirstMon).
+         * Wild battle: skip straight to sliding Red off. */
+        bui_state = (wIsInBattle == 2) ? BUI_ENEMY_SLIDE_OUT : BUI_TRAINER_SLIDE_OUT;
+        break;
+    }
+
+    /* ---- Enemy slide-out: trainer sprite exits right ------------- *
+     * Mirrors SlideTrainerPicOffScreen(hlcoord(18,0), a=8) called    *
+     * at the top of EnemySendOutFirstMon (core.asm:1312).            *
+     * 4px/tick, ~80px travel until all 7 cols are off-screen.        */
+    case BUI_ENEMY_SLIDE_OUT: {
+        s_slide_cx += 4;
+        for (int ty = 0; ty < 7; ty++)
+            for (int tx = 0; tx < 7; tx++) {
+                int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                int nx = ENEMY_SPR_PX_X + tx * 8 + OAM_X_OFS + s_slide_cx;
+                wShadowOAM[idx].x = (uint8_t)(nx > 255 ? 0 : nx);
+            }
+        if (s_slide_cx >= 64) {
+            /* Trainer fully off-screen: hide enemy OAM, show "sent out" text */
+            bui_set_enemy_oam_visible(0);
+            const char *e_name3 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "Foe sent out\n%s!", e_name3);
+            Text_ShowASCII(s_msg_buf);
+            s_grow_stage = 0;
+            s_grow_frame = 0;
+            s_mid_battle_send = 0;  /* intro path — not a mid-battle replacement */
+            bui_state = BUI_ENEMY_SEND_OUT;
+        }
         break;
     }
 
@@ -1528,26 +1959,104 @@ void BattleUI_Tick(void) {
                 wShadowOAM[idx].x = (uint8_t)(nx < 0 ? 0 : nx);
             }
         /* tx=6 final_x=64; all sprites off-screen once s_slide_cx >= 64. */
-        if (s_slide_cx >= 64) {
+        if (s_slide_cx >= 72) {
             for (int i = 0; i < 49; i++)
                 wShadowOAM[PLAYER_SLIDE_OAM_BASE + i].y = 0;
-            /* Load pokemon back sprite BG tiles now (needed for grow animation). */
-            uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
-            if (p_dex2 > 0 && p_dex2 <= 151) {
-                for (int i = 0; i < POKEMON_BACK_TILES; i++)
-                    Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
-                                     gPokemonBackSprite[p_dex2][i]);
-            }
-            /* "Go! [name]!" — mirrors PrintSendOutMonMessage.
-             * In SendOutMon the text fires BEFORE Draw*HUDAndHPBar, so HUDs
-             * are drawn only after the player dismisses this box (in
-             * BUI_POKEMON_APPEAR's first frame). */
-            const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
-            Text_ShowASCII(s_msg_buf);
             s_grow_stage = 0;
             s_grow_frame = 0;
+            if (wIsInBattle != 2) {
+                /* Wild battle: load back sprite and show "Go! X!" now. */
+                uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
+                if (p_dex2 > 0 && p_dex2 <= 151) {
+                    for (int i = 0; i < POKEMON_BACK_TILES; i++)
+                        Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
+                                         gPokemonBackSprite[p_dex2][i]);
+                }
+                const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
+                Text_ShowASCII(s_msg_buf);
+            }
+            /* Trainer battle: "Go! X!" already shown in BUI_ENEMY_SEND_OUT stage 3. */
             bui_state = BUI_POKEMON_APPEAR;
+        }
+        break;
+    }
+
+    /* ---- Enemy send-out: trainer throws pokemon from pokeball --------- *
+     * Trainer battle only. Mirrors EnemySendOutFirstMon (core.asm:1413): *
+     * AnimateSendingOutMon at enemy sprite position.                      *
+     * Stage 0 ( 8f): single pokeball OAM at enemy center.               *
+     * Stage 1 ( 4f): 3×3 center-crop of front sprite via OAM.           *
+     * Stage 2 ( 4f): 5×5 center-crop via OAM.                           *
+     * Stage 3:       full 7×7 → cry → enemy HUD → queue player send-out */
+    case BUI_ENEMY_SEND_OUT: {
+        uint8_t e_dex4 = gSpeciesToDex[wEnemyMon.species];
+        /* One-time setup on first frame after "sent out" text dismissed. */
+        if (s_grow_stage == 0 && s_grow_frame == 0) {
+            /* Load enemy pokemon front sprite into tile slots (replaces trainer sprite). */
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
+                    Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                           gPokemonFrontSprite[e_dex4][i]);
+            }
+            bui_set_enemy_oam_visible(0);  /* hide full sprite; crops shown below */
+            wShadowOAM[POKEBALL_OAM_BASE].y    = (uint8_t)(ENEMY_SPR_PX_Y + 6 * 8 + OAM_Y_OFS);
+            wShadowOAM[POKEBALL_OAM_BASE].x    = (uint8_t)(ENEMY_SPR_PX_X + 3 * 8 + OAM_X_OFS);
+            wShadowOAM[POKEBALL_OAM_BASE].tile = POKEBALL_TILE_BASE;
+            wShadowOAM[POKEBALL_OAM_BASE].flags = 0;
+        }
+        s_grow_frame++;
+        if (s_grow_stage == 0 && s_grow_frame >= 8) {
+            Audio_PlaySFX_BallPoof();
+            wShadowOAM[POKEBALL_OAM_BASE].y = 0;  /* hide pokeball */
+            /* 3×3 center-crop: show tiles (2..4, 2..4) of the 7×7 sprite */
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int dty = 0; dty < 3; dty++)
+                    for (int dtx = 0; dtx < 3; dtx++) {
+                        int oidx = ENEMY_SPR_OAM_BASE + (2 + dty) * 7 + (2 + dtx);
+                        wShadowOAM[oidx].y    = (uint8_t)(ENEMY_SPR_PX_Y + (2+dty)*8 + OAM_Y_OFS);
+                        wShadowOAM[oidx].x    = (uint8_t)(ENEMY_SPR_PX_X + (2+dtx)*8 + OAM_X_OFS);
+                        wShadowOAM[oidx].tile = (uint8_t)(ENEMY_SPR_TILE_BASE + (2+dty)*7 + (2+dtx));
+                    }
+            }
+            s_grow_stage = 1;  s_grow_frame = 0;
+        } else if (s_grow_stage == 1 && s_grow_frame >= 4) {
+            /* 5×5 center-crop: show tiles (1..5, 1..5) */
+            bui_set_enemy_oam_visible(0);
+            if (e_dex4 > 0 && e_dex4 <= 151) {
+                for (int dty = 0; dty < 5; dty++)
+                    for (int dtx = 0; dtx < 5; dtx++) {
+                        int oidx = ENEMY_SPR_OAM_BASE + (1+dty)*7 + (1+dtx);
+                        wShadowOAM[oidx].y    = (uint8_t)(ENEMY_SPR_PX_Y + (1+dty)*8 + OAM_Y_OFS);
+                        wShadowOAM[oidx].x    = (uint8_t)(ENEMY_SPR_PX_X + (1+dtx)*8 + OAM_X_OFS);
+                        wShadowOAM[oidx].tile = (uint8_t)(ENEMY_SPR_TILE_BASE + (1+dty)*7 + (1+dtx));
+                    }
+            }
+            s_grow_stage = 2;  s_grow_frame = 0;
+        } else if (s_grow_stage == 2 && s_grow_frame >= 4) {
+            /* Full 7×7: restore all OAM, play cry, draw enemy HUD */
+            bui_set_enemy_oam_visible(1);
+            Audio_PlayCry(wEnemyMon.species);
+            bui_draw_enemy_hud();
+            s_grow_stage = 0;  s_grow_frame = 0;
+            if (s_mid_battle_send) {
+                /* Mid-battle trainer replacement: no player send-out needed */
+                s_mid_battle_send = 0;
+                bui_state = BUI_DRAW_HUD;
+            } else {
+                /* Battle intro: load player back sprite, show "Go! X!", slide Red out */
+                uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
+                if (p_dex2 > 0 && p_dex2 <= 151) {
+                    for (int i = 0; i < POKEMON_BACK_TILES; i++)
+                        Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
+                                         gPokemonBackSprite[p_dex2][i]);
+                }
+                const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
+                Text_ShowASCII(s_msg_buf);
+                s_slide_cx = 0;
+                bui_state = BUI_TRAINER_SLIDE_OUT;
+            }
         }
         break;
     }
@@ -1580,18 +2089,37 @@ void BattleUI_Tick(void) {
         }
         s_grow_frame++;
         if (s_grow_stage == 0 && s_grow_frame >= 8) {
-            /* Pokeball opens: fire SFX_BALL_POOF (DoPoofSpecialEffects fires at frame 5
-             * of the subanimation — we fire at the pokeball→pokemon transition). */
-            Audio_PlaySFX_BallPoof();
-            /* 3×3 center-crop: tiles (tx=2..4, ty=2..4) at hlcoord(3,9). */
+            /* Pokeball vanishes — set up player-side poof (Subanim_0BallPoof, 3 entries).
+             * Stage 10 handles drawing; SFX fires at counter=5 (mid-poof, per ASM). */
             wShadowOAM[POKEBALL_OAM_BASE].y = 0;
             bui_clear_rect(1, 5, 7, 11);
-            if (p_dex3 > 0 && p_dex3 <= 151)
-                for (int dty = 0; dty < 3; dty++)
-                    for (int dtx = 0; dtx < 3; dtx++)
-                        bui_set_tile(3 + dtx, 9 + dty,
-                            (uint8_t)(PLAYER_SPR_BG_BASE + (2+dty)*7 + (2+dtx)));
-            s_grow_stage = 1;  s_grow_frame = 0;
+            bui_ball_load_poof_tiles();
+            for (int i = 0; i < POOF_OAM_COUNT; i++)
+                wShadowOAM[POOF_OAM_BASE + i].y = 0;
+            s_grow_stage = 10;  s_grow_frame = 0;
+        } else if (s_grow_stage == 10) {
+            /* Player poof: 3 entries × 6 frames each = 18 frames (FB06→FB07→FB08).
+             * SFX_BALL_POOF mirrors DoPoofSpecialEffects: fires at wSubAnimCounter==5
+             * (frame 5 of poof, mid-way through entry 0). */
+            int entry    = (s_grow_frame - 1) / 6;
+            int subframe = (s_grow_frame - 1) % 6;
+            if (s_grow_frame == 5)
+                Audio_PlaySFX_BallPoof();
+            if (entry >= 3) {
+                /* Poof complete — clear OAM, begin 3×3 crop grow. */
+                for (int i = 0; i < POOF_OAM_COUNT; i++)
+                    wShadowOAM[POOF_OAM_BASE + i].y = 0;
+                if (p_dex3 > 0 && p_dex3 <= 151)
+                    for (int dty = 0; dty < 3; dty++)
+                        for (int dtx = 0; dtx < 3; dtx++)
+                            bui_set_tile(3 + dtx, 9 + dty,
+                                (uint8_t)(PLAYER_SPR_BG_BASE + (2+dty)*7 + (2+dtx)));
+                s_grow_stage = 1;  s_grow_frame = 0;
+            } else if (subframe == 0) {
+                for (int i = 0; i < POOF_OAM_COUNT; i++)
+                    wShadowOAM[POOF_OAM_BASE + i].y = 0;
+                bui_draw_player_poof_frame(entry);
+            }
         } else if (s_grow_stage == 1 && s_grow_frame >= 4) {
             /* 5×5 center-crop: tiles (tx=1..5, ty=1..5) at hlcoord(2,7). */
             bui_clear_rect(1, 5, 7, 11);
@@ -1601,7 +2129,7 @@ void BattleUI_Tick(void) {
                         bui_set_tile(2 + dtx, 7 + dty,
                             (uint8_t)(PLAYER_SPR_BG_BASE + (1+dty)*7 + (1+dtx)));
             s_grow_stage = 2;  s_grow_frame = 0;
-        } else if (s_grow_stage == 2 && s_grow_frame >= 4) {
+        } else if (s_grow_stage == 2 && s_grow_frame >= 5) {
             /* Full 7×7 at hlcoord(1,5) → done.
              * PlayCry — mirrors SendOutMon calling PlayCry(wCurPartySpecies)
              * after AnimateSendingOutMon. */
@@ -1645,6 +2173,7 @@ void BattleUI_Tick(void) {
         bui_load_sprites();
         bui_cursor = 0;
         bui_draw_main_menu(0);
+        hWY = SCREEN_HEIGHT_PX;  /* disable window — battle UI is in gScrollTileMap, not gWindowTileMap */
         bui_state = BUI_MENU;
         break;
 
@@ -1670,8 +2199,9 @@ void BattleUI_Tick(void) {
                 bui_state = BUI_SWITCH_SELECT;
                 break;
             case 2: /* ITEM — not yet implemented */
-                Text_ShowASCII("Can't use items\nin battle yet!");
-                bui_state = BUI_DRAW_HUD;
+                bui_set_enemy_oam_visible(0);  /* hide OAM while bag is open */
+                BagMenu_OpenBattle();
+                bui_state = BUI_BAG_BATTLE;
                 break;
             case 3: /* RUN */
                 if (wIsInBattle == 2) {
@@ -1795,10 +2325,13 @@ void BattleUI_Tick(void) {
                     wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
                     bui_exp_dest    = BUI_END;
                     s_exp_suffix[0] = '\0';
+                    s_exp_suffix2[0] = '\0';
                 } else {
                     const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                    bui_exp_dest = BUI_DRAW_HUD;
+                    s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
+                    bui_exp_dest = BUI_ENEMY_SEND_OUT;
                     snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
+                    s_exp_suffix2[0] = '\0';
                 }
                 bui_state = BUI_EXP_DRAIN;
             }
@@ -1967,10 +2500,13 @@ void BattleUI_Tick(void) {
                     wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
                     bui_exp_dest    = BUI_END;
                     s_exp_suffix[0] = '\0';
+                    s_exp_suffix2[0] = '\0';
                 } else {
                     const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                    bui_exp_dest = BUI_DRAW_HUD;
+                    s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
+                    bui_exp_dest = BUI_ENEMY_SEND_OUT;
                     snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
+                    s_exp_suffix2[0] = '\0';
                 }
                 bui_state = BUI_EXP_DRAIN;
             } else {
@@ -2031,12 +2567,20 @@ void BattleUI_Tick(void) {
             s_pending_lvl_stats = lvl_stats;
             /* stay in BUI_EXP_DRAIN for next text */
         } else if (s_exp_suffix[0] != '\0') {
+            /* Trainer victory: music fires here, just before "PLAYER defeated TRAINER!" —
+             * mirrors PlayBattleVictoryMusic order in core.asm:TrainerBattleVictory. */
+            if (bui_exp_dest == BUI_TRAINER_VICTORY_SLIDE)
+                Music_Play(MUSIC_DEFEATED_TRAINER);
             snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", s_exp_suffix);
             s_exp_suffix[0] = '\0';
-            /* PlayCry — mirrors trainer battle calling PlayCry(wEnemyMonSpecies2)
-             * after AnimateSendingOutMon when the trainer sends out their next mon. */
-            if (bui_exp_dest == BUI_DRAW_HUD)
-                Audio_PlayCry(wEnemyMon.species);
+            Text_ShowASCII(s_msg_buf);
+            /* If there's a second page (e.g. money text after defeated text),
+             * stay in BUI_EXP_DRAIN; s_exp_suffix2 will be shown on next tick. */
+            if (s_exp_suffix2[0] == '\0')
+                bui_state = bui_exp_dest;
+        } else if (s_exp_suffix2[0] != '\0') {
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", s_exp_suffix2);
+            s_exp_suffix2[0] = '\0';
             Text_ShowASCII(s_msg_buf);
             bui_state = bui_exp_dest;
         } else {
@@ -2084,16 +2628,19 @@ void BattleUI_Tick(void) {
             if (wIsInBattle != 2) {
                 bui_exp_dest    = BUI_END;
                 s_exp_suffix[0] = '\0';
+                s_exp_suffix2[0] = '\0';
             } else if (!Battle_AnyEnemyPokemonAliveCheck()) {
                 Battle_TrainerBattleVictory();
                 bui_exp_dest = BUI_END;
                 snprintf(s_exp_suffix, sizeof(s_exp_suffix),
                          "Trainer has no more\nusable Pokemon!");
+                s_exp_suffix2[0] = '\0';
             } else {
                 Battle_ReplaceFaintedEnemyMon();
                 const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
                 bui_exp_dest = BUI_PLAYER_FAINTED;
                 snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
+                s_exp_suffix2[0] = '\0';
             }
             bui_state = BUI_EXP_DRAIN;
             return;
@@ -2251,7 +2798,7 @@ void BattleUI_Tick(void) {
                         bui_set_tile(2 + dtx, 7 + dty,
                             (uint8_t)(PLAYER_SPR_BG_BASE + (1+dty)*7 + (1+dtx)));
             s_retreat_stage = 1;  s_retreat_frame = 0;
-        } else if (s_retreat_stage == 1 && s_retreat_frame >= 4) {
+        } else if (s_retreat_stage == 1 && s_retreat_frame >= 3) {
             /* Shrink from 5×5 to 3×3 center-crop */
             bui_clear_rect(1, 5, 7, 11);
             if (rdex > 0 && rdex <= 151)
@@ -2260,8 +2807,8 @@ void BattleUI_Tick(void) {
                         bui_set_tile(3 + dtx, 9 + dty,
                             (uint8_t)(PLAYER_SPR_BG_BASE + (2+dty)*7 + (2+dtx)));
             s_retreat_stage = 2;  s_retreat_frame = 0;
-        } else if (s_retreat_stage == 2 && s_retreat_frame >= 4) {
-            /* Mon gone — play poof SFX, clear sprite area */
+        } else if (s_retreat_stage == 2 && s_retreat_frame >= 1) {
+            /* Mon gone — play poof SFX, clear sprite area (ASM: no delay after 3×3) */
             Audio_PlaySFX_BallPoof();
             bui_clear_rect(1, 5, 7, 11);
             s_retreat_stage = 0;  s_retreat_frame = 0;
@@ -2301,6 +2848,321 @@ void BattleUI_Tick(void) {
         break;
     }
 
+    /* ---- Bag menu open during battle --------------------------------- *
+     * Mirrors ItemMenuLoop while in battle.  Ticks the bag each frame; *
+     * on close processes the selected item.                             *
+     *                                                                   *
+     * Text sequence (item_effects.asm:146): show "[PLAYER] used X!"    *
+     * BEFORE the throw animation, then outcome text AFTER.             */
+    case BUI_BAG_BATTLE: {
+        BagMenu_Tick();
+        if (BagMenu_IsOpen()) break;  /* still open */
+
+        /* Bag closed — restore battle screen */
+        bui_clear_rows(0, SCREEN_HEIGHT - 1);
+        bui_draw_enemy_hud();
+        bui_draw_player_hud();
+        bui_load_sprites();
+        bui_draw_pokeballs();
+
+        uint8_t item = BagMenu_GetSelected();
+
+        if (item == 0) {
+            /* Cancelled — back to main menu, turn not consumed */
+            bui_set_enemy_oam_visible(1);
+            bui_cursor = 0;
+            bui_draw_main_menu(0);
+            bui_state = BUI_MENU;
+            break;
+        }
+
+        /* Item selected: enemy picks their move now (turn is consumed) */
+        Battle_SelectEnemyMove();
+
+        if (bui_is_ball(item)) {
+            /* ---- Pokéball throw ---- */
+            if (wIsInBattle == 2) {
+                /* Trainer battle: ball blocked (ThrowBallAtTrainerMon, item_effects.asm:2292) */
+                Inventory_Remove(item, 1);
+                /* Place thrown ball at start, play arc, then show blocked texts */
+                s_ball_item   = item;
+                s_throw_frame = 0;
+                s_catch_result = CATCH_RESULT_CANNOT_CATCH; /* signal trainer-block */
+                bui_ball_load_tiles();
+                bui_ball_hide();
+                bui_state = BUI_BALL_THROW;
+                break;
+            }
+            /* Wild battle — remove ball, run catch formula (ASM: formula runs BEFORE
+             * throw animation, item_effects.asm:422 → wPokeBallAnimData → MoveAnimation). */
+            Inventory_Remove(item, 1);
+            s_ball_item    = item;
+            s_throw_frame  = 0;
+            s_catch_result = Battle_CatchAttempt(s_ball_item);
+            /* "PLAYER used BALL!" — mirrors ItemUseText00 (item_effects.asm:146) */
+            char pname[NAME_LENGTH + 1];
+            char iname[20];
+            bui_decode_poke_str(wPlayerName, pname, sizeof(pname));
+            Inventory_DecodeASCII(item, iname, sizeof(iname));
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s used\n%s!", pname, iname);
+            Text_ShowASCII(s_msg_buf);
+            /* After text dismissed: start throw animation */
+            bui_ball_load_tiles();
+            bui_ball_hide();  /* start hidden; BUI_BALL_THROW places on first frame */
+            bui_state = BUI_BALL_THROW;
+        } else {
+            /* Non-ball item: use it (battle_items.c) then enemy attacks */
+            /* TODO: Battle_UseItem(item); */
+            bui_set_enemy_oam_visible(1);
+            bui_state = BUI_SWITCH_ENEMY_TURN;
+        }
+        break;
+    }
+
+    /* ---- Pokéball arc animation ---------------------------------------- *
+     * Subanim_0BallTossHigh (subanimations.asm:139).                       *
+     * 11 waypoints, each displayed for THROW_FPW=3 frames                  *
+     * (BallTossAnim: battle_anim NO_MOVE, SUBANIM_0_BALL_TOSS_HIGH, 0, 3). *
+     * Waypoints from BASECOORD_30,A2,93,61,73,A7,33,A8,0E,A9,34           *
+     * (base_coords.asm): raw OAM coordinates.                               *
+     * FrameBlock03: 2×2 tile (16×16px) ball, neutral orientation.          *
+     * SFX_BALL_TOSS fires at the very beginning (DoBallTossSpecialEffects, *
+     * animations.asm:698: fires when wSubAnimCounter == 11 = first entry). */
+    case BUI_BALL_THROW: {
+        /* OAM Y, X for each of the 11 waypoints — BASECOORD values from base_coords.asm */
+        static const uint8_t kArcY[11] = {88,76,64,56,48,40,32,30,32,41,50};
+        static const uint8_t kArcX[11] = {40,48,56,64,72,80,88,96,104,112,120};
+
+        if (s_throw_frame == 0)
+            Audio_PlaySFX_BallPoof();  /* SFX_BALL_TOSS at start of first waypoint */
+
+        int waypoint = s_throw_frame / THROW_FPW;  /* which of the 11 waypoints */
+
+        if (waypoint < 11) {
+            bui_ball_set_oam(kArcY[waypoint], kArcX[waypoint], 0);
+            s_throw_frame++;
+            break;
+        }
+
+        /* Arc complete: ball at BASECOORD_34 = final waypoint (Y=50, X=120).
+         * Trainer-block path */
+        if (wIsInBattle == 2) {
+            bui_ball_hide();
+            bui_set_enemy_oam_visible(1);
+            Text_ShowASCII("The trainer\nblocked the BALL!\n\nDon't be a thief!");
+            bui_state = BUI_SWITCH_ENEMY_TURN;
+            break;
+        }
+
+        /* POOF_ANIM: SFX fires as ball hits enemy position */
+        Audio_PlaySFX_BallPoof();
+
+        /* Determine shake count from s_catch_result (set in BUI_BAG_BATTLE) */
+        switch (s_catch_result) {
+        case CATCH_RESULT_SUCCESS:  s_shake_total = 3; break;
+        case CATCH_RESULT_3_SHAKES: s_shake_total = 3; break;
+        case CATCH_RESULT_2_SHAKES: s_shake_total = 2; break;
+        case CATCH_RESULT_1_SHAKE:  s_shake_total = 1; break;
+        default:                    s_shake_total = 0; break;
+        }
+        s_shake_frame = 0;
+        s_poof_frame  = 0;
+
+        /* Ball stays at arc endpoint (BASECOORD_34, Y=50 X=120) during poof.
+         * The poof cloud OAM is pre-cleared; BUI_BALL_POOF will draw it. */
+        for (int i = 0; i < POOF_OAM_COUNT; i++)
+            wShadowOAM[POOF_OAM_BASE + i].y = 0;
+
+        bui_state = BUI_BALL_POOF;
+        break;
+    }
+
+    /* ---- Pokéball poof cloud (Subanim_0BallPoofEnemy) ------------------ *
+     * subanimations.asm:160: SUBANIMTYPE_HFLIP, 6 entries × 4 frames = 24f.*
+     * GetSubanimationTransform1 returns SUBANIMTYPE_NORMAL for player turn  *
+     * (non-ENEMY type + hWhoseTurn=0), so coords from base_coords.asm are  *
+     * used directly without transformation.                                 *
+     *   Entry 0: FB06 (12 sprites) at BASECOORD_1B (Y=48, X=112)          *
+     *   Entry 1: FB07 (16 sprites) at BASECOORD_1B                        *
+     *   Entry 2: FB08 (16 sprites) at BASECOORD_36 (Y=44, X=108)          *
+     *   Entry 3: FB09 (12 sprites) at BASECOORD_36                        *
+     *   Entry 4: FB0A (12 sprites) at BASECOORD_15 (Y=40, X=104)          *
+     *   Entry 5: FB0A (12 sprites) at BASECOORD_15                        *
+     * Enemy is hidden at the start so the poof cloud is visible over it.   *
+     * (Original: enemy was on BG tiles and stayed visible behind OAM poof; *
+     * we pre-hide because poof OAM priority is below enemy OAM.)           *
+     * Ball stays at BASECOORD_34 (arc endpoint) during poof, then moves   *
+     * to BASECOORD_21 for shake when poof completes.                       */
+    case BUI_BALL_POOF: {
+        /* First frame: hide enemy so poof cloud is visible */
+        if (s_poof_frame == 0) {
+            /* For trainer-block this state is never entered. For all wild
+             * outcomes (including 0-shakes) we hide the enemy during poof
+             * and restore below when needed. */
+            bui_set_enemy_oam_visible(0);
+        }
+
+        int entry    = s_poof_frame / 4;
+        int subframe = s_poof_frame % 4;
+
+        if (subframe == 0) {
+            /* FRAMEBLOCKMODE_00: clear poof OAM, then draw new sprites */
+            for (int i = 0; i < POOF_OAM_COUNT; i++)
+                wShadowOAM[POOF_OAM_BASE + i].y = 0;
+            bui_draw_poof_frame(entry);
+        }
+
+        s_poof_frame++;
+        if (s_poof_frame >= 24) {
+            /* Poof complete: clear poof cloud OAM */
+            for (int i = 0; i < POOF_OAM_COUNT; i++)
+                wShadowOAM[POOF_OAM_BASE + i].y = 0;
+
+            /* HIDEPIC_ANIM: enemy stays hidden for 1-3 shakes / success.
+             * For 0-shakes and cannot-catch: restore enemy visibility now. */
+            if (s_catch_result == CATCH_RESULT_0_SHAKES ||
+                s_catch_result == CATCH_RESULT_CANNOT_CATCH) {
+                bui_set_enemy_oam_visible(1);
+            }
+
+            /* Ball moves from arc endpoint to BASECOORD_21 for shake */
+            bui_ball_set_oam(BALL_SHAKE_OAM_Y, BALL_SHAKE_OAM_X, 0);
+            bui_state = BUI_BALL_SHAKE;
+        }
+        break;
+    }
+
+    /* ---- Pokéball shake animation (0–3 rocks) ------------------------- *
+     * Mirrors Subanim_0BallShakeEnemy + DoBallShakeSpecialEffects.        *
+     * Subanim_0BallShakeEnemy (subanimations.asm:153):                    *
+     *   4 entries × FRAMEBLOCKMODE_04 × 4 frames = 16 visual frames:      *
+     *   FB03(neutral), FB04(tilt-right), FB03(neutral), FB05(tilt-left).  *
+     * DoBallShakeSpecialEffects (animations.asm:739):                     *
+     *   fires at start of each shake (wSubAnimCounter==4):                 *
+     *   plays SFX_TINK then DelayFrames 40.                               *
+     * Per-shake total: 40 pause + 4×4 visual = SHAKE_CYCLE(56) frames.   *
+     *                                                                     *
+     * 0-shakes: s_shake_total==0, bail immediately (enemy never hidden).  *
+     * Fail 1-3: SHOWPIC (restore enemy) after N shakes → fail text.      *
+     * Success: after 3 shakes → BUI_CAUGHT.                              */
+    case BUI_BALL_SHAKE: {
+        if (s_shake_total == 0 || s_shake_frame >= s_shake_total * SHAKE_CYCLE) {
+            bui_ball_hide();
+
+            if (s_catch_result == CATCH_RESULT_SUCCESS) {
+                /* ItemUseBallText05 "All right! X was caught!" (item_effects.asm:609) */
+                const char *ename = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                Audio_PlaySFX_BallPoof();
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "All right!\n%s was caught!", ename);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_CAUGHT;
+            } else {
+                /* SHOWPIC: restore enemy if hidden (1–3 shake fail) */
+                if (s_shake_total > 0)
+                    bui_set_enemy_oam_visible(1);
+                /* Fail texts: ItemUseBallText00-04 (data/text/text_6.asm:1-27) */
+                const char *fail;
+                switch (s_catch_result) {
+                case CATCH_RESULT_CANNOT_CATCH:
+                    fail = "It dodged the\nthrown BALL!\n\nThis POKeMON\ncan't be caught!";
+                    break;
+                case CATCH_RESULT_0_SHAKES:
+                    fail = "You missed the\nPOKeMON!";
+                    break;
+                case CATCH_RESULT_1_SHAKE:
+                    fail = "Darn! The\nPOKeMON broke\nfree!";
+                    break;
+                case CATCH_RESULT_2_SHAKES:
+                    fail = "Aww! It appeared\nto be caught!";
+                    break;
+                default: /* CATCH_RESULT_3_SHAKES */
+                    fail = "Shoot! It was so\nclose too!";
+                    break;
+                }
+                Text_ShowASCII(fail);
+                bui_state = BUI_SWITCH_ENEMY_TURN;
+            }
+            break;
+        }
+
+        int phase = s_shake_frame % SHAKE_CYCLE;
+
+        /* DoBallShakeSpecialEffects: at start of each shake play SFX_TINK + 40f pause.
+         * In our non-blocking model the pause is 40 frames of stationary ball. */
+        if (phase == 0)
+            Audio_PlaySFX_BallPoof();  /* SFX_TINK */
+
+        if (phase < SHAKE_DELAY) {
+            /* 40-frame pause: ball neutral at BASECOORD_21 */
+            bui_ball_set_oam(BALL_SHAKE_OAM_Y, BALL_SHAKE_OAM_X, 0);
+        } else {
+            /* 16-frame visual rock:
+             *   frames  0- 3 (vp 0-3):  FrameBlock03 neutral
+             *   frames  4- 7 (vp 4-7):  FrameBlock04 tilt-right
+             *   frames  8-11 (vp 8-11): FrameBlock03 neutral
+             *   frames 12-15 (vp 12-15):FrameBlock05 tilt-left */
+            int vp = phase - SHAKE_DELAY;   /* 0–15 */
+            int fb = (vp < 4) ? 0 : (vp < 8) ? 1 : (vp < 12) ? 0 : 2;
+            bui_ball_set_oam(BALL_SHAKE_OAM_Y, BALL_SHAKE_OAM_X, fb);
+        }
+
+        s_shake_frame++;
+        break;
+    }
+
+    /* ---- Add caught mon to party, then end battle --------------------- *
+     * Mirrors AddPartyMon / SendNewMonToBox (item_effects.asm:548-566).   *
+     * Pokédex entry: always show "New #DEX data" (no dex tracking yet).  */
+    case BUI_CAUGHT: {
+        uint8_t dex   = gSpeciesToDex[wEnemyMon.species];
+        const char *ename = Pokemon_GetName(dex);
+
+        if (wPartyCount < PARTY_LENGTH) {
+            /* AddPartyMon — copy wEnemyMon into wPartyMons[wPartyCount] */
+            party_mon_t *p = &wPartyMons[wPartyCount];
+            memset(p, 0, sizeof(*p));
+            p->base.species    = wEnemyMon.species;
+            p->base.hp         = wEnemyMon.hp;    /* keep current (wounded) HP */
+            p->base.status     = wEnemyMon.status; /* keep status */
+            p->base.type1      = wEnemyMon.type1;
+            p->base.type2      = wEnemyMon.type2;
+            p->base.catch_rate = wEnemyMon.catch_rate;
+            memcpy(p->base.moves, wEnemyMon.moves, 4);
+            memcpy(p->base.pp,    wEnemyMon.pp,    4);
+            p->base.dvs        = wEnemyMon.dvs;
+            /* Experience: base exp for caught level */
+            uint32_t xp = CalcExpForLevel(
+                gBaseStats[wEnemyMon.species].growth_rate, wEnemyMon.level);
+            p->base.exp[0] = (uint8_t)((xp >> 16) & 0xFF);
+            p->base.exp[1] = (uint8_t)((xp >>  8) & 0xFF);
+            p->base.exp[2] = (uint8_t)( xp         & 0xFF);
+            p->level   = wEnemyMon.level;
+            p->max_hp  = wEnemyMon.max_hp;
+            p->atk     = wEnemyMon.atk;
+            p->def     = wEnemyMon.def;
+            p->spd     = wEnemyMon.spd;
+            p->spc     = wEnemyMon.spc;
+            /* Update party species list (0xFF-terminated) */
+            wPartySpecies[wPartyCount]     = wEnemyMon.species;
+            wPartySpecies[wPartyCount + 1] = 0xFF;
+            wPartyCount++;
+            /* "New #DEX data will be added for X!" — item_effects.asm:541-546 */
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "New #DEX data\nwill be added\nfor %s!", ename);
+            Text_ShowASCII(s_msg_buf);
+        } else {
+            /* Party full: SendNewMonToBox — transferred to PC.
+             * ItemUseBallText08 "X was transferred to someone's PC!" */
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "%s was\ntransferred to\nsomeone's PC!", ename);
+            Text_ShowASCII(s_msg_buf);
+        }
+
+        wBattleResult = BATTLE_OUTCOME_CAUGHT;
+        bui_state = BUI_END;
+        break;
+    }
+
     /* ---- Voluntary switch: enemy executes their pre-selected move -- *
      * Mirrors the second-move execution (player switched = "first     *
      * mover", enemy attacks as "second mover").                        */
@@ -2331,10 +3193,110 @@ void BattleUI_Tick(void) {
         break;
     }
 
+    /* ---- Trainer victory: sprite slides in from right 56px ---------- *
+     * Mirrors ScrollTrainerPicAfterBattle (engine/battle/core.asm).    *
+     * s_slide_cx starts at 56 (set in bui_handle_enemy_fainted),       *
+     * decrements 4px/tick until 0 = final position.                    */
+    case BUI_TRAINER_VICTORY_SLIDE: {
+        if (s_victory_timer == 0) {
+            /* First tick: wipe enemy HUD + battle menu, keep player sprite/HUD.
+             * Enemy sprite is OAM so no BG tiles to clear in rows 4-6.
+             * Rows 5-11 hold the player back sprite + HUD — don't touch them. */
+            bui_clear_rows(0, 4);                    /* enemy HUD (rows 0-3) + buffer */
+            bui_clear_rows(12, SCREEN_HEIGHT - 1);   /* battle menu / move list */
+            bui_place_player_sprite();               /* re-stamp in case anything cleared it */
+            bui_draw_box();
+            /* First tick: reload trainer sprite tiles and position OAM off-screen right. */
+            int tc = (int)gEngagedTrainerClass - 1;
+            if (tc >= 0 && tc < NUM_TRAINERS)
+                for (int i = 0; i < TRAINER_CANVAS_TILES; i++)
+                    Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                           gTrainerFrontSprite[tc][i]);
+            for (int ty = 0; ty < 7; ty++)
+                for (int tx = 0; tx < 7; tx++) {
+                    int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                    wShadowOAM[idx].y     = (uint8_t)(ENEMY_SPR_PX_Y + ty * 8 + OAM_Y_OFS);
+                    wShadowOAM[idx].x     = (uint8_t)(VICTORY_TRAINER_PX_X + tx * 8 + OAM_X_OFS + s_slide_cx);
+                    wShadowOAM[idx].tile  = (uint8_t)(ENEMY_SPR_TILE_BASE + ty * 7 + tx);
+                    wShadowOAM[idx].flags = 0;
+                }
+            s_victory_timer = 1;  /* mark initialized */
+            break;
+        }
+        if (s_slide_cx > 0) {
+            s_slide_cx -= 2;  /* 8px per 4 frames = 2px/frame, matching DelayFrames 4 */
+            if (s_slide_cx < 0) s_slide_cx = 0;
+        }
+        for (int ty = 0; ty < 7; ty++)
+            for (int tx = 0; tx < 7; tx++) {
+                int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                wShadowOAM[idx].x = (uint8_t)(VICTORY_TRAINER_PX_X + tx * 8 + OAM_X_OFS + s_slide_cx);
+            }
+        if (s_slide_cx == 0) {
+            s_victory_timer = 40;
+            bui_state = BUI_TRAINER_VICTORY_PAUSE;
+        }
+        break;
+    }
+
+    /* ---- Trainer victory pause: 40 frames then defeat quote ---------- *
+     * Mirrors the DelayFrames 40 after ScrollTrainerPicAfterBattle.     */
+    case BUI_TRAINER_VICTORY_PAUSE: {
+        if (--s_victory_timer <= 0) {
+            if (gTrainerAfterText && gTrainerAfterText[0]) {
+                Text_ShowASCII(gTrainerAfterText);
+                bui_state = BUI_TRAINER_VICTORY_TEXT;
+            } else {
+                /* No defeat quote — show money text directly then fade. */
+                if (s_trainer_money_text[0])
+                    Text_ShowASCII(s_trainer_money_text);
+                s_victory_timer = 0;
+                bui_state = BUI_FADE_WHITE;
+            }
+        }
+        break;
+    }
+
+    /* ---- Defeat quote dismissed: enter WaitForSoundToFinish ---------- */
+    case BUI_TRAINER_VICTORY_TEXT:
+        bui_state = BUI_WAIT_SOUND;
+        break;
+
+    /* ---- WaitForSoundToFinish: poll SFX channels, then money text ---- *
+     * Mirrors home/delay.asm WaitForSoundToFinish: spins until Ch5/6/8   *
+     * are all silent, then continues.  Usually completes in 1 tick.      */
+    case BUI_WAIT_SOUND:
+        if (!Audio_IsSFXPlaying()) {
+            if (s_trainer_money_text[0])
+                Text_ShowASCII(s_trainer_money_text);
+            s_victory_timer = 0;
+            bui_state = BUI_FADE_WHITE;
+        }
+        break;
+
+    /* ---- Fade from white: hold ~30f then return to overworld --------- *
+     * Mirrors GBPalWhiteOut + return to overworld (core.asm).           *
+     * s_victory_timer == 0 on first tick: set palette white + start.   */
+    case BUI_FADE_WHITE: {
+        if (s_victory_timer == 0) {
+            Display_SetPalette(0x00, 0x00, 0x00);  /* all white */
+            s_victory_timer = 62;
+        }
+        if (--s_victory_timer <= 0) {
+            /* Clear battle tilemap while palette is still white so no battle UI
+             * bleeds through.  Leave palette white — game.c fades in from white. */
+            bui_clear_rows(0, SCREEN_HEIGHT - 1);
+            bui_state = BUI_END;
+        }
+        break;
+    }
+
     /* ---- Battle over: sync HP, mark inactive ---------------------- */
     case BUI_END:
         Display_SetShakeOffset(0, 0);
-        bui_set_enemy_oam_visible(1);
+        /* Don't restore enemy sprite if the mon was caught (it stays hidden) */
+        if (wBattleResult != BATTLE_OUTCOME_CAUGHT)
+            bui_set_enemy_oam_visible(1);
         /* Sync active mon HP back to party */
         wPartyMons[wPlayerMonNumber].base.hp = wBattleMon.hp;
         wIsInBattle = 0;

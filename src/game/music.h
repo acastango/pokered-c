@@ -32,10 +32,19 @@
 #define MUSIC_DEFEATED_TRAINER     27
 #define MUSIC_DEFEATED_GYM_LEADER  28
 #define MUSIC_PKMN_HEALED          29
+#define MUSIC_GYM_LEADER_BATTLE    30
+#define MUSIC_TRAINER_BATTLE       31
+#define MUSIC_MEET_RIVAL           32
+#define MUSIC_MEET_MALE_TRAINER    33
+#define MUSIC_MEET_FEMALE_TRAINER  34
+#define MUSIC_MUSEUM_GUY          35
 
 /* Play a music track (stops any current music first).
  * music_id: one of MUSIC_* above; MUSIC_NONE stops playback. */
 void Music_Play(uint8_t music_id);
+/* Play a track starting at the loop point (skipping intro).
+ * Mirrors Music_RivalAlternateStart (audio/alternate_tempo.asm). */
+void Music_PlayFromLoop(uint8_t music_id);
 void Music_Stop(void);
 
 /* Advance the sequencer one frame (call at 60 Hz from Audio_Update). */

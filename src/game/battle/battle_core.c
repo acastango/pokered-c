@@ -152,6 +152,9 @@ static const uint8_t kSpecialEffects[] = {
     0xFF
 };
 
+/* Combat log sink — set by debug_overlay.c when logging is enabled. */
+void (*gCombatLogSink)(const char *line) = NULL;
+
 /* ============================================================
  * Internal helper: array membership test.
  * ============================================================ */
@@ -1434,6 +1437,13 @@ static void faint_enemy_pokemon_state(void) {
  * remove_fainted_player_mon_state — RemoveFaintedPlayerMon state portion (core.asm:1002)
  * ============================================================ */
 static void remove_fainted_player_mon_state(void) {
+    /* Sync HP and status from battle copy back to party array.
+     * Mirrors ReadPlayerMonCurHPAndStatus (core.asm:1800), called at the top
+     * of RemoveFaintedPlayerMon.  Without this, the party menu reads the
+     * pre-battle (stale) HP for the fainted mon and won't show "FNT". */
+    wPartyMons[wPlayerMonNumber].base.hp     = wBattleMon.hp;     /* = 0 */
+    wPartyMons[wPlayerMonNumber].base.status = wBattleMon.status;
+
     /* Clear enemy ATTACKING_MULTIPLE_TIMES (core.asm:1010) */
     wEnemyBattleStatus1 &= ~(1u << BSTAT1_ATTACKING_MULTIPLE);
 
@@ -1442,6 +1452,8 @@ static void remove_fainted_player_mon_state(void) {
 
     /* Clear player battle status (core.asm:1022) */
     wBattleMon.status = 0;
+    /* Status cleared above — keep party copy in sync */
+    wPartyMons[wPlayerMonNumber].base.status = 0;
 }
 
 /* ============================================================

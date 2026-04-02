@@ -51,6 +51,15 @@
 #include "../game/constants.h"
 #include "../data/player_sprite.h"
 #include "../platform/audio.h"
+#include "pallet_scripts.h"
+#include "oakslab_scripts.h"
+#include "viridian_mart_scripts.h"
+#include "mtmoon_scripts.h"
+#include "cerulean_scripts.h"
+#include "route24_scripts.h"
+#include "bills_house_scripts.h"
+#include "trainer_sight.h"
+#include "gate_scripts.h"
 #include <stdio.h>
 
 #define PLAYER_TILE_BASE   64   /* sprite tile slots 64-67 (after 16 NPCs × 4 = 64) */
@@ -113,6 +122,13 @@ static int gArcFrame  = 0;
  * can't immediately re-trigger the warp tile just arrived on. */
 static int gInputIgnoreFrames = 0;
 
+/* Debug no-clip: bypass tile and NPC collision when set. */
+int gNoClip = 0;
+
+/* Scripted movement flag: suppresses Warp_Check and idle input.
+ * Set by map scripts (pallet_scripts.c) during auto-walk sequences. */
+int gScriptedMovement = 0;
+
 void Player_IgnoreInputFrames(int n) {
     gInputIgnoreFrames = n;
 }
@@ -144,8 +160,8 @@ static const ledge_entry_t kLedgeTiles[] = {
 
 static int is_ledge_jump(int nx, int ny) {
     if (wCurMapTileset != 0) return 0;   /* OVERWORLD only */
-    uint8_t cur  = Map_GetTile((int)wXCoord, (int)wYCoord);
-    uint8_t next = Map_GetTile(nx, ny);
+    uint8_t cur  = Map_GetGameTile((int)wXCoord, (int)wYCoord);
+    uint8_t next = Map_GetGameTile(nx, ny);
     for (int i = 0; i < NUM_LEDGE_ENTRIES; i++) {
         if (kLedgeTiles[i].facing    == gPlayerFacing &&
             kLedgeTiles[i].cur_tile  == cur           &&
@@ -181,6 +197,7 @@ static int gPlayerOffPxX     = 0;  /* sprite pixel offset from its resting posit
 static int gPlayerOffPxY     = 0;
 static int gIntraAnimFrame   = 0;  /* 0-3; advances AnimFrameCounter every 4 frames */
 static int gAnimFrameCounter = 0;  /* 0-3; cycles through walk animation states */
+static int s_wall_anim_active = 0; /* 1 while pressing into a wall (mirrors wWalkCounter>0 on collision path) */
 
 /* ---- Sprite helpers -------------------------------------- */
 
@@ -195,8 +212,8 @@ static void update_shadow_oam(void) {
         wShadowOAM[SHADOW_OAM_BASE + 3].y = 0;
         return;
     }
-    int sx = ((int)wXCoord - gCamX)     * TILE_PX + gPlayerOffPxX;
-    int sy = ((int)wYCoord - gCamY - 1) * TILE_PX + gPlayerOffPxY + SHADOW_Y_OFFSET;
+    int sx = ((int)wXCoord * 2 - gCamX)     * TILE_PX + gPlayerOffPxX;
+    int sy = ((int)wYCoord * 2 + 1 - gCamY - 1) * TILE_PX + gPlayerOffPxY + SHADOW_Y_OFFSET;
 
     wShadowOAM[SHADOW_OAM_BASE + 0].y     = (uint8_t)(sy     + OAM_Y_OFS);
     wShadowOAM[SHADOW_OAM_BASE + 0].x     = (uint8_t)(sx     + OAM_X_OFS);
@@ -230,7 +247,7 @@ static void load_player_frame(int frame_idx) {
 /* Write OAM slots 0-3 for the current facing + animation state.
  * Mirrors UpdatePlayerSprite + FlippedOAM layout in facings.asm. */
 static void update_player_oam(void) {
-    int anim_idx = (gWalkTimer > 0) ? gAnimFrameCounter : 0;
+    int anim_idx = (gWalkTimer > 0 || s_wall_anim_active) ? gAnimFrameCounter : 0;
     const anim_entry_t *e = &kAnimTable[gPlayerFacing & 3][anim_idx];
     load_player_frame(e->frame);
 
@@ -250,12 +267,12 @@ static void update_player_oam(void) {
      * screen tile (8, 8) — one tile above the player reference tile.
      * Sprite top-left pixel = (player_tile - cam_origin - {0,1}) * 8px
      * plus a per-frame sliding offset for smooth animation. */
-    int sx = ((int)wXCoord - gCamX)     * TILE_PX + gPlayerOffPxX;
+    int sx = ((int)wXCoord * 2 - gCamX)     * TILE_PX + gPlayerOffPxX;
     /* Sub-tile Y offset: original wSpritePlayerStateData1YPixels = $3C = 60px.
      * Tile row 8 starts at 64px, so the sprite TL is 4px above the grid boundary.
      * This 4px overlap makes the player's head visually touch the tile row above
      * (e.g. ledge tiles), matching the original's lda_coord 8,9 positioning. */
-    int sy = ((int)wYCoord - gCamY - 1) * TILE_PX + gPlayerOffPxY - 4;
+    int sy = ((int)wYCoord * 2 + 1 - gCamY - 1) * TILE_PX + gPlayerOffPxY - 4;
 
     /* Ledge jump arc: apply signed Y-pixel offset from kLedgeArc.
      * gArcFrame 0-15 spans the full 16-frame jump (8 frames × 2 steps).
@@ -281,7 +298,7 @@ static void update_player_oam(void) {
      * behind non-transparent BG pixels (the grass blades cover the lower body).
      * Mirrors AdvancePlayerSprite's wSpritePlayerStateData2GrassPriority logic
      * and facings.asm UNDER_GRASS flag on the bottom-half entries only. */
-    if (wGrassTile != 0xFF && Map_GetTile((int)wXCoord, (int)wYCoord) == wGrassTile)
+    if (wGrassTile != 0xFF && Map_GetGameTile((int)wXCoord, (int)wYCoord) == wGrassTile)
         flags |= OAM_FLAG_PRIORITY;
 
     wShadowOAM[2].y = (uint8_t)(sy + 8 + OAM_Y_OFS);
@@ -316,25 +333,30 @@ static void begin_step(int nx, int ny, int dx, int dy) {
     int old_cam_x = gCamX;
     int old_cam_y = gCamY;
 
-    wXCoord = (uint16_t)nx;
-    wYCoord = (uint16_t)ny;
+    wXCoord = (int16_t)nx;
+    wYCoord = (int16_t)ny;
     Map_UpdateCamera();
 
-    gWalkDX     = dx;
-    gWalkDY     = dy;
-    gBgScrollDX = gCamX - old_cam_x;   /* ±1 mid-map, 0 at map edges */
+    /* dx/dy are in game coords (±1). Convert to tile coords (±2) for pixel math.
+     * One game step = 2 tiles = 16px, matching the original's wWalkCounter=8. */
+    int tdx = dx * 2;
+    int tdy = dy * 2;
+
+    gWalkDX     = tdx;
+    gWalkDY     = tdy;
+    gBgScrollDX = gCamX - old_cam_x;   /* ±2 tile coords mid-map, 0 at map edges */
     gBgScrollDY = gCamY - old_cam_y;
 
-    /* BG starts offset one tile in the step direction, scrolls toward 0. */
+    /* BG starts offset two tiles in the step direction, scrolls toward 0. */
     gScrollPxX = gBgScrollDX * TILE_PX;
     gScrollPxY = gBgScrollDY * TILE_PX;
 
     /* Sprite starts at old screen position, slides to new.
-     * offset = (cam_delta - step_delta) * 8:
-     *   mid-map  → 0         (sprite stays at screen centre)
-     *   map edge → -step * 8 (sprite begins at old pixel, slides +1px/frame) */
-    gPlayerOffPxX = (gBgScrollDX - dx) * TILE_PX;
-    gPlayerOffPxY = (gBgScrollDY - dy) * TILE_PX;
+     * offset = (cam_delta - tile_step) * 8:
+     *   mid-map  → 0           (sprite stays at screen centre)
+     *   map edge → -step * 16  (sprite begins at old pixel, slides 2px/frame) */
+    gPlayerOffPxX = (gBgScrollDX - tdx) * TILE_PX;
+    gPlayerOffPxY = (gBgScrollDY - tdy) * TILE_PX;
 
     gWalkTimer = WALK_FRAMES;
 }
@@ -345,14 +367,24 @@ static void begin_step(int nx, int ny, int dx, int dy) {
  * Called after a warp if the arrival tile is a door tile.  Mirrors
  * PlayerStepOutFromDoor in engine/overworld/auto_movement.asm:
  *   - always steps DOWN regardless of current facing
- *   - no collision check (door exits are always passable)
- * Step size is 2 tiles to match the doubled coordinate system. */
+ *   - no collision check (door exits are always passable) */
 void Player_ForceStepDown(void) {
     gPlayerFacing = 0;  /* face down (image index 0: StandingDown) */
-    begin_step((int)wXCoord, (int)wYCoord + 2, 0, 2);
+    begin_step((int)wXCoord, (int)wYCoord + 1, 0, 1);
 }
 
-void Player_SetPos(uint16_t x, uint16_t y) {
+void Player_DoScriptedStep(int dir) {
+    static const int ddx[4] = { 0,  0, -1,  1};
+    static const int ddy[4] = { 1, -1,  0,  0};
+    int dx = ddx[dir & 3];
+    int dy = ddy[dir & 3];
+    int nx = (int)wXCoord + dx;
+    int ny = (int)wYCoord + dy;
+    gPlayerFacing = dir;
+    begin_step(nx, ny, dx, dy);
+}
+
+void Player_SetPos(int16_t x, int16_t y) {
     wXCoord       = x;
     wYCoord       = y;
     gWalkTimer    = 0;
@@ -406,6 +438,10 @@ void Player_Update(void) {
                 /* Don't clear gLedgeStep here — advance gArcFrame below
                  * so arc[15] (+4 bounce) renders on this terminal frame,
                  * then clear gLedgeStep after update_player_oam. */
+                /* The original overworld still processes warp checks while
+                 * simulated/scripted movement is active, which is how Oak can
+                 * lead the player into his lab. Do not suppress warp checks
+                 * here just because the step was script-driven. */
                 Warp_Check();
             }
         }
@@ -416,6 +452,12 @@ void Player_Update(void) {
         update_player_oam();
         /* Now safe to retire the ledge jump: arc[15] has been rendered. */
         if (gWalkTimer == 0 && gLedgeStep == 2) gLedgeStep = 0;
+        return;
+    }
+
+    /* ---- Scripted movement: suppress all idle input while active ---- */
+    if (gScriptedMovement) {
+        update_player_oam();
         return;
     }
 
@@ -435,19 +477,16 @@ void Player_Update(void) {
     }
 
     /* ---- Idle: read d-pad for movement ------------------- */
-    /* Step size = 2 tiles, matching the original's wXCoord/wYCoord units
-     * (1 ASM step = 2 tiles).  The collision list was built for even-tile
-     * positions only; 1-tile steps would check intermediate block positions
-     * that the original never reaches, causing false blocks and ghost walls. */
+    /* Step size = 1 game unit = 2 tiles = 16px, matching ASM wXCoord/wYCoord. */
     int dx = 0, dy = 0;
-    if      (hJoyHeld & PAD_RIGHT) { dx =  2; gPlayerFacing = 3; }
-    else if (hJoyHeld & PAD_LEFT)  { dx = -2; gPlayerFacing = 2; }
-    else if (hJoyHeld & PAD_DOWN)  { dy =  2; gPlayerFacing = 0; }
-    else if (hJoyHeld & PAD_UP)    { dy = -2; gPlayerFacing = 1; }
+    if      (hJoyHeld & PAD_RIGHT) { dx =  1; gPlayerFacing = 3; }
+    else if (hJoyHeld & PAD_LEFT)  { dx = -1; gPlayerFacing = 2; }
+    else if (hJoyHeld & PAD_DOWN)  { dy =  1; gPlayerFacing = 0; }
+    else if (hJoyHeld & PAD_UP)    { dy = -1; gPlayerFacing = 1; }
 
     if (!dx && !dy) {
         /* .notMoving: reset anim counters so sprite returns to standing frame. */
-        gIntraAnimFrame = gAnimFrameCounter = 0;
+        gIntraAnimFrame = gAnimFrameCounter = s_wall_anim_active = 0;
         update_player_oam();
         return;
     }
@@ -457,8 +496,8 @@ void Player_Update(void) {
 
     /* ---- Off-map edge: attempt connected-map transition -- */
     if (nx < 0 || ny < 0 ||
-        nx >= (int)wCurMapWidth  * 4 ||
-        ny >= (int)wCurMapHeight * 4)
+        nx >= (int)wCurMapWidth  * 2 ||
+        ny >= (int)wCurMapHeight * 2)
     {
         /* Mirror the original's collision-strip check (CollisionCheckOnLand):
          * before allowing a boundary crossing, verify the destination tile is
@@ -474,7 +513,10 @@ void Player_Update(void) {
          * Skip this check for indoor maps (tileset != 0): they rely on
          * Warp_Check for exits, and their border_block is always impassable
          * which would falsely block the exit warp from firing. */
-        if (wCurMapTileset == 0 && !Tile_IsPassable(Map_GetTile(nx, ny))) {
+        if (!gNoClip && wCurMapTileset == 0 && !Tile_IsPassable(Map_GetGameTile(nx, ny))) {
+            Audio_PlaySFX_Collision();
+            s_wall_anim_active = 1;
+            advance_anim();
             update_player_oam();
             return;
         }
@@ -498,12 +540,21 @@ void Player_Update(void) {
              * matching the seamless view-pointer shift in the original. */
             Map_UpdateCamera();
             NPC_Load();
-            gWalkDX       = dx;
-            gWalkDY       = dy;
-            gBgScrollDX   = dx;
-            gBgScrollDY   = dy;
-            gScrollPxX    = dx * TILE_PX;
-            gScrollPxY    = dy * TILE_PX;
+            PalletScripts_OnMapLoad();
+            OaksLabScripts_OnMapLoad();
+            ViridianMartScripts_OnMapLoad();
+            MtMoon_OnMapLoad();
+            CeruleanScripts_OnMapLoad();
+            Route24Scripts_OnMapLoad();
+            BillsHouseScripts_OnMapLoad();
+            Trainer_LoadMap();
+            Gate_LoadMap();
+            gWalkDX       = dx * 2;
+            gWalkDY       = dy * 2;
+            gBgScrollDX   = dx * 2;
+            gBgScrollDY   = dy * 2;
+            gScrollPxX    = dx * 2 * TILE_PX;
+            gScrollPxY    = dy * 2 * TILE_PX;
             gPlayerOffPxX = 0;
             gPlayerOffPxY = 0;
             gWalkTimer    = WALK_FRAMES;
@@ -526,7 +577,7 @@ void Player_Update(void) {
     }
 
     /* ---- NPC collision -------------------------------------------- */
-    if (NPC_IsBlocked(nx, ny)) {
+    if (!gNoClip && NPC_IsBlocked(nx, ny)) {
         update_player_oam();
         return;
     }
@@ -548,8 +599,39 @@ void Player_Update(void) {
 
     /* ---- Tile collision (CheckTilePassable in original) --
      * GetTileAndCoordsInFrontOfPlayer reads the tile ONE step ahead — in our
-     * 1-tile/step model that is the target tile (nx, ny). */
-    if (!Tile_IsPassable(Map_GetTile(nx, ny))) {
+     * 1-tile/step model that is the target tile (nx, ny).
+     *
+     * After blocking, mirrors CheckWarpsCollision: if the player is pressing
+     * into a wall while standing on a warp event, fire the warp.  This is how
+     * outdoor gate buildings work — the warp event is one tile before the wall
+     * and the collision fires the transition (e.g. Route 2 north/south gates).
+     *
+     * Exception: if the target tile IS a warp event position, allow the step
+     * through even if the tile is flagged as a collision tile (e.g. gym exits:
+     * tile 0x16 is in Gym_Coll but also hosts the warp event). */
+    if (!gNoClip && !Tile_IsPassable(Map_GetGameTile(nx, ny))) {
+        if (Warp_HasEventAt(nx, ny)) {
+            /* Step onto the warp tile — Warp_Check at step completion will fire */
+            begin_step(nx, ny, dx, dy);
+            update_player_oam();
+            return;
+        }
+        Audio_PlaySFX_Collision();
+        s_wall_anim_active = 1;
+        advance_anim();
+        Warp_CheckCollision();
+        update_player_oam();
+        return;
+    }
+
+    /* ---- Tile pair collision (TilePairCollisionsLand in original) --
+     * Blocks movement between two individually-passable tiles that form an
+     * elevation boundary (e.g. cave ledge: 0x20↔0x05 in CAVERN tileset). */
+    if (!gNoClip && Tile_IsPairBlocked(Map_GetGameTile((int)wXCoord, (int)wYCoord),
+                                       Map_GetGameTile(nx, ny))) {
+        Audio_PlaySFX_Collision();
+        s_wall_anim_active = 1;
+        advance_anim();
         update_player_oam();
         return;
     }
@@ -559,9 +641,17 @@ void Player_Update(void) {
     update_player_oam();
 }
 
+int Player_GetLedgeDir(uint8_t tile_id) {
+    for (int i = 0; i < NUM_LEDGE_ENTRIES; i++) {
+        if (kLedgeTiles[i].ledge_tile == tile_id)
+            return kLedgeTiles[i].facing;
+    }
+    return -1;
+}
+
 void Player_GetFacingTile(int *out_x, int *out_y) {
-    static const int ddx[4] = { 0,  0, -2, 2 };
-    static const int ddy[4] = { 2, -2,  0, 0 };
+    static const int ddx[4] = { 0,  0, -1, 1 };
+    static const int ddy[4] = { 1, -1,  0, 0 };
     *out_x = (int)wXCoord + ddx[gPlayerFacing & 3];
     *out_y = (int)wYCoord + ddy[gPlayerFacing & 3];
 }
@@ -582,8 +672,8 @@ void Player_SyncOAM(void) {
  * if the tile at the player's lower-left sprite position is >= MAP_TILESET_SIZE
  * ($60 = 96), hide the player OAM.  Call after drawing UI boxes. */
 void Player_HideIfOverUI(void) {
-    int nx = (int)wXCoord - gCamX;
-    int ny = (int)wYCoord - gCamY;
+    int nx = (int)wXCoord * 2 - gCamX;
+    int ny = (int)wYCoord * 2 + 1 - gCamY;
     /* lower-left tile of the 2×2 sprite footprint */
     if (nx < 0 || nx >= SCREEN_WIDTH || ny < 0 || ny >= SCREEN_HEIGHT) return;
     if (gScrollTileMap[(ny + 2) * SCROLL_MAP_W + (nx + 2)] >= 96) {

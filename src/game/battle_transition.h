@@ -13,12 +13,10 @@
 
 /* Start a battle transition.
  *   is_trainer   : 1 if trainer battle, 0 if wild
- *   enemy_level  : wCurEnemyLevel
+ *   enemy_level  : wCurEnemyLevel (0 if unknown — treated as weaker)
  *   player_level : level of first non-fainted party mon
- *   is_dungeon   : 1 if current map is a dungeon map
- */
-void BattleTransition_Start(int is_trainer, int enemy_level,
-                             int player_level, int is_dungeon);
+ * Dungeon detection is computed internally from wCurMap. */
+void BattleTransition_Start(int is_trainer, int enemy_level, int player_level);
 
 /* Tick one 60 Hz frame.  Returns 1 when the transition is complete
  * (screen is fully black, battle can begin). */

@@ -72,6 +72,13 @@ extern uint8_t wTileMapBackup2[SCREEN_AREA];
  * On PC: read by display renderer to draw sprites. */
 extern oam_entry_t wShadowOAM[MAX_SPRITES];
 
+/* gWindowTileMap: 20×18 window layer tile IDs, indexed [row][col].
+ * Mirrors the GB Window layer (WY=hWY register): drawn after sprites so
+ * it always appears in front, regardless of sprite priority flags.
+ * Tile ID 0 = transparent (that cell passes through to BG/sprites).
+ * Used by text.c (text box) and pokecenter.c (YES/NO box). */
+extern uint8_t gWindowTileMap[SCREEN_HEIGHT][SCREEN_WIDTH];
+
 /* ---- WRAM: Tileset state ---------------------------------- */
 extern uint8_t  wTilesetBank;
 extern uint16_t wTilesetBlocksPtr;  /* points into loaded block data */
@@ -84,8 +91,8 @@ extern uint8_t  wCurMapTileset;
 /* ---- WRAM: Map state ------------------------------------- */
 extern uint8_t  wCurMap;
 extern uint8_t  wLastMap;
-extern uint16_t wYCoord;   /* tile coord; uint16 for large routes (>64 blocks) */
-extern uint16_t wXCoord;
+extern int16_t  wYCoord;   /* tile coord; signed to allow off-map scripted walks */
+extern int16_t  wXCoord;
 extern uint8_t  wYBlockCoord;
 extern uint8_t  wXBlockCoord;
 extern uint16_t wCurrentTileBlockMapViewPointer;
@@ -124,24 +131,29 @@ extern uint8_t    wNumBagItems;
 extern uint8_t    wBagItems[BAG_ITEM_CAPACITY * 2 + 1]; /* item_id, qty pairs + 0xFF */
 
 extern uint8_t    wPlayerMoney[3];  /* 3-byte BCD */
+extern uint32_t   wAmountMoneyWon;  /* prize money for current trainer battle */
 extern uint8_t    wPlayerName[NAME_LENGTH];
 extern uint8_t    wRivalName[NAME_LENGTH];
 extern uint16_t   wPlayerID;
 extern uint8_t    wObtainedBadges;
+extern uint8_t    wGymLeaderNo;     /* non-zero during gym leader battle (mirrors wGymLeaderNo in ASM) */
 
 /* ---- WRAM: Pokédex --------------------------------------- */
 extern uint8_t wPokedexOwned[19];   /* flag_array for 151 Pokémon */
 extern uint8_t wPokedexSeen[19];
 
 /* ---- WRAM: Event flags ----------------------------------- */
-#define NUM_EVENTS          507
-#define EVENT_FLAGS_BYTES   ((NUM_EVENTS + 7) / 8)  /* 64 bytes */
+/* NUM_EVENTS matches pokered wram.asm: flag_array $A00 = 2560 bits = 320 bytes.
+ * Named constants for specific flags are in src/data/event_constants.h. */
+#define NUM_EVENTS          0xA00   /* 2560 flags — matches original pokered */
+#define EVENT_FLAGS_BYTES   ((NUM_EVENTS + 7) / 8)  /* 320 bytes */
 extern uint8_t wEventFlags[EVENT_FLAGS_BYTES];
 
-/* Event flag accessors */
-static inline int  CheckEvent(int n)  { return (wEventFlags[n/8] >> (n%8)) & 1; }
-static inline void SetEvent(int n)    { wEventFlags[n/8] |=  (1 << (n%8)); }
-static inline void ClearEvent(int n)  { wEventFlags[n/8] &= ~(1 << (n%8)); }
+/* Event flag accessors — mirrors FlagAction (engine/flag_action.asm).
+ * These are the canonical public API; use these everywhere. */
+static inline int  CheckEvent(uint16_t n) { return (wEventFlags[n>>3] >> (n&7)) & 1; }
+static inline void SetEvent  (uint16_t n) { wEventFlags[n>>3] |=  (uint8_t)(1u << (n&7)); }
+static inline void ClearEvent(uint16_t n) { wEventFlags[n>>3] &= (uint8_t)~(1u << (n&7)); }
 
 /* ---- WRAM: Item pickup flags ----------------------------- */
 /* Bit i of wPickedUpItems[map_id] = item ball i on that map is gone. */

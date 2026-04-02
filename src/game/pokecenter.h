@@ -19,3 +19,6 @@ int  Pokecenter_IsActive(void);
 
 /* Advance one frame.  Call from GameTick when IsActive() and !Text_IsOpen(). */
 void Pokecenter_Tick(void);
+
+/* Debug: returns 1 if the YES/NO heal prompt is currently waiting for input. */
+int  Pokecenter_IsWaitingYesNo(void);

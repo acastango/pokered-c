@@ -45,6 +45,9 @@ void Audio_PlaySFX_StartMenu(void);
 /* Ledge-hop bloop — mirrors SFX_LEDGE (SFX_Ledge_1_Ch5) from audio/sfx/ledge_1.asm */
 void Audio_PlaySFX_Ledge(void);
 
+/* Collision bump — mirrors SFX_COLLISION (audio/sfx/collision_1.asm, Ch5) */
+void Audio_PlaySFX_Collision(void);
+
 /* Building/cave enter and exit — mirrors SFX_GO_INSIDE / SFX_GO_OUTSIDE
  * (home/overworld.asm PlayMapChangeSound, noise channel Ch8) */
 void Audio_PlaySFX_GoInside(void);
@@ -76,6 +79,15 @@ void Audio_PlaySFX_LevelUp(void);
  * Short 3-note pitch-sweep on Ch5 (ch[0]).  Call once per party member
  * with ~30-frame gaps between calls (mirrors AnimateHealingMachine loop). */
 void Audio_PlaySFX_HealingMachine(void);
+
+/* Get key item jingle — mirrors SFX_GET_KEY_ITEM (audio/sfx/get_key_item_1.asm).
+ * Two-channel ascending fanfare on Ch5 (ch[0]) and Ch6 (ch[1]).
+ * Plays when receiving a starter Pokémon or key item. ~120 frames. */
+void Audio_PlaySFX_GetKeyItem(void);
+/* Returns 1 while the GetKeyItem jingle is still playing. */
+int  Audio_IsSFXPlaying_GetKeyItem(void);
+/* Returns 1 if any SFX channel is active — mirrors WaitForSoundToFinish. */
+int  Audio_IsSFXPlaying(void);
 
 /* Purchase kaching — mirrors SFX_PURCHASE (audio/sfx/purchase_1.asm).
  * Two-channel ascending arpeggio on Ch5 (ch[0]) and Ch6 (ch[1]).

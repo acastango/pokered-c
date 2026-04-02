@@ -1,7 +1,9 @@
 #pragma once
 /* trainer_data.h — Trainer party data tables.
  *
- * Ports from data/trainers/parties.asm.
+ * Generated from pokered-master/data/trainers/parties.asm and
+ * pokered-master/data/trainers/pic_pointers_money.asm.
+ * Regenerate with: python tools/extract_trainers.py
  *
  * Party format A (first byte != 0xFF):
  *   level, species..., 0
@@ -24,3 +26,7 @@
 
 /* Pointer table indexed by [trainer_class - 1] (0-based). */
 extern const uint8_t * const gTrainerPartyData[NUM_TRAINERS];
+
+/* Base money reward per trainer class (from pic_pointers_money.asm).
+ * Prize = base_money * sum(level_i for all enemy mons). */
+extern const uint16_t gTrainerBaseMoney[NUM_TRAINERS];

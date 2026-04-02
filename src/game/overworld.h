@@ -19,7 +19,11 @@ void    Map_BuildView(void);
 void    Map_BuildScrollView(void);
 void    Map_UpdateCamera(void);
 uint8_t Map_GetTile(int tx, int ty);
+/* Convenience: look up tile at game coordinates (ASM wXCoord/wYCoord units).
+ * Converts to tile coords internally: tile_x = gx*2, tile_y = gy*2+1. */
+uint8_t Map_GetGameTile(int gx, int gy);
 int     Tile_IsPassable(uint8_t tile_id);
+int     Tile_IsPairBlocked(uint8_t a, uint8_t b);
 int     Connection_Check(int dx, int dy);  /* dx/dy: step direction (-1,0,+1) */
 void    Map_PreBuildScrollStep(int dx, int dy); /* pre-fill scroll buffer from old map before a connection transition */
 void    Map_ResetScrollState(void);  /* clear scroll-transition flags; call on battle return to force full rebuild */
@@ -32,7 +36,8 @@ void    Map_ResetScrollState(void);  /* clear scroll-transition flags; call on b
 #define SCROLL_MAP_H  (SCREEN_HEIGHT + 4)   /* 22 */
 extern uint8_t gScrollTileMap[SCROLL_MAP_W * SCROLL_MAP_H];
 
-/* Clamped camera tile origin (top-left tile visible on screen).
- * gCamX = clamp(wXCoord-9, 0, map_w*4-SCREEN_WIDTH), negative for small maps (centered). */
+/* Camera tile origin (top-left tile visible on screen).
+ * gCamX = wXCoord*2 - 8,  gCamY = wYCoord*2 + 1 - 9.
+ * Coordinates are in 8px tile units for rendering. */
 extern int gCamX;
 extern int gCamY;

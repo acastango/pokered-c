@@ -62,8 +62,9 @@ void Map_UpdateCamera(void) {
     if (!cur_map) return;
     int map_w = cur_map->width  * 4;
     int map_h = cur_map->height * 4;
-    gCamX = clamp_cam((int)wXCoord, 8,  map_w, SCREEN_WIDTH);
-    gCamY = clamp_cam((int)wYCoord, 9, map_h, SCREEN_HEIGHT);
+    /* Game coords → tile coords: tile_x = wXCoord*2, tile_y = wYCoord*2+1 */
+    gCamX = clamp_cam((int)wXCoord * 2,     8, map_w, SCREEN_WIDTH);
+    gCamY = clamp_cam((int)wYCoord * 2 + 1, 9, map_h, SCREEN_HEIGHT);
 }
 
 /* ---- Public API ------------------------------------------ */
@@ -161,12 +162,16 @@ uint8_t Map_GetTile(int tx, int ty) {
     return cur_tileset->blocks[bid * 16 + ly * 4 + lx];
 }
 
+uint8_t Map_GetGameTile(int gx, int gy) {
+    return Map_GetTile(gx * 2, gy * 2 + 1);
+}
+
 void Map_BuildView(void) {
     if (!cur_map || !cur_tileset) return;
 
-    /* Camera: player tile (wXCoord, wYCoord) appears at screen tile (8, 9) */
-    int ox = (int)wXCoord - 8;
-    int oy = (int)wYCoord - 9;
+    /* Camera: game coords → tile origin. Player at screen tile (8, 9). */
+    int ox = (int)wXCoord * 2 - 8;
+    int oy = (int)wYCoord * 2 + 1 - 9;
 
     for (int sy = 0; sy < SCREEN_HEIGHT; sy++)
         for (int sx = 0; sx < SCREEN_WIDTH; sx++)
@@ -303,10 +308,10 @@ void Map_PreBuildScrollStep(int dx, int dy) {
     conn_save_map_h      = cur_map_h;
     conn_save_tileset_id = wCurMapTileset;
 
-    int new_px = (int)wXCoord + dx;
-    int new_py = (int)wYCoord + dy;
-    conn_cam_x = clamp_cam(new_px, 8,  cur_map_w, SCREEN_WIDTH);
-    conn_cam_y = clamp_cam(new_py, 9, cur_map_h, SCREEN_HEIGHT);
+    int new_gx = (int)wXCoord + dx;
+    int new_gy = (int)wYCoord + dy;
+    conn_cam_x = clamp_cam(new_gx * 2,     8, cur_map_w, SCREEN_WIDTH);
+    conn_cam_y = clamp_cam(new_gy * 2 + 1, 9, cur_map_h, SCREEN_HEIGHT);
 
     /* Build frame 0's buffer immediately (before Connection_Check switches map). */
     int ox = conn_cam_x - 2;
@@ -321,8 +326,7 @@ void Map_PreBuildScrollStep(int dx, int dy) {
 
 /* Connection_Check — mirrors CheckMapConnections in home/overworld.asm.
  * dx/dy: the step direction that took the player off the map edge (-1, 0, +1).
- * Coords are in tile units (4 tiles per block); wXCoord/wYCoord are uint16_t
- * so they can represent large routes (e.g. Route 23 = 72 blocks = 288 tiles).
+ * Coords are in game units (2 tiles per step); wXCoord/wYCoord match ASM coords.
  */
 int Connection_Check(int dx, int dy) {
     if (wCurMap >= NUM_MAP_CONNECTIONS) return 0;
@@ -337,12 +341,13 @@ int Connection_Check(int dx, int dy) {
 
     if (!conn) return 0;
 
+    /* Connection data is in tile coords; convert to game coords (÷2). */
     if (is_north_south) {
-        wXCoord = (uint16_t)((int)wXCoord + conn->adjust);
-        wYCoord = (uint16_t)conn->player_coord;
+        wXCoord = (int16_t)((int)wXCoord + conn->adjust / 2);
+        wYCoord = (int16_t)(conn->player_coord / 2);
     } else {
-        wYCoord = (uint16_t)((int)wYCoord + conn->adjust);
-        wXCoord = (uint16_t)conn->player_coord;
+        wYCoord = (int16_t)((int)wYCoord + conn->adjust / 2);
+        wXCoord = (int16_t)(conn->player_coord / 2);
     }
     Map_Load(conn->dest_map);
     return 1;
@@ -353,6 +358,36 @@ int Tile_IsPassable(uint8_t tile_id) {
     const uint8_t *p = cur_tileset->coll_tiles;
     while (*p != 0xFF) {
         if (*p++ == tile_id) return 1;
+    }
+    return 0;
+}
+
+/* Tile pair collision — mirrors TilePairCollisionsLand in
+ * data/tilesets/pair_collision_tile_ids.asm.
+ * Returns 1 if movement between tile a and tile b is blocked
+ * (check is bidirectional, matching ASM behaviour). */
+int Tile_IsPairBlocked(uint8_t a, uint8_t b) {
+    static const struct { uint8_t ts, t1, t2; } kPairs[] = {
+        /* CAVERN (17) */
+        { 17, 0x20, 0x05 },
+        { 17, 0x41, 0x05 },
+        { 17, 0x2A, 0x05 },
+        { 17, 0x05, 0x21 },
+        /* FOREST (3) */
+        {  3, 0x30, 0x2E },
+        {  3, 0x52, 0x2E },
+        {  3, 0x55, 0x2E },
+        {  3, 0x56, 0x2E },
+        {  3, 0x20, 0x2E },
+        {  3, 0x5E, 0x2E },
+        {  3, 0x5F, 0x2E },
+    };
+    uint8_t ts = wCurMapTileset;
+    for (int i = 0; i < (int)(sizeof(kPairs)/sizeof(kPairs[0])); i++) {
+        if (kPairs[i].ts != ts) continue;
+        if ((kPairs[i].t1 == a && kPairs[i].t2 == b) ||
+            (kPairs[i].t1 == b && kPairs[i].t2 == a))
+            return 1;
     }
     return 0;
 }

@@ -42,16 +42,16 @@ static const song_t kSongs[] = {
     /* MUSIC_NONE */           { { NULL,            NULL,            NULL            } },
     /* MUSIC_PALLET_TOWN */    { { &kPalletTown_Ch1,&kPalletTown_Ch2,&kPalletTown_Ch3} },
     /* MUSIC_POKECENTER */     { { &kPokecenter_Ch1,&kPokecenter_Ch2,&kPokecenter_Ch3} },
-    /* MUSIC_GYM */            { { NULL,            NULL,            NULL            } },
+    /* MUSIC_GYM */            { { &kGym_Ch1,       &kGym_Ch2,       &kGym_Ch3       } },
     /* MUSIC_CITIES1 */        { { &kCities1_Ch1,   &kCities1_Ch2,   &kCities1_Ch3   } },
     /* MUSIC_CITIES2 */        { { &kCities2_Ch1,   &kCities2_Ch2,   &kCities2_Ch3   } },
     /* MUSIC_CELADON */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_CINNABAR */       { { NULL,            NULL,            NULL            } },
-    /* MUSIC_VERMILION */      { { NULL,            NULL,            NULL            } },
+    /* MUSIC_VERMILION */      { { &kVermilion_Ch1, &kVermilion_Ch2, &kVermilion_Ch3 } },
     /* MUSIC_LAVENDER */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_SS_ANNE */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_ROUTES1 */        { { &kRoutes1_Ch1,   &kRoutes1_Ch2,   &kRoutes1_Ch3   } },
-    /* MUSIC_ROUTES2 */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_ROUTES2 */        { { &kRoutes2_Ch1,   &kRoutes2_Ch2,   &kRoutes2_Ch3   } },
     /* MUSIC_ROUTES3 */        { { &kRoutes3_Ch1,   &kRoutes3_Ch2,   &kRoutes3_Ch3   } },
     /* MUSIC_ROUTES4 */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_INDIGO_PLATEAU */ { { NULL,            NULL,            NULL            } },
@@ -69,6 +69,12 @@ static const song_t kSongs[] = {
     /* MUSIC_DEFEATED_TRAINER */    { { &kDefeatedTrainer_Ch1,   &kDefeatedTrainer_Ch2,   &kDefeatedTrainer_Ch3   } },
     /* MUSIC_DEFEATED_GYM_LEADER */ { { &kDefeatedGymLeader_Ch1, &kDefeatedGymLeader_Ch2, &kDefeatedGymLeader_Ch3 } },
     /* MUSIC_PKMN_HEALED */        { { &kPkmnHealed_Ch1,        &kPkmnHealed_Ch2,        &kPkmnHealed_Ch3        } },
+    /* MUSIC_GYM_LEADER_BATTLE */  { { &kGymLeaderBattle_Ch1,   &kGymLeaderBattle_Ch2,   &kGymLeaderBattle_Ch3   } },
+    /* MUSIC_TRAINER_BATTLE */     { { &kTrainerBattle_Ch1,     &kTrainerBattle_Ch2,     &kTrainerBattle_Ch3     } },
+    /* MUSIC_MEET_RIVAL */         { { &kMeetRival_Ch1,         &kMeetRival_Ch2,         &kMeetRival_Ch3         } },
+    /* MUSIC_MEET_MALE_TRAINER */  { { &kMeetMaleTrainer_Ch1,   &kMeetMaleTrainer_Ch2,   &kMeetMaleTrainer_Ch3   } },
+    /* MUSIC_MEET_FEMALE_TRAINER */{ { &kMeetFemaleTrainer_Ch1, &kMeetFemaleTrainer_Ch2, &kMeetFemaleTrainer_Ch3 } },
+    /* MUSIC_MUSEUM_GUY */         { { &kMuseumGuy_Ch1,         &kMuseumGuy_Ch2,         &kMuseumGuy_Ch3         } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 
@@ -116,6 +122,31 @@ void Music_Play(uint8_t music_id) {
     }
     /* Prevent Music_Update from consuming a frame on the same tick as Music_Play.
      * In original pokered, PlayMusic always precedes the next VBlank audio tick. */
+    g_skip_update = 1;
+}
+
+void Music_PlayFromLoop(uint8_t music_id) {
+    /* Like Music_Play but starts each channel at its loop_start position,
+     * skipping the intro.  Mirrors Music_RivalAlternateStart from
+     * audio/alternate_tempo.asm. */
+    Music_Stop();
+    if (music_id == MUSIC_NONE || music_id >= NUM_SONGS) return;
+
+    gCurrentMusic = music_id;
+    const song_t *s = &kSongs[music_id];
+
+    for (int c = 0; c < 3; c++) {
+        const ch_data_t *d = s->ch[c];
+        if (!d || d->count == 0) {
+            gSeq[c].data = NULL;
+            continue;
+        }
+        gSeq[c].data  = d;
+        gSeq[c].pos   = d->loop_start;  /* skip intro */
+        gSeq[c].delay = 0;
+        fire_note(c, &d->notes[gSeq[c].pos]);
+        gSeq[c].delay = d->notes[gSeq[c].pos].frames;
+    }
     g_skip_update = 1;
 }
 

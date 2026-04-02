@@ -27,3 +27,16 @@ int  Save_Write(void);
 
 /* Validate checksum only */
 int  Save_ValidateChecksum(void);
+
+/* ---- Save states ------------------------------------------------- *
+ * Full runtime snapshot: all WRAM globals + scene + RNG.             *
+ * Unlike Save_Write (progress save), these capture exact mid-game    *
+ * state including battle turn flags, stat stages, RNG seed, etc.     *
+ * On load: globals are restored, then the caller must call           *
+ *   Map_Load(wCurMap) + NPC_Load() + (if battle) BattleUI_Restore(). *
+ * Returns 0 on success, -1 on error.                                 */
+int  Save_StateWrite(const char *path);
+int  Save_StateLoad(const char *path);
+/* Returns non-zero if the last Save_StateLoad had wIsInBattle set,
+ * so the caller knows to call BattleUI_Restore(). */
+int  Save_StateWasBattle(void);

@@ -15,6 +15,7 @@
 #include "../platform/hardware.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 extern uint16_t wPlayerID;
 
@@ -151,5 +152,75 @@ void Pokemon_WriteMovesForLevel(uint8_t *moves, uint8_t *pp,
             moves[3] = move_id;
             pp[3] = (move_id < NUM_MOVE_DEFS) ? gMoves[move_id].pp : 0;
         }
+    }
+}
+
+/* ---- Pokemon_AddToParty ------------------------------------------------- *
+ * Mirrors _AddPartyMon (engine/pokemon/add_mon.asm).                         *
+ * Appends a new mon at wPartyMons[wPartyCount] with random DVs, then         *
+ * increments wPartyCount.                                                    */
+void Pokemon_AddToParty(uint8_t species, uint8_t level) {
+    if (wPartyCount >= PARTY_LENGTH) return;
+    uint8_t dex = gSpeciesToDex[species];
+    if (dex == 0 || dex > NUM_POKEMON) return;
+    const base_stats_t *bs = &gBaseStats[dex];
+
+    party_mon_t *m = &wPartyMons[wPartyCount];
+    memset(m, 0, sizeof(*m));
+
+    /* Random DVs matching Gen 1 _AddPartyMon (Random call per pair). */
+    uint8_t dv_atk = (uint8_t)(rand() & 0xF);
+    uint8_t dv_def = (uint8_t)(rand() & 0xF);
+    uint8_t dv_spd = (uint8_t)(rand() & 0xF);
+    uint8_t dv_spc = (uint8_t)(rand() & 0xF);
+    uint8_t dv_hp  = (uint8_t)(((dv_atk & 1) << 3) | ((dv_def & 1) << 2) |
+                                ((dv_spd & 1) << 1) |  (dv_spc & 1));
+
+    m->base.species    = species;
+    m->base.box_level  = level;
+    m->base.ot_id      = wPlayerID;
+    m->base.type1      = bs->type1;
+    m->base.type2      = bs->type2;
+    m->base.catch_rate = bs->catch_rate;
+    m->base.dvs        = (uint16_t)((dv_atk << 12) | (dv_def << 8) | (dv_spd << 4) | dv_spc);
+
+    uint32_t exp = CalcExpForLevel(bs->growth_rate, level);
+    u32_to_exp(exp, m->base.exp);
+
+    for (int i = 0; i < 4; i++) {
+        uint8_t mid = bs->start_moves[i];
+        m->base.moves[i] = mid;
+        m->base.pp[i]    = (mid && mid < NUM_MOVE_DEFS) ? gMoves[mid].pp : 0;
+    }
+    Pokemon_WriteMovesForLevel(m->base.moves, m->base.pp, species, level);
+
+    m->level  = level;
+    m->max_hp = CalcStat(bs->hp,  dv_hp,  0, level, 1);
+    m->atk    = CalcStat(bs->atk, dv_atk, 0, level, 0);
+    m->def    = CalcStat(bs->def, dv_def, 0, level, 0);
+    m->spd    = CalcStat(bs->spd, dv_spd, 0, level, 0);
+    m->spc    = CalcStat(bs->spc, dv_spc, 0, level, 0);
+    m->base.hp = m->max_hp;
+
+    wPartyCount++;
+}
+
+/* ---- Pokemon_HealParty -------------------------------------------------- *
+ * Mirrors HealParty (engine/events/heal_party.asm).                          *
+ * Restores HP, PP, and clears status for all party Pokémon.                  */
+void Pokemon_HealParty(void) {
+    for (int i = 0; i < wPartyCount && i < PARTY_LENGTH; i++) {
+        party_mon_t *mon = &wPartyMons[i];
+        mon->base.status = 0;
+        for (int m = 0; m < 4; m++) {
+            uint8_t move_id = mon->base.moves[m];
+            if (move_id == 0 || move_id >= NUM_MOVE_DEFS) continue;
+            uint8_t pp_ups  = (mon->base.pp[m] >> 6) & 0x03;
+            uint8_t base_pp = gMoves[move_id].pp;
+            uint16_t new_pp = (uint16_t)base_pp + (uint16_t)(pp_ups * (base_pp / 5));
+            if (new_pp > 63) new_pp = 63;
+            mon->base.pp[m] = (uint8_t)((pp_ups << 6) | (uint8_t)new_pp);
+        }
+        mon->base.hp = mon->max_hp;
     }
 }

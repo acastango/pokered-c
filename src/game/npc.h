@@ -26,6 +26,10 @@ int NPC_FindAtTile(int tx, int ty);
  * Used to remove item ball sprites after pickup. */
 void NPC_HideSprite(int npc_slot_idx);
 
+/* Show a previously hidden sprite slot (un-hide).
+ * Mirrors ShowObject in pokered.  NPC_BuildView will restore OAM. */
+void NPC_ShowSprite(int npc_slot_idx);
+
 /* Hide / show all NPC slots — used by mart/pokecenter UIs. */
 void NPC_HideAll(void);
 void NPC_ShowAll(void);
@@ -48,3 +52,20 @@ int NPC_GetLastInteracted(void);
  * sprite, via the live OAM data.  Assumes NormalOAM layout (down/up/left
  * facing).  Used by pokecenter.c to anchor the healing machine sprites. */
 void NPC_GetScreenPos(int i, int *px, int *py);
+
+/* Returns the current map tile coordinates of NPC i. */
+void NPC_GetTilePos(int i, int *tx, int *ty);
+
+/* Teleports NPC i to tile (tx, ty) instantly (no walk animation). */
+void NPC_SetTilePos(int i, int tx, int ty);
+
+/* Returns the number of NPCs loaded for the current map. */
+int NPC_GetCount(void);
+
+/* Returns 1 if NPC i is mid-step (walk animation in progress). */
+int NPC_IsWalking(int i);
+
+/* Initiate a forced step in direction dir (0=down 1=up 2=left 3=right).
+ * Does nothing if NPC is already mid-walk.
+ * Used by trainer_sight.c to walk trainers toward the player. */
+void NPC_DoScriptedStep(int i, int dir);

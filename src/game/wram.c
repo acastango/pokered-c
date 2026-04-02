@@ -38,6 +38,7 @@ uint8_t    wOverworldMap[1300]                                  = {0};
 uint8_t    wTileMapBackup[SCREEN_AREA]                          = {0};
 uint8_t    wTileMapBackup2[SCREEN_AREA]                         = {0};
 oam_entry_t wShadowOAM[MAX_SPRITES]                            = {0};
+uint8_t     gWindowTileMap[SCREEN_HEIGHT][SCREEN_WIDTH]        = {0};
 
 /* ---- Tileset --------------------------------------------- */
 uint8_t  wTilesetBank               = 0;
@@ -51,8 +52,8 @@ uint8_t  wCurMapTileset             = 0;
 /* ---- Map state ------------------------------------------- */
 uint8_t  wCurMap                    = 0;
 uint8_t  wLastMap                   = 0;
-uint16_t wYCoord                    = 0;
-uint16_t wXCoord                    = 0;
+int16_t  wYCoord                    = 0;
+int16_t  wXCoord                    = 0;
 uint8_t  wYBlockCoord               = 0;
 uint8_t  wXBlockCoord               = 0;
 uint16_t wCurrentTileBlockMapViewPointer = 0;
@@ -85,10 +86,12 @@ uint8_t     wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
 uint8_t     wNumBagItems            = 0;
 uint8_t     wBagItems[BAG_ITEM_CAPACITY * 2 + 1];
 uint8_t     wPlayerMoney[3]         = {0};
+uint32_t    wAmountMoneyWon         = 0;   /* prize money for current trainer battle */
 uint8_t     wPlayerName[NAME_LENGTH]= {0x91,0x84,0x83,0x50}; /* RED + term */
 uint8_t     wRivalName[NAME_LENGTH] = {0};
 uint16_t    wPlayerID               = 0;
 uint8_t     wObtainedBadges         = 0;
+uint8_t     wGymLeaderNo            = 0;
 
 /* ---- Pokédex --------------------------------------------- */
 uint8_t wPokedexOwned[19]           = {0};

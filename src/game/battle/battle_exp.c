@@ -198,8 +198,10 @@ void Battle_GainExperience(void) {
             *sexp[i]   = (v > 0xFFFF) ? 0xFFFF : (uint16_t)v;
         }
 
-        /* exp = floor(base_exp × enemy_level / 7) (experience.asm:.statExpDone) */
-        uint32_t gained = (uint32_t)base_exp * wCurEnemyLevel / 7;
+        /* exp = floor(base_exp × enemy_level / 7) (experience.asm:.statExpDone)
+         * Use wEnemyMon.level — wCurEnemyLevel is only set for wild encounters
+         * and is NOT updated when a trainer sends out a replacement pokemon. */
+        uint32_t gained = (uint32_t)base_exp * wEnemyMon.level / 7;
 
         /* BoostExp ×1.5 if traded mon (OT ID ≠ player ID) */
         wGainBoostedExp = 0;
@@ -258,9 +260,12 @@ void Battle_GainExperience(void) {
         p->spd    = CalcStat(bs->spd, spd_dv, p->base.stat_exp_spd, new_level, 0);
         p->spc    = CalcStat(bs->spc, spc_dv, p->base.stat_exp_spc, new_level, 0);
 
-        /* Add max_hp gain to current HP (experience.asm:196-204) */
+        /* Add max_hp gain to current HP (experience.asm:196-204).
+         * Party HP lags wBattleMon.hp during battle — use the live value for
+         * the active mon so we add the gain to actual current HP, not stale HP. */
+        uint16_t cur_hp  = (wWhichPokemon == wPlayerMonNumber) ? wBattleMon.hp : p->base.hp;
         uint16_t hp_gain = (p->max_hp > old_max_hp) ? (p->max_hp - old_max_hp) : 0;
-        uint32_t new_hp  = (uint32_t)p->base.hp + hp_gain;
+        uint32_t new_hp  = (uint32_t)cur_hp + hp_gain;
         p->base.hp = (uint16_t)(new_hp > p->max_hp ? p->max_hp : new_hp);
 
         /* Sync wBattleMon if this is the active mon (experience.asm:205-237) */
@@ -407,8 +412,9 @@ void Battle_EvolutionAfterBattle(void) {
         p->spc    = CalcStat(bs->spc, spc_dv, p->base.stat_exp_spc, p->level, 0);
 
         /* Add max_hp gain to current HP (evos_moves.asm: wLoadedMonMaxHP delta) */
+        uint16_t cur_hp  = (wWhichPokemon == wPlayerMonNumber) ? wBattleMon.hp : p->base.hp;
         uint16_t hp_gain = (p->max_hp > old_max_hp) ? (p->max_hp - old_max_hp) : 0;
-        uint32_t new_hp  = (uint32_t)p->base.hp + hp_gain;
+        uint32_t new_hp  = (uint32_t)cur_hp + hp_gain;
         p->base.hp = (uint16_t)(new_hp > p->max_hp ? p->max_hp : new_hp);
 
         /* SetPartyMonTypes (set_types.asm) — update type1/type2 from new base stats */

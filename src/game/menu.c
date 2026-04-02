@@ -24,9 +24,11 @@
 #include "menu.h"
 #include "bag_menu.h"
 #include "party_menu.h"
+#include "pokedex.h"
 #include "overworld.h"       /* gScrollTileMap, SCROLL_MAP_W, Map_BuildScrollView */
 #include "npc.h"             /* NPC_BuildView */
 #include "../data/font_data.h"
+#include "../data/event_constants.h"
 #include "../platform/hardware.h"
 #include "../platform/audio.h"
 #include "../platform/save.h"
@@ -35,14 +37,15 @@
 
 /* ---- Box / item geometry (mirrors draw_start_menu.asm) ----------- */
 #define BOX_COL_L      10   /* left border column */
-#define BOX_COL_R      19   /* right border column: col 10 + 8 inner + 1 border = 19 */
+#define BOX_COL_R      19   /* right border column */
 #define BOX_ROW_T       0   /* top border row */
-#define BOX_ROW_B      13   /* bottom border row (b=$0c inner + 2 borders) */
+/* BOX_ROW_B is 13 without Pokédex (6 items), 15 with (7 items) */
 #define ITEM_COL       12   /* text start column */
 #define ARROW_COL      11   /* ▶ cursor column */
 #define ITEM_ROW_FIRST  2   /* row of first item */
 #define ITEM_ROW_STEP   2   /* rows between items */
-#define NUM_ITEMS       6
+#define NUM_ITEMS_NO_DEX  6
+#define NUM_ITEMS_DEX     7
 
 /* Pokéred char codes */
 #define CHAR_TERM  0x50   /* '@' string terminator */
@@ -51,6 +54,7 @@
 
 /* ---- Menu item strings (pokéred-encoded) -------------------------- */
 /* Character encoding: uppercase A=$80…Z=$99, é=$E9, digits $F6… */
+static const uint8_t kStrPokedex[] = {0x8F,0x8E,0x8A,0xBA,0x83,0x84,0x97,CHAR_TERM}; /* POKéDEX */
 static const uint8_t kStrPokemon[] = {0x8F,0x8E,0x8A,0xBA,0x8C,0x8E,0x8D,CHAR_TERM};
 static const uint8_t kStrItem[]    = {0x88,0x93,0x84,0x8C,CHAR_TERM};
 static const uint8_t kStrSave[]    = {0x92,0x80,0x95,0x84,CHAR_TERM};
@@ -58,8 +62,10 @@ static const uint8_t kStrOption[]  = {0x8E,0x8F,0x93,0x88,0x8E,0x8D,CHAR_TERM};
 static const uint8_t kStrExit[]    = {0x84,0x97,0x88,0x93,CHAR_TERM};
 
 /* ---- State -------------------------------------------------------- */
-static int gMenuOpen   = 0;
-static int gMenuCursor = 0;  /* 0-based index into kItems */
+static int gMenuOpen     = 0;
+static int gMenuCursor   = 0;  /* 0-based index */
+static int gMenuNumItems = NUM_ITEMS_NO_DEX;
+static int gMenuHasDex   = 0;
 
 /* ---- Scroll-buffer tile writer ----------------------------------- */
 /* Screen position (col, row) → gScrollTileMap buffer at +2 offset.
@@ -71,7 +77,8 @@ static void smset(int col, int row, uint8_t tile) {
 /* ---- Drawing helpers --------------------------------------------- */
 static void draw_box(void) {
     int L = BOX_COL_L, R = BOX_COL_R;
-    int T = BOX_ROW_T, B = BOX_ROW_B;
+    int T = BOX_ROW_T;
+    int B = ITEM_ROW_FIRST + (gMenuNumItems - 1) * ITEM_ROW_STEP + 1;
 
     /* top border */
     smset(L, T, (uint8_t)Font_CharToTile(0x79));   /* ┌ */
@@ -110,6 +117,9 @@ static void print_player_name(int col, int row) {
 
 static void draw_items(void) {
     int row = ITEM_ROW_FIRST;
+    if (gMenuHasDex) {
+        print_str(ITEM_COL, row, kStrPokedex); row += ITEM_ROW_STEP;
+    }
     print_str(ITEM_COL, row, kStrPokemon); row += ITEM_ROW_STEP;
     print_str(ITEM_COL, row, kStrItem);    row += ITEM_ROW_STEP;
     print_player_name(ITEM_COL, row);      row += ITEM_ROW_STEP;
@@ -124,8 +134,10 @@ static void set_cursor(int item, uint8_t tile) {
 
 /* ---- Public API -------------------------------------------------- */
 void Menu_Open(void) {
-    gMenuOpen   = 1;
-    gMenuCursor = 0;
+    gMenuHasDex  = CheckEvent(EVENT_GOT_POKEDEX) ? 1 : 0;
+    gMenuNumItems = gMenuHasDex ? NUM_ITEMS_DEX : NUM_ITEMS_NO_DEX;
+    gMenuOpen    = 1;
+    gMenuCursor  = 0;
     /* Hide all sprites by zeroing Y only — tile/flags must survive intact
      * so NPC_BuildView() can restore them without needing to re-set tiles. */
     for (int i = 0; i < MAX_SPRITES; i++) wShadowOAM[i].y = 0;
@@ -148,13 +160,13 @@ void Menu_Tick(void) {
     /* UP / DOWN: move cursor, wraps */
     if (hJoyPressed & PAD_UP) {
         set_cursor(gMenuCursor, (uint8_t)Font_CharToTile(CHAR_SPACE));
-        gMenuCursor = (gMenuCursor == 0) ? NUM_ITEMS - 1 : gMenuCursor - 1;
+        gMenuCursor = (gMenuCursor == 0) ? gMenuNumItems - 1 : gMenuCursor - 1;
         set_cursor(gMenuCursor, (uint8_t)Font_CharToTile(CHAR_ARROW));
         return;
     }
     if (hJoyPressed & PAD_DOWN) {
         set_cursor(gMenuCursor, (uint8_t)Font_CharToTile(CHAR_SPACE));
-        gMenuCursor = (gMenuCursor == NUM_ITEMS - 1) ? 0 : gMenuCursor + 1;
+        gMenuCursor = (gMenuCursor == gMenuNumItems - 1) ? 0 : gMenuCursor + 1;
         set_cursor(gMenuCursor, (uint8_t)Font_CharToTile(CHAR_ARROW));
         return;
     }
@@ -166,21 +178,31 @@ void Menu_Tick(void) {
         return;
     }
 
-    /* A: dispatch */
+    /* A: dispatch — item indices shift by 1 when Pokédex is present */
     if (hJoyPressed & PAD_A) {
         Audio_PlaySFX_PressAB();
-        switch (gMenuCursor) {
+        int idx = gMenuCursor;
+        /* Normalize: if dex present, item 0 = POKÉDEX; shift rest down */
+        if (gMenuHasDex) {
+            if (idx == 0) {
+                menu_close();
+                Pokedex_Open();
+                return;
+            }
+            idx--; /* now idx 0=POKéMON,1=ITEM,2=player,3=SAVE,4=OPTION,5=EXIT */
+        }
+        switch (idx) {
             case 0:  /* POKéMON → party menu */
                 menu_close();
                 PartyMenu_Open(0 /* cancelable */);
                 return;
-            case 2:  /* [player]— stub */
-            case 4:  /* OPTION  — stub */
-                break;
             case 1:  /* ITEM → open bag menu */
                 menu_close();
                 BagMenu_Open();
                 return;
+            case 2:  /* [player] — stub */
+            case 4:  /* OPTION   — stub */
+                break;
             case 3:  /* SAVE */
                 if (Save_Write() == 0)
                     printf("[menu] Game saved.\n");

@@ -19,7 +19,15 @@
 #include "../pokemon.h"
 
 /* ---- Battle debug log ---- */
-#define BLOG(fmt, ...) fprintf(stderr, "[BATTLE] " fmt "\n", ##__VA_ARGS__)
+/* gCombatLogSink: when non-NULL, every BLOG line is also passed to this function.
+ * Set by debug_overlay.c when combat logging is toggled on (F-key). */
+extern void (*gCombatLogSink)(const char *line);
+#define BLOG(fmt, ...) do { \
+    char _b[512]; \
+    snprintf(_b, sizeof(_b), "[BATTLE] " fmt, ##__VA_ARGS__); \
+    fprintf(stderr, "%s\n", _b); \
+    if (gCombatLogSink) gCombatLogSink(_b); \
+} while(0)
 #define BMON_P()  Pokemon_GetName(gSpeciesToDex[wBattleMon.species])
 #define BMON_E()  Pokemon_GetName(gSpeciesToDex[wEnemyMon.species])
 #define BMOVE(id) ((unsigned)(id) < NUM_MOVE_DEFS && gMoveNames[(id)] ? gMoveNames[(id)] : "???")

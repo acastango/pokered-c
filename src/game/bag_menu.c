@@ -52,11 +52,13 @@
 /* ---- State ----------------------------------------------------------- */
 typedef enum { BAG_LIST = 0, BAG_ACTION } BagState;
 
-static int      gBagOpen       = 0;
-static int      gBagCursor     = 0;   /* 0..wNumBagItems; wNumBagItems = CANCEL */
-static int      gBagScrollTop  = 0;
-static BagState gBagState      = BAG_LIST;
-static int      gActionCursor  = 0;   /* 0=USE 1=TOSS 2=CANCEL */
+static int      gBagOpen         = 0;
+static int      gBagCursor       = 0;   /* 0..wNumBagItems; wNumBagItems = CANCEL */
+static int      gBagScrollTop    = 0;
+static BagState gBagState        = BAG_LIST;
+static int      gActionCursor    = 0;   /* 0=USE 1=TOSS 2=CANCEL */
+static int      gBagBattleMode   = 0;   /* 1 = opened from battle (skip map rebuild on close) */
+static uint8_t  gBagSelectedItem = 0;   /* item ID of last battle-mode USE; 0 = none/cancel */
 
 /* ---- Tile writer ----------------------------------------------------- */
 static void smset(int col, int row, uint8_t tile) {
@@ -207,8 +209,11 @@ static void scroll_clamp(void) {
 /* ---- Close ----------------------------------------------------------- */
 static void bag_close(void) {
     gBagOpen = 0;
-    Map_BuildScrollView();
-    NPC_BuildView(0, 0);
+    if (!gBagBattleMode) {
+        Map_BuildScrollView();
+        NPC_BuildView(0, 0);
+    }
+    gBagBattleMode = 0;
 }
 
 /* ---- Public API ------------------------------------------------------ */
@@ -226,6 +231,22 @@ void BagMenu_Open(void) {
 }
 
 int BagMenu_IsOpen(void) { return gBagOpen; }
+
+void BagMenu_OpenBattle(void) {
+    gBagBattleMode   = 1;
+    gBagSelectedItem = 0;
+    gBagOpen         = 1;
+    gBagCursor       = 0;
+    gBagScrollTop    = 0;
+    gBagState        = BAG_LIST;
+    gActionCursor    = 0;
+    /* In battle the screen is managed by battle_ui — just draw the bag overlay */
+    draw_box();
+    draw_items();
+    draw_cursor();
+}
+
+uint8_t BagMenu_GetSelected(void) { return gBagSelectedItem; }
 
 void BagMenu_Tick(void) {
     if (gBagState == BAG_ACTION) {
@@ -254,9 +275,16 @@ void BagMenu_Tick(void) {
         if (hJoyPressed & PAD_A) {
             uint8_t id = wBagItems[gBagCursor * 2];
             switch (gActionCursor) {
-                case 0: /* USE — stub */
-                    gBagState = BAG_LIST;
-                    erase_action_submenu();
+                case 0: /* USE */
+                    if (gBagBattleMode) {
+                        /* In battle: record selection and close immediately */
+                        gBagSelectedItem = id;
+                        bag_close();
+                    } else {
+                        /* Overworld: stub (no overworld item effects yet) */
+                        gBagState = BAG_LIST;
+                        erase_action_submenu();
+                    }
                     break;
                 case 1: /* TOSS */
                     if (Inventory_IsKeyItem(id)) {
