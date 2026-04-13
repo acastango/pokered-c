@@ -6,6 +6,11 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 
 **Status:** Fully playable from intro through Cerulean City and beyond (Nugget Bridge, Route 24/25, Bill's House). Full Gen 1 battle engine with trainer battles. Story scripts and overworld events implemented for the first chapter of the game.
 
+## Release notes
+
+- Human-readable changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- Full file-level release ledger (2026-04-13): [`bugs/release_ledger_2026-04-13.md`](bugs/release_ledger_2026-04-13.md)
+
 ## What's implemented
 
 ### Overworld
