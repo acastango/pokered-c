@@ -25,12 +25,18 @@ typedef struct {
     const ch_data_t *data;   /* NULL = not playing */
     int              pos;    /* current event index */
     int              delay;  /* frames remaining on current event */
+    /* vibrato */
+    uint16_t vib_base_freq;  /* freq of current note (for oscillation) */
+    uint8_t  vib_delay_left; /* onset delay frames remaining */
+    uint8_t  vib_rate;       /* half-period length in frames */
+    int      vib_rate_left;  /* frames remaining in current half-period */
+    int      vib_phase;      /* 0 = +depth, 1 = -depth */
 } ch_seq_t;
 
 static ch_seq_t gSeq[3];
 static uint8_t  gCurrentMusic   = MUSIC_NONE;
 static int      g_skip_update    = 0;  /* skip first Music_Update after Music_Play */
-static int      g_suspended_mask = 0;  /* bitmask: channel suspended by SFX */
+static uint8_t  g_suspend_count[3] = {0, 0, 0};  /* nested channel ownership by SFX */
 
 /* ---- Song table --------------------------------------------------- */
 /* Each entry: up to 3 channels (NULL = unused). */
@@ -61,7 +67,7 @@ static const song_t kSongs[] = {
     /* MUSIC_DUNGEON3 */       { { &kDungeon3_Ch1,  &kDungeon3_Ch2,  &kDungeon3_Ch3  } },
     /* MUSIC_POKEMON_TOWER */  { { NULL,            NULL,            NULL            } },
     /* MUSIC_SILPH_CO */       { { NULL,            NULL,            NULL            } },
-    /* MUSIC_SAFARI_ZONE */    { { NULL,            NULL,            NULL            } },
+    /* MUSIC_SAFARI_ZONE */    { { &kSafariZone_Ch1,&kSafariZone_Ch2,&kSafariZone_Ch3} },
     /* MUSIC_TITLE */          { { NULL,            NULL,            NULL            } },
     /* MUSIC_JIGGLYPUFF */     { { NULL,                NULL,                NULL                } },
     /* MUSIC_WILD_BATTLE */         { { &kWildBattle_Ch1,        &kWildBattle_Ch2,        &kWildBattle_Ch3        } },
@@ -75,10 +81,39 @@ static const song_t kSongs[] = {
     /* MUSIC_MEET_MALE_TRAINER */  { { &kMeetMaleTrainer_Ch1,   &kMeetMaleTrainer_Ch2,   &kMeetMaleTrainer_Ch3   } },
     /* MUSIC_MEET_FEMALE_TRAINER */{ { &kMeetFemaleTrainer_Ch1, &kMeetFemaleTrainer_Ch2, &kMeetFemaleTrainer_Ch3 } },
     /* MUSIC_MUSEUM_GUY */         { { &kMuseumGuy_Ch1,         &kMuseumGuy_Ch2,         &kMuseumGuy_Ch3         } },
+    /* MUSIC_MEET_EVIL_TRAINER */  { { &kMeetEvilTrainer_Ch1,   &kMeetEvilTrainer_Ch2,   &kMeetEvilTrainer_Ch3   } },
+    /* MUSIC_SURFING */            { { &kSurfing_Ch1,           &kSurfing_Ch2,           &kSurfing_Ch3           } },
+    /* MUSIC_MEET_PROF_OAK */     { { &kMeetProfOak_Ch1,       &kMeetProfOak_Ch2,       &kMeetProfOak_Ch3       } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 
 /* ---- Helpers ------------------------------------------------------ */
+
+/* Reset vibrato state when a new note fires. */
+static void reset_vib(ch_seq_t *seq, const note_evt_t *n) {
+    seq->vib_base_freq  = n->freq;
+    seq->vib_delay_left = n->vib_delay;
+    seq->vib_rate       = n->vib_rate ? n->vib_rate : 1;
+    seq->vib_rate_left  = seq->vib_rate;
+    seq->vib_phase      = 0;
+}
+
+/* Advance vibrato oscillator for channel c by one frame.
+ * Writes freq (no trigger) to audio hardware when phase toggles. */
+static void tick_vibrato(int c, ch_seq_t *seq) {
+    const note_evt_t *n = &seq->data->notes[seq->pos];
+    if (n->vib_depth == 0 || seq->vib_base_freq == 0) return;
+    if (seq->vib_delay_left > 0) { seq->vib_delay_left--; return; }
+    if (--seq->vib_rate_left > 0) return;
+    seq->vib_phase    ^= 1;
+    seq->vib_rate_left = seq->vib_rate;
+    int16_t  delta  = seq->vib_phase ? -(int16_t)n->vib_depth : (int16_t)n->vib_depth;
+    uint16_t af     = (uint16_t)((int16_t)seq->vib_base_freq + delta) & 0x7FFu;
+    if (g_suspend_count[c] > 0) return;
+    Audio_WriteReg(c, 3, (uint8_t)(af & 0xFF));
+    Audio_WriteReg(c, 4, (uint8_t)((af >> 8) & 0x07));  /* no trigger bit */
+}
+
 static void fire_note(int ch, const note_evt_t *n) {
     if (n->freq > 0) {
         /* Ch3 (wave channel): load correct wave pattern before triggering */
@@ -118,6 +153,7 @@ void Music_Play(uint8_t music_id) {
         gSeq[c].delay = 0;
         /* Fire first note immediately */
         fire_note(c, &d->notes[gSeq[c].pos]);
+        reset_vib(&gSeq[c], &d->notes[gSeq[c].pos]);
         gSeq[c].delay = d->notes[gSeq[c].pos].frames;
     }
     /* Prevent Music_Update from consuming a frame on the same tick as Music_Play.
@@ -145,6 +181,7 @@ void Music_PlayFromLoop(uint8_t music_id) {
         gSeq[c].pos   = d->loop_start;  /* skip intro */
         gSeq[c].delay = 0;
         fire_note(c, &d->notes[gSeq[c].pos]);
+        reset_vib(&gSeq[c], &d->notes[gSeq[c].pos]);
         gSeq[c].delay = d->notes[gSeq[c].pos].frames;
     }
     g_skip_update = 1;
@@ -153,7 +190,9 @@ void Music_PlayFromLoop(uint8_t music_id) {
 void Music_Stop(void) {
     gCurrentMusic    = MUSIC_NONE;
     g_skip_update    = 0;
-    g_suspended_mask = 0;
+    g_suspend_count[0] = 0;
+    g_suspend_count[1] = 0;
+    g_suspend_count[2] = 0;
     for (int c = 0; c < 3; c++) {
         gSeq[c].data = NULL;
         Audio_WriteReg(c, 2, 0x00);  /* mute */
@@ -168,6 +207,9 @@ void Music_Update(void) {
     for (int c = 0; c < 3; c++) {
         ch_seq_t *seq = &gSeq[c];
         if (!seq->data) continue;
+
+        tick_vibrato(c, seq);
+
         if (--seq->delay > 0) continue;
 
         /* Advance to next event */
@@ -185,19 +227,28 @@ void Music_Update(void) {
 
         const note_evt_t *n = &seq->data->notes[seq->pos];
         seq->delay = n->frames;
+        reset_vib(seq, n);
         /* Only write to hardware if channel is not owned by SFX.
          * Advancing pos/delay keeps this channel in sync with others. */
-        if (!(g_suspended_mask & (1 << c)))
+        if (g_suspend_count[c] == 0)
             fire_note(c, n);
     }
 }
 
 void Music_SuspendChannel(int c) {
-    g_suspended_mask |= (1 << c);
+    if (c < 0 || c >= 3) return;
+    if (g_suspend_count[c] < 0xFF) g_suspend_count[c]++;
+    /* Immediately silence the hardware channel so currently ringing music
+     * notes do not bleed under higher-priority SFX like Pokémon cries. */
+    Audio_WriteReg(c, 2, 0x00);
+    Audio_WriteReg(c, 4, 0x00);
 }
 
 void Music_ResumeChannel(int c) {
-    g_suspended_mask &= ~(1 << c);
+    if (c < 0 || c >= 3) return;
+    if (g_suspend_count[c] == 0) return;
+    g_suspend_count[c]--;
+    if (g_suspend_count[c] > 0) return;
     if (gSeq[c].data)
         /* Re-fire the current note so music resumes seamlessly */
         fire_note(c, &gSeq[c].data->notes[gSeq[c].pos]);

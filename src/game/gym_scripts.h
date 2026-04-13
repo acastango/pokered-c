@@ -29,6 +29,11 @@ void GymScripts_OnVictory(void);
 /* Called by game.c after a gym trainer NPC battle ends in TRAINER_VICTORY. */
 void GymScripts_OnGymTrainerVictory(void);
 
+/* Configure generic trainer NPC state from an external gym script module. */
+void GymScripts_SetTrainerPending(uint8_t cls, uint8_t no, uint32_t flag,
+                                   const char *end_text, const char *after_text,
+                                   const char *pre_text);
+
 /* Read-and-clear the gym trainer battle flag.  Always call after any battle
  * that was initiated through gym scripts, regardless of outcome. */
 int  GymScripts_ConsumeGymTrainer(void);
@@ -43,3 +48,5 @@ void GymScripts_MistyInteract(void);
 void GymScripts_CeruleanTrainer0Interact(void);
 void GymScripts_CeruleanTrainer1Interact(void);
 void GymScripts_CeruleanGuideInteract(void);
+/* Vermilion Gym */
+void GymScripts_SurgeInteract(void);

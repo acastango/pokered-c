@@ -21,6 +21,9 @@
 
 void Text_ShowBox(const uint8_t *str);    /* pokered-encoded string */
 void Text_ShowASCII(const char *str);     /* ASCII: \n=line \f=paragraph @=end */
+/* One-shot override: next Text_Show* prints immediately (single frame),
+ * then auto-resets. Useful for ASM-accurate special flows. */
+void Text_InstantNext(void);
 int  Text_IsOpen(void);
 void Text_Update(void);
 void Text_Close(void);
@@ -39,3 +42,7 @@ int  Text_GetCurrentStr(char *buf, int size);
  * text prints fully then returns without waiting for A press.  Text box stays
  * visible so caller can overlay yes/no etc.  Auto-resets after use. */
 extern int wDoNotWaitForButtonPress;
+/* Set a one-shot SFX callback to fire immediately when the next Text_Close()
+ * is called.  Mirrors the text_asm / PlaySound blocks in pokered text scripts
+ * (e.g. VermilionGymTrashSuccessText3 plays SFX_GO_INSIDE after text ends). */
+void Text_SetPendingSFX(void (*fn)(void));

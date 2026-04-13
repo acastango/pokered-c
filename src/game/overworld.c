@@ -34,9 +34,30 @@ int gCamY = 0;
 /* Scroll tile buffer: 22x20 (one extra tile on each edge for sub-pixel panning) */
 uint8_t gScrollTileMap[SCROLL_MAP_W * SCROLL_MAP_H];
 
+/* ---- Block overrides (runtime tile changes, e.g. gym doors) ------- */
+#define MAX_BLOCK_OVERRIDES 16
+typedef struct { int8_t bx; int8_t by; uint8_t id; } block_override_t;
+static block_override_t gBlockOverrides[MAX_BLOCK_OVERRIDES];
+static int gNumBlockOverrides = 0;
+
+void Map_SetBlock(int bx, int by, uint8_t block_id) {
+    for (int i = 0; i < gNumBlockOverrides; i++) {
+        if (gBlockOverrides[i].bx == (int8_t)bx && gBlockOverrides[i].by == (int8_t)by) {
+            gBlockOverrides[i].id = block_id;
+            return;
+        }
+    }
+    if (gNumBlockOverrides < MAX_BLOCK_OVERRIDES)
+        gBlockOverrides[gNumBlockOverrides++] = (block_override_t){(int8_t)bx, (int8_t)by, block_id};
+}
+
 /* ---- Internal helpers ------------------------------------ */
 
 static uint8_t get_block_id(int bx, int by) {
+    for (int i = 0; i < gNumBlockOverrides; i++) {
+        if (gBlockOverrides[i].bx == (int8_t)bx && gBlockOverrides[i].by == (int8_t)by)
+            return gBlockOverrides[i].id;
+    }
     if (!cur_map || !cur_map->blocks) return 0;
     if (bx < 0 || by < 0 || bx >= cur_map->width || by >= cur_map->height) {
         if (wCurMap < NUM_MAPS) return gMapEvents[wCurMap].border_block;
@@ -65,6 +86,11 @@ void Map_UpdateCamera(void) {
     /* Game coords → tile coords: tile_x = wXCoord*2, tile_y = wYCoord*2+1 */
     gCamX = clamp_cam((int)wXCoord * 2,     8, map_w, SCREEN_WIDTH);
     gCamY = clamp_cam((int)wYCoord * 2 + 1, 9, map_h, SCREEN_HEIGHT);
+    Display_SetBlockIDCam(gCamX, gCamY);
+}
+
+int Map_GetBlockIdRaw(int bx, int by) {
+    return (int)get_block_id(bx, by);
 }
 
 /* ---- Public API ------------------------------------------ */
@@ -78,6 +104,7 @@ void Map_ReloadGfx(void) {
 
 void Map_Load(uint8_t map_id) {
     if (map_id >= NUM_MAPS) return;
+    gNumBlockOverrides = 0;  /* clear runtime tile overrides on map change */
     Warp_Reset();   /* clear post-warp cooldown on every map load */
     const map_info_t *m = &gMapTable[map_id];
 
@@ -96,6 +123,7 @@ void Map_Load(uint8_t map_id) {
     if (m->blocks)
         Display_LoadTileset(cur_tileset->gfx, cur_tileset->gfx_tiles);
 
+    Display_SetBlockIDQueryFn(Map_GetBlockIdRaw);
     Anim_SetTileset(cur_tileset->anim_type);
     Music_Play(Music_GetMapID(map_id));
 }
@@ -164,6 +192,18 @@ uint8_t Map_GetTile(int tx, int ty) {
 
 uint8_t Map_GetGameTile(int gx, int gy) {
     return Map_GetTile(gx * 2, gy * 2 + 1);
+}
+
+uint8_t Map_GetBlockAt(int gx, int gy) {
+    int bx = (gx * 2) >> 2;   /* gx/2 */
+    int by = (gy * 2 + 1) >> 2;
+    return get_block_id(bx, by);
+}
+
+void Map_SetBlockAt(int gx, int gy, uint8_t block_id) {
+    int bx = (gx * 2) >> 2;
+    int by = (gy * 2 + 1) >> 2;
+    Map_SetBlock(bx, by, block_id);
 }
 
 void Map_BuildView(void) {

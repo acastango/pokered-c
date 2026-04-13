@@ -30,6 +30,7 @@
 #include "../platform/display.h"
 #include "../data/event_data.h"
 #include "music.h"
+#include "constants.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -123,6 +124,41 @@ uint8_t gEngagedTrainerClass = 0;
 uint8_t gEngagedTrainerNo    = 0;
 const char *gTrainerAfterText = NULL;
 
+/* Walk-end position save: trainer walked toward player before battle.
+ * Restored in Trainer_LoadMap so the NPC stays where it stopped,
+ * not snapping back to spawn. Pattern from npc-post-battle-reposition skill. */
+static int ts_walk_map    = -1;
+static int ts_walk_npc    = -1;
+static int ts_walk_x      = 0;
+static int ts_walk_y      = 0;
+static int ts_walk_facing = 0;
+
+/* Returns 1 if trainer_class (raw, no OPP_ID_OFFSET) is in the evil trainer list.
+ * Mirrors EvilTrainerList (data/trainers/encounter_types.asm).
+ * map_trainer_t.trainer_class stores the raw class number (e.g. 30 for ROCKET),
+ * while OPP_* constants include OPP_ID_OFFSET (+200). */
+static int is_evil_trainer(uint8_t tc) {
+    static const uint8_t kEvil[] = {
+        OPP_JUGGLER_X - OPP_ID_OFFSET,   /* 13 */
+        OPP_GAMER     - OPP_ID_OFFSET,   /* 17 (ASM: GAMBLER) */
+        OPP_ROCKER    - OPP_ID_OFFSET,   /* 20 */
+        OPP_JUGGLER   - OPP_ID_OFFSET,   /* 21 */
+        OPP_CHIEF     - OPP_ID_OFFSET,   /* 27 */
+        OPP_SCIENTIST - OPP_ID_OFFSET,   /* 28 */
+        OPP_GIOVANNI  - OPP_ID_OFFSET,   /* 29 */
+        OPP_ROCKET    - OPP_ID_OFFSET,   /* 30 */
+        0xFF
+    };
+    for (int i = 0; kEvil[i] != 0xFF; i++)
+        if (tc == kEvil[i]) return 1;
+    return 0;
+}
+
+/* Gym trainer battle routing globals (defined in gym_scripts.c). */
+extern uint8_t    gGymTrainerBattlePending;
+extern uint32_t   gGymTrainerVictoryEvent;
+extern const char *gGymTrainerEndText;
+
 /* Event flag access uses CheckEvent/SetEvent from hardware.h (FlagAction port). */
 
 /* ---- TrainerEngage / CheckSpriteCanSeePlayer / CheckPlayerIsInFrontOfSprite
@@ -194,6 +230,17 @@ void Trainer_LoadMap(void) {
         const map_trainer_t *t = &ev->trainers[i];
         NPC_SetFacing(t->npc_idx, t->facing);
     }
+
+    /* Restore walk-end position for trainer that walked before battle.
+     * NPC_Load() already reset all NPCs to spawn; override the one that moved.
+     * Clear if we've moved to a different map. */
+    if (ts_walk_map == (int)wCurMap && ts_walk_npc >= 0) {
+        NPC_SetTilePos(ts_walk_npc, ts_walk_x, ts_walk_y);
+        NPC_SetFacing(ts_walk_npc, ts_walk_facing);
+    } else if (ts_walk_map != (int)wCurMap) {
+        ts_walk_map = -1;
+        ts_walk_npc = -1;
+    }
 }
 
 void Trainer_CheckSight(void) {
@@ -245,7 +292,11 @@ int Trainer_SightTick(void) {
          * Play trainer encounter jingle (mirrors PlayTrainerEncounterMusic). */
         if (ts_timer == 60) {
             emote_show(ts_npc_idx);
-            Music_Play(MUSIC_MEET_MALE_TRAINER);
+            /* Mirrors PlayTrainerMusic / EvilTrainerList check (home/trainers.asm:399) */
+            if (is_evil_trainer(t->trainer_class))
+                Music_Play(MUSIC_MEET_EVIL_TRAINER);
+            else
+                Music_Play(MUSIC_MEET_MALE_TRAINER);
         }
         if (--ts_timer > 0) return 0;
         emote_hide();
@@ -268,7 +319,14 @@ int Trainer_SightTick(void) {
         /* Check adjacency: stop when 1 block apart (1 game unit) */
         int adj = (facing == 0 || facing == 1) ? (dy < 0 ? -dy : dy) : (dx < 0 ? -dx : dx);
         if (adj <= 1) {
-            /* Adjacent — face player and transition to talking. */
+            /* Adjacent — face player and transition to talking.
+             * Save walk-end position so Trainer_LoadMap can restore it
+             * instead of snapping back to spawn after the battle. */
+            ts_walk_map    = (int)wCurMap;
+            ts_walk_npc    = ts_npc_idx;
+            ts_walk_x      = tx;
+            ts_walk_y      = ty;
+            ts_walk_facing = facing;
             NPC_SetFacing(ts_npc_idx, facing);
             ts_state = TS_TALKING;
             return 0;
@@ -290,6 +348,13 @@ int Trainer_SightTick(void) {
             return 0;
         }
         /* ts_timer == 1 and !Text_IsOpen(): text was dismissed (or there was none) */
+        /* If trainer has end_text it's a gym trainer — route post-battle through
+         * GymScripts_OnGymTrainerVictory (mirrors interact-path setup). */
+        if (t->end_text) {
+            gGymTrainerBattlePending = 1;
+            gGymTrainerVictoryEvent  = (uint32_t)t->flag_bit;
+            gGymTrainerEndText       = t->end_text;
+        }
         ts_state = TS_READY;
         return 0;
 

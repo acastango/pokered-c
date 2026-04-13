@@ -35,8 +35,6 @@ void Battle_Start(void) {
     wPlayerDisabledMoveNumber = wEnemyDisabledMoveNumber = 0;
     wPlayerSelectedMove    = wEnemySelectedMove    = 0;
     wEscapedFromBattle     = 0;
-    wPartyGainExpFlags     = (1u << 0);   /* slot 0 is fighting (core.asm:2429 send-out path) */
-    wPartyFoughtCurrentEnemyFlags = (1u << 0);
     wMoveDidntMiss         = 0;
     wDamage                = 0;
     wDamageMultipliers     = DAMAGE_MULT_EFFECTIVE;
@@ -45,8 +43,19 @@ void Battle_Start(void) {
     wBattleType            = 0;   /* 0 = normal */
     hWhoseTurn             = 0;
 
-    /* ---- Copy player mon (slot 0) → wBattleMon (core.asm:LoadPlayerMon) ---- */
+    /* ---- Find first non-fainted party mon (core.asm:.findFirstAliveMonLoop) ----
+     * Mirrors the loop at StartBattle that scans from slot 0 and increments
+     * wWhichPokemon until HasMonFainted returns false, then sets wPlayerMonNumber. */
     wPlayerMonNumber = 0;
+    for (uint8_t i = 0; i < wPartyCount; i++) {
+        if (wPartyMons[i].base.hp > 0) {
+            wPlayerMonNumber = i;
+            break;
+        }
+    }
+
+    wPartyGainExpFlags            = (uint8_t)(1u << wPlayerMonNumber);
+    wPartyFoughtCurrentEnemyFlags = (uint8_t)(1u << wPlayerMonNumber);
 
     /* Populate wPartySpecies (wram.asm:wPartyDataStart + 1): species list used by
      * GainExperience to find each mon's growth rate. Mirrors the 7-byte array that
@@ -55,7 +64,7 @@ void Battle_Start(void) {
         wPartySpecies[i] = wPartyMons[i].base.species;
     wPartySpecies[wPartyCount < PARTY_LENGTH ? wPartyCount : PARTY_LENGTH] = 0xFF;
 
-    const party_mon_t *p = &wPartyMons[0];
+    const party_mon_t *p = &wPartyMons[wPlayerMonNumber];
 
     wBattleMon.species    = p->base.species;
     wBattleMon.hp         = p->base.hp;
@@ -326,8 +335,6 @@ void Battle_StartTrainer(uint8_t trainer_class, uint8_t trainer_no) {
     wPlayerDisabledMoveNumber = wEnemyDisabledMoveNumber = 0;
     wPlayerSelectedMove    = wEnemySelectedMove    = 0;
     wEscapedFromBattle     = 0;
-    wPartyGainExpFlags     = (1u << 0);
-    wPartyFoughtCurrentEnemyFlags = (1u << 0);
     wMoveDidntMiss         = 0;
     wDamage                = 0;
     wDamageMultipliers     = DAMAGE_MULT_EFFECTIVE;
@@ -339,13 +346,23 @@ void Battle_StartTrainer(uint8_t trainer_class, uint8_t trainer_no) {
     wIsInBattle = 2;       /* 2 = trainer battle */
     wAICount    = 0xFF;    /* trainer AI init marker (core.asm:6686) */
 
-    /* ---- Load player mon (slot 0) → wBattleMon ---- */
+    /* ---- Find first non-fainted party mon (core.asm:.findFirstAliveMonLoop) ---- */
     wPlayerMonNumber = 0;
+    for (uint8_t i = 0; i < wPartyCount; i++) {
+        if (wPartyMons[i].base.hp > 0) {
+            wPlayerMonNumber = i;
+            break;
+        }
+    }
+
+    wPartyGainExpFlags            = (uint8_t)(1u << wPlayerMonNumber);
+    wPartyFoughtCurrentEnemyFlags = (uint8_t)(1u << wPlayerMonNumber);
+
     for (int i = 0; i < wPartyCount && i < PARTY_LENGTH; i++)
         wPartySpecies[i] = wPartyMons[i].base.species;
     wPartySpecies[wPartyCount < PARTY_LENGTH ? wPartyCount : PARTY_LENGTH] = 0xFF;
 
-    const party_mon_t *p = &wPartyMons[0];
+    const party_mon_t *p = &wPartyMons[wPlayerMonNumber];
     wBattleMon.species    = p->base.species;
     wBattleMon.hp         = p->base.hp;
     wBattleMon.party_pos  = 0;

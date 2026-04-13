@@ -400,18 +400,17 @@ static void Effect_StatModifierDown(void) {
     uint8_t effect  = (hWhoseTurn == 0) ? wPlayerMoveEffect : wEnemyMoveEffect;
     uint8_t *target_mods;
     uint8_t  target_bstat1_val;
-    if (hWhoseTurn == 0) {
-        /* Player attacks → lower enemy stats */
-        target_mods       = wEnemyMonStatMods;
-        target_bstat1_val = wEnemyBattleStatus1;
-        /* Non-link single-player battle: 25% move miss chance */
+    /* Mirror ASM setup order exactly:
+     * default pointers target enemy, then switch to player target on enemy turn.
+     * The non-link 25% miss quirk applies only on enemy turn. */
+    target_mods       = wEnemyMonStatMods;
+    target_bstat1_val = wEnemyBattleStatus1;
+    if (hWhoseTurn != 0) {
+        target_mods       = wPlayerMonStatMods;
+        target_bstat1_val = wPlayerBattleStatus1;
         if (wLinkState != LINK_STATE_BATTLING) {
             if (BattleRandom() < PCT25) { wMoveMissed = 1; return; }
         }
-    } else {
-        /* Enemy attacks → lower player stats */
-        target_mods       = wPlayerMonStatMods;
-        target_bstat1_val = wPlayerBattleStatus1;
     }
 
     /* Side effects (0x44-0x47): 33% proc chance */

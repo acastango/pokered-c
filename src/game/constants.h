@@ -616,6 +616,12 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define MOVE_FIRE_BLAST     0x7E
 #define MOVE_PSYWAVE        0x95
 
+/* ---- HM move IDs (for HM protection in TM/HM teaching) ---- */
+#define MOVE_CUT            0x0F
+#define MOVE_SURF           0x39
+#define MOVE_STRENGTH       0x46
+#define MOVE_FLASH          0x94
+
 /* ---- Starter species (player_starter.asm) ---- */
 #define STARTER1  SPECIES_CHARMANDER
 #define STARTER2  SPECIES_SQUIRTLE
@@ -657,6 +663,8 @@ static const uint16_t STAT_MOD_DEN[13] = {100,100,100,100,100,100,100,100,100,10
 #define ITEM_X_SPECIAL    0x44  /* raise player SPC stage +1 */
 /* Escape item */
 #define ITEM_POKE_DOLL    0x33  /* flee wild battle */
+/* Key items */
+#define ITEM_POKE_FLUTE   0x49  /* wake SNORLAX (overworld); wake sleeping mons (battle) */
 /* TM/HM threshold — IDs >= HM01 are TM/HMs, not usable via ItemUsePtrTable */
 #define ITEM_HM01         0xC4
 

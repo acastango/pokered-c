@@ -46,6 +46,43 @@ typedef struct PACKED {
     uint8_t     party_nicks[PARTY_LENGTH][NAME_LENGTH];
     /* --- end of core save data --- */
     uint8_t     checksum;
+} save_block_v1_t;
+
+typedef struct PACKED {
+    uint8_t     player_name[NAME_LENGTH];
+    /* --- sMainData region (checksum covers this) --- */
+    uint8_t     pokedex_owned[19];
+    uint8_t     pokedex_seen[19];
+    uint8_t     num_bag_items;
+    uint8_t     bag_items[BAG_ITEM_CAPACITY * 2 + 1];
+    uint8_t     player_money[3];
+    uint8_t     rival_name[NAME_LENGTH];
+    uint8_t     options;
+    uint8_t     badges;
+    uint8_t     _pad1;
+    uint8_t     letter_delay_flags;
+    uint16_t    player_id;
+    uint8_t     cur_map;
+    uint8_t     last_map;
+    uint8_t     y_coord;
+    uint8_t     x_coord;
+    uint8_t     event_flags[EVENT_FLAGS_BYTES];
+    uint8_t     game_progress_flags[256];
+    uint16_t    picked_up_items[248];
+    /* --- sPartyData region --- */
+    uint8_t     party_count;
+    party_mon_t party_mons[PARTY_LENGTH];
+    uint8_t     party_ot[PARTY_LENGTH][NAME_LENGTH];
+    uint8_t     party_nicks[PARTY_LENGTH][NAME_LENGTH];
+    /* --- box data extension for the port --- */
+    uint8_t     current_box_num;
+    uint8_t     box_count[NUM_BOXES];
+    uint8_t     box_species[NUM_BOXES][BOX_CAPACITY + 1];
+    box_mon_t   box_mons[NUM_BOXES][BOX_CAPACITY];
+    uint8_t     box_ot[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
+    uint8_t     box_nicks[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
+    /* --- end of core save data --- */
+    uint8_t     checksum;
 } save_block_t;
 
 static save_block_t save;
@@ -70,6 +107,12 @@ static void pack_save(void) {
     memcpy(save.party_mons,     wPartyMons,      sizeof(wPartyMons));
     memcpy(save.party_ot,       wPartyMonOT,     sizeof(wPartyMonOT));
     memcpy(save.party_nicks,    wPartyMonNicks,  sizeof(wPartyMonNicks));
+    save.current_box_num = wCurrentBoxNum;
+    memcpy(save.box_count,      wBoxCount,       sizeof(wBoxCount));
+    memcpy(save.box_species,    wBoxSpecies,     sizeof(wBoxSpecies));
+    memcpy(save.box_mons,       wBoxMons,        sizeof(wBoxMons));
+    memcpy(save.box_ot,         wBoxMonOT,       sizeof(wBoxMonOT));
+    memcpy(save.box_nicks,      wBoxMonNicks,    sizeof(wBoxMonNicks));
 
     /* Checksum covers everything except the checksum byte itself */
     save.checksum = CalcCheckSum((uint8_t *)&save,
@@ -96,6 +139,12 @@ static void unpack_save(void) {
     memcpy(wPartyMons,    save.party_mons,     sizeof(wPartyMons));
     memcpy(wPartyMonOT,   save.party_ot,       sizeof(wPartyMonOT));
     memcpy(wPartyMonNicks,save.party_nicks,    sizeof(wPartyMonNicks));
+    wCurrentBoxNum = save.current_box_num;
+    memcpy(wBoxCount,     save.box_count,      sizeof(wBoxCount));
+    memcpy(wBoxSpecies,   save.box_species,    sizeof(wBoxSpecies));
+    memcpy(wBoxMons,      save.box_mons,       sizeof(wBoxMons));
+    memcpy(wBoxMonOT,     save.box_ot,         sizeof(wBoxMonOT));
+    memcpy(wBoxMonNicks,  save.box_nicks,      sizeof(wBoxMonNicks));
 }
 
 int Save_ValidateChecksum(void) {
@@ -106,13 +155,69 @@ int Save_ValidateChecksum(void) {
 
 int Save_Load(void) {
     FILE *f = fopen(SAVE_FILE, "rb");
+    long sz;
+    size_t n;
     if (!f) return -1;
-    size_t n = fread(&save, 1, sizeof(save), f);
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -1; }
+    sz = ftell(f);
+    if (sz < 0) { fclose(f); return -1; }
+    rewind(f);
+
+    if ((size_t)sz == sizeof(save_block_t)) {
+        n = fread(&save, 1, sizeof(save), f);
+        fclose(f);
+        if (n != sizeof(save)) return -1;
+        if (Save_ValidateChecksum() != 0) return -1;
+        unpack_save();
+        return 0;
+    }
+
+    if ((size_t)sz == sizeof(save_block_v1_t)) {
+        save_block_v1_t old_save;
+        uint8_t calc;
+        memset(&old_save, 0, sizeof(old_save));
+        n = fread(&old_save, 1, sizeof(old_save), f);
+        fclose(f);
+        if (n != sizeof(old_save)) return -1;
+        calc = CalcCheckSum((uint8_t *)&old_save, (uint16_t)(sizeof(old_save) - 1));
+        if (calc != old_save.checksum) return -1;
+
+        memset(&save, 0, sizeof(save));
+        memcpy(save.player_name,   old_save.player_name,   sizeof(old_save.player_name));
+        memcpy(save.pokedex_owned, old_save.pokedex_owned, sizeof(old_save.pokedex_owned));
+        memcpy(save.pokedex_seen,  old_save.pokedex_seen,  sizeof(old_save.pokedex_seen));
+        save.num_bag_items = old_save.num_bag_items;
+        memcpy(save.bag_items,     old_save.bag_items,     sizeof(old_save.bag_items));
+        memcpy(save.player_money,  old_save.player_money,  sizeof(old_save.player_money));
+        memcpy(save.rival_name,    old_save.rival_name,    sizeof(old_save.rival_name));
+        save.options = old_save.options;
+        save.badges  = old_save.badges;
+        save._pad1   = old_save._pad1;
+        save.letter_delay_flags = old_save.letter_delay_flags;
+        save.player_id = old_save.player_id;
+        save.cur_map   = old_save.cur_map;
+        save.last_map  = old_save.last_map;
+        save.y_coord   = old_save.y_coord;
+        save.x_coord   = old_save.x_coord;
+        memcpy(save.event_flags,   old_save.event_flags,   sizeof(old_save.event_flags));
+        memcpy(save.game_progress_flags, old_save.game_progress_flags, sizeof(old_save.game_progress_flags));
+        memcpy(save.picked_up_items, old_save.picked_up_items, sizeof(old_save.picked_up_items));
+        save.party_count = old_save.party_count;
+        memcpy(save.party_mons,    old_save.party_mons,    sizeof(old_save.party_mons));
+        memcpy(save.party_ot,      old_save.party_ot,      sizeof(old_save.party_ot));
+        memcpy(save.party_nicks,   old_save.party_nicks,   sizeof(old_save.party_nicks));
+        save.current_box_num = 0;
+        memset(save.box_count, 0, sizeof(save.box_count));
+        memset(save.box_species, 0xFF, sizeof(save.box_species));
+        memset(save.box_mons, 0, sizeof(save.box_mons));
+        memset(save.box_ot, 0, sizeof(save.box_ot));
+        memset(save.box_nicks, 0, sizeof(save.box_nicks));
+        unpack_save();
+        return 0;
+    }
+
     fclose(f);
-    if (n != sizeof(save)) return -1;
-    if (Save_ValidateChecksum() != 0) return -1;
-    unpack_save();
-    return 0;
+    return -1;
 }
 
 int Save_Write(void) {

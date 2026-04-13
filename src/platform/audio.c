@@ -53,6 +53,8 @@ typedef struct {
 static gb_channel_t ch[4];
 static SDL_AudioDeviceID audio_dev  = 0;
 static SDL_mutex        *audio_mutex = NULL;
+static int               s_cry_mix_boost = 0;  /* 1 while a cry is active */
+static int               s_pc_sfx_mix_boost = 0; /* 1 while PC SFX is active */
 
 /* ---- Frequency → phase_inc --------------------------------------- */
 /* hz = base / (2048 - gb_freq11)   base=131072 square, base=65536 wave
@@ -139,6 +141,8 @@ static void audio_callback(void *userdata, uint8_t *stream, int len) {
             static const uint8_t duty_steps[4] = { 1, 2, 4, 6 };
             int high = ((ch[c].phase >> 21) & 7) < duty_steps[ch[c].duty & 3];
             int32_t raw = high ? (int32_t)ch[c].volume * 400 : 0;
+            if (c == 0 && s_pc_sfx_mix_boost) raw = (raw * 4) / 3;
+            if (s_cry_mix_boost) raw = (raw * 4) / 3;
             /* DC-blocking HPF (fc ≈ 5 Hz, same as wave channel) */
             static int32_t sq_hp_xprev[2] = {0,0}, sq_hp_yprev[2] = {0,0};
             int32_t hp = (int32_t)(((int64_t)32745 * (sq_hp_yprev[c] + raw - sq_hp_xprev[c])) >> 15);
@@ -208,6 +212,7 @@ static void audio_callback(void *userdata, uint8_t *stream, int len) {
                 }
             }
             int32_t raw = (ch[3].lfsr & 1) ? (int32_t)ch[3].volume * 400 : 0;
+            if (s_cry_mix_boost) raw = (raw * 4) / 3;
             /* DC-blocking HPF (fc ≈ 5 Hz) */
             static int32_t ns_hp_xprev = 0, ns_hp_yprev = 0;
             int32_t hp = (int32_t)(((int64_t)32745 * (ns_hp_yprev + raw - ns_hp_xprev)) >> 15);
@@ -412,6 +417,9 @@ void Audio_WriteReg(int channel, int reg, uint8_t value) {
  * duty = 0 (12.5%) per original Ch5 default.  Envelope pace=1 matches fade=1 arg.
  */
 typedef struct { uint16_t freq; uint8_t env_byte; uint8_t frames; } sfx_note_t;
+/* In the original engine (Audio1_note_length), the command length nybble is
+ * incremented before becoming a delay, so square/noise SFX lengths are len+1. */
+static int sfx_cmd_len_frames(uint8_t len_field) { return (int)len_field + 1; }
 
 static const sfx_note_t kPressAB[] = {
     { 1984, 0x91,  1 },   /* vol=9,  dec, pace=1 — 1 frame, barely fades */
@@ -423,6 +431,16 @@ static const sfx_note_t kPressAB[] = {
 static int sfx_step  = -1;   /* -1 = idle */
 static int sfx_timer = 0;
 
+/* PressAB uses CH5 (our channel 0) as a low-priority UI chirp.
+ * When a higher-priority CH5 SFX starts, cancel PressAB and release its
+ * music-channel ownership immediately to avoid suspend-count drift. */
+static void cancel_pressab_sfx(void) {
+    if (sfx_step >= 0) {
+        sfx_step = -1;
+        Music_ResumeChannel(0);
+    }
+}
+
 static void sfx_fire(int step) {
     const sfx_note_t *n = &kPressAB[step];
     /* Route through Audio_WriteReg so envelope state is set correctly.
@@ -431,10 +449,14 @@ static void sfx_fire(int step) {
     Audio_WriteReg(0, 2, n->env_byte);               /* volume + envelope */
     Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF)); /* freq low */
     Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80)); /* freq high + trigger */
-    sfx_timer = n->frames;
+    sfx_timer = sfx_cmd_len_frames(n->frames);
 }
 
 void Audio_PlaySFX_PressAB(void) {
+    /* Keep button chirps low-priority: if any SFX is active, don't let
+     * PressAB preempt it (ASM-style channel arbitration behavior). */
+    if (Audio_IsSFXPlaying())
+        return;
     sfx_step = 0;
     Music_SuspendChannel(0);  /* pause melody so sequencer doesn't fight SFX */
     sfx_fire(0);
@@ -533,7 +555,7 @@ static void noise_sfx_fire(int step) {
     Audio_WriteReg(3, 2, n->env_byte);
     Audio_WriteReg(3, 3, n->nr43);
     Audio_WriteReg(3, 4, 0x80);  /* trigger */
-    noise_sfx_timer = n->frames;
+    noise_sfx_timer = sfx_cmd_len_frames(n->frames);
 }
 
 static void play_noise_sfx(const noise_note_t *seq, int count) {
@@ -553,8 +575,81 @@ static const noise_note_t kStartMenu[] = {
     { 0x22, 0xE1,  8 },
 };
 
+/* ---- PC menu SFX (square channel — Ch5) ---------------------------
+ * Source:
+ *   audio/sfx/turn_on_pc_1.asm   (SFX_TURN_ON_PC)
+ *   audio/sfx/enter_pc_1.asm     (SFX_ENTER_PC)
+ *   audio/sfx/turn_off_pc_1.asm  (SFX_TURN_OFF_PC)
+ */
+static const sfx_note_t kTurnOnPC[] = {
+    { 1984, 0xF2, 15 },
+    {    0, 0x00, 15 },
+    { 1920, 0xA1,  3 },
+    { 1792, 0xA1,  3 },
+    { 1856, 0xA1,  3 },
+    { 1792, 0xA1,  3 },
+    { 1920, 0xA1,  3 },
+    { 1792, 0xA1,  3 },
+    { 1984, 0xA1,  3 },
+    { 1792, 0xA1,  8 },
+};
+static const sfx_note_t kEnterPC[] = {
+    { 1792, 0xF0, 6 },
+    {    0, 0x00, 4 },
+    { 1792, 0xF0, 6 },
+    {    0, 0x00, 1 },
+};
+static const sfx_note_t kTurnOffPC[] = {
+    { 1536, 0xF0, 4 },
+    { 1024, 0xF0, 4 },
+    {  512, 0xF0, 4 },
+    {    0, 0x00, 1 },
+};
+
+static const sfx_note_t *pc_sfx_seq   = NULL;
+static int               pc_sfx_count = 0;
+static int               pc_sfx_step  = -1;
+static int               pc_sfx_timer = 0;
+
+static void pc_sfx_fire(int step) {
+    const sfx_note_t *n = &pc_sfx_seq[step];
+    Audio_WriteReg(0, 0, 0x08);                             /* disable sweep */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                 /* duty=2 (50%) */
+    if (n->freq > 0) {
+        Audio_WriteReg(0, 2, n->env_byte);
+        Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    } else {
+        Audio_WriteReg(0, 2, 0x00);
+        Audio_WriteReg(0, 4, 0x00);
+    }
+    pc_sfx_timer = sfx_cmd_len_frames(n->frames);
+}
+
+static void play_pc_sfx(const sfx_note_t *seq, int count) {
+    cancel_pressab_sfx(); /* cancel text chirp if active (shared Ch5) */
+    Music_SuspendChannel(0);
+    s_pc_sfx_mix_boost = 1;
+    pc_sfx_seq   = seq;
+    pc_sfx_count = count;
+    pc_sfx_step  = 0;
+    pc_sfx_fire(0);
+}
+
 void Audio_PlaySFX_StartMenu(void) {
     play_noise_sfx(kStartMenu, 2);
+}
+
+void Audio_PlaySFX_TurnOnPC(void) {
+    play_pc_sfx(kTurnOnPC, (int)(sizeof(kTurnOnPC) / sizeof(kTurnOnPC[0])));
+}
+
+void Audio_PlaySFX_EnterPC(void) {
+    play_pc_sfx(kEnterPC, (int)(sizeof(kEnterPC) / sizeof(kEnterPC[0])));
+}
+
+void Audio_PlaySFX_TurnOffPC(void) {
+    play_pc_sfx(kTurnOffPC, (int)(sizeof(kTurnOffPC) / sizeof(kTurnOffPC[0])));
 }
 
 void Audio_PlaySFX_GoInside(void) {
@@ -613,7 +708,7 @@ static int ball_poof_timer = 0;
 void Audio_PlaySFX_BallPoof(void) {
     /* Cancel any in-progress channel-0 SFX (PressAB, ledge) so they don't
      * overwrite the poof note on their next sfx_fire / resume call. */
-    sfx_step        = -1;
+    cancel_pressab_sfx();
     ledge_sfx_active = 0;
     Music_SuspendChannel(0);
     Audio_WriteReg(0, 0, 0x16);                                    /* NR10: sweep period=1, inc, shift=6 */
@@ -623,6 +718,160 @@ void Audio_PlaySFX_BallPoof(void) {
     Audio_WriteReg(0, 4, (uint8_t)(((1024 >> 8) & 0x07) | 0x80)); /* NR14: freq high + trigger */
     ball_poof_timer = 15;
     play_noise_sfx(kBallPoof, 1);
+}
+
+/* ---- Ball toss SFX (SFX_BALL_TOSS) --------------------------------
+ * audio/sfx/ball_toss.asm
+ *
+ * Ch5:
+ *   duty_cycle 2
+ *   pitch_sweep 2,-7 -> NR10=0x2F
+ *   square_note 15,15,2,1920
+ *
+ * Ch6:
+ *   duty_cycle 2
+ *   square_note 15,12,2,1922
+ */
+static int ball_toss_ch1_timer = 0;
+static int ball_toss_ch2_timer = 0;
+static int ball_toss_active    = 0;
+
+void Audio_PlaySFX_BallToss(void) {
+    cancel_pressab_sfx();
+    ledge_sfx_active    = 0;
+    collision_sfx_active = 0;
+    ball_poof_timer     = 0;
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    Audio_WriteReg(0, 0, 0x2F);
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);
+    Audio_WriteReg(0, 2, 0xF2);
+    Audio_WriteReg(0, 3, (uint8_t)(1920 & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((1920 >> 8) & 0x07) | 0x80));
+    Audio_WriteReg(1, 1, (2 << 6) | 0x3F);
+    Audio_WriteReg(1, 2, 0xC2);
+    Audio_WriteReg(1, 3, (uint8_t)(1922 & 0xFF));
+    Audio_WriteReg(1, 4, (uint8_t)(((1922 >> 8) & 0x07) | 0x80));
+    ball_toss_ch1_timer = sfx_cmd_len_frames(15);
+    ball_toss_ch2_timer = sfx_cmd_len_frames(15);
+    ball_toss_active    = 1;
+}
+
+/* ---- Tink SFX (SFX_TINK) ------------------------------------------
+ * audio/sfx/tink_1.asm
+ *
+ * Ch5:
+ *   duty_cycle 2
+ *   pitch_sweep 3,-2 -> NR10=0x3A
+ *   square_note 4,15,2,512
+ *   pitch_sweep 2,2  -> NR10=0x22
+ *   square_note 8,14,2,512
+ */
+typedef struct { uint8_t sweep; uint16_t freq; uint8_t env; uint8_t frames; } tink_sfx_note_t;
+static const tink_sfx_note_t kTinkSFX[] = {
+    { 0x3A, 512, 0xF2, 4 },
+    { 0x22, 512, 0xE2, 8 },
+};
+#define TINK_SFX_NOTES 2
+static int tink_sfx_step  = -1;
+static int tink_sfx_timer = 0;
+
+static void tink_sfx_fire(int step) {
+    const tink_sfx_note_t *n = &kTinkSFX[step];
+    Audio_WriteReg(0, 0, n->sweep);
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    tink_sfx_timer = sfx_cmd_len_frames(n->frames);
+}
+
+void Audio_PlaySFX_Tink(void) {
+    cancel_pressab_sfx();
+    ledge_sfx_active     = 0;
+    collision_sfx_active = 0;
+    ball_poof_timer      = 0;
+    Music_SuspendChannel(0);
+    tink_sfx_step = 0;
+    tink_sfx_fire(0);
+}
+
+/* ---- Caught-mon fanfare (SFX_CAUGHT_MON) --------------------------
+ * audio/sfx/caught_mon.asm
+ *
+ * Ch5+Ch6 are ported directly. Ch7 wave harmony is omitted for now,
+ * matching the simplification used by several other jingles here.
+ */
+typedef struct { uint16_t freq; uint8_t env; uint8_t frames; } caught_sq_note_t;
+static const caught_sq_note_t kCaughtMonCh1[] = {
+    { 1650, 0xB2, 12 }, /* E_3 */
+    { 1694, 0xB2, 12 }, /* F#3 */
+    { 1732, 0xB2, 12 }, /* G#3 */
+    { 1732, 0xB2,  6 }, /* G#3 */
+    { 1732, 0xB2,  6 }, /* G#3 */
+    { 1783, 0xB2, 12 }, /* B_3 */
+    { 1812, 0xB2, 12 }, /* C#4 */
+    { 1838, 0xB2, 12 }, /* D#4 */
+    { 1838, 0xB2,  6 }, /* D#4 */
+    { 1838, 0xB2,  6 }, /* D#4 */
+    { 1849, 0xB5, 48 }, /* E_4 */
+};
+static const caught_sq_note_t kCaughtMonCh2[] = {
+    { 1891, 0xC2, 12 }, /* G#4 */
+    { 1891, 0xC2,  6 }, /* G#4 */
+    { 1891, 0xC2,  6 }, /* G#4 */
+    { 1849, 0xC2, 12 }, /* E_4 */
+    { 1849, 0xC2,  6 }, /* E_4 */
+    { 1849, 0xC2,  6 }, /* E_4 */
+    { 1915, 0xC2, 12 }, /* B_4 */
+    { 1915, 0xC2,  6 }, /* B_4 */
+    { 1915, 0xC2,  6 }, /* B_4 */
+    { 1899, 0xC2, 12 }, /* A_4 */
+    { 1899, 0xC2,  6 }, /* A_4 */
+    { 1899, 0xC2,  6 }, /* A_4 */
+    { 1891, 0xC5, 48 }, /* G#4 */
+};
+#define CAUGHT_MON_CH1_NOTES 11
+#define CAUGHT_MON_CH2_NOTES 13
+static int caught_mon_ch1_step  = -1;
+static int caught_mon_ch1_timer = 0;
+static int caught_mon_ch2_step  = -1;
+static int caught_mon_ch2_timer = 0;
+static int caught_mon_active    = 0;
+
+static void caught_mon_ch1_fire(int step) {
+    const caught_sq_note_t *n = &kCaughtMonCh1[step];
+    Audio_WriteReg(0, 0, 0x08);
+    Audio_WriteReg(0, 1, (3 << 6) | 0x3F);
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    caught_mon_ch1_timer = n->frames;
+}
+
+static void caught_mon_ch2_fire(int step) {
+    const caught_sq_note_t *n = &kCaughtMonCh2[step];
+    Audio_WriteReg(1, 1, (2 << 6) | 0x3F);
+    Audio_WriteReg(1, 2, n->env);
+    Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    caught_mon_ch2_timer = n->frames;
+}
+
+void Audio_PlaySFX_CaughtMon(void) {
+    cancel_pressab_sfx();
+    ledge_sfx_active     = 0;
+    collision_sfx_active = 0;
+    ball_poof_timer      = 0;
+    ball_toss_active     = 0;
+    tink_sfx_step        = -1;
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    caught_mon_ch1_step = 0;
+    caught_mon_ch2_step = 0;
+    caught_mon_active   = 1;
+    caught_mon_ch1_fire(0);
+    caught_mon_ch2_fire(0);
 }
 
 /* ---- Faint SFX: SFX_FAINT_FALL then SFX_FAINT_THUD -------------- *
@@ -670,6 +919,22 @@ static const noise_note_t kRunSFX[] = {
 
 void Audio_PlaySFX_Run(void) {
     play_noise_sfx(kRunSFX, (int)(sizeof(kRunSFX) / sizeof(kRunSFX[0])));
+}
+
+/* ---- Cut field move SFX (SFX_CUT → SFX_Cut_1_Ch8, noise channel) ---------
+ * Source: audio/sfx/cut_1.asm — 5 noise notes, total 24 frames.
+ * noise_note format: frames, volume, fade, nr43
+ * env_byte = (volume << 4) | fade */
+static const noise_note_t kCutSFX[] = {
+    { 0x24, 0xF7,  2 },   /* noise_note  2, 15, 7,  36 */
+    { 0x34, 0xF7,  2 },   /* noise_note  2, 15, 7,  52 */
+    { 0x44, 0xF7,  4 },   /* noise_note  4, 15, 7,  68 */
+    { 0x55, 0xF4,  8 },   /* noise_note  8, 15, 4,  85 */
+    { 0x44, 0xF1,  8 },   /* noise_note  8, 15, 1,  68 */
+};
+
+void Audio_PlaySFX_Cut(void) {
+    play_noise_sfx(kCutSFX, (int)(sizeof(kCutSFX) / sizeof(kCutSFX[0])));
 }
 
 /* ---- Level-Up jingle (SFX_LEVEL_UP) — Ch5 (ch[0]) + Ch6 (ch[1]) ---
@@ -764,7 +1029,7 @@ static void heal_sfx_fire(int step) {
         Audio_WriteReg(0, 2, 0x00);
         Audio_WriteReg(0, 4, 0x00);
     }
-    heal_sfx_timer = n->frames;
+    heal_sfx_timer = sfx_cmd_len_frames(n->frames);
 }
 
 void Audio_PlaySFX_HealingMachine(void) {
@@ -774,8 +1039,11 @@ void Audio_PlaySFX_HealingMachine(void) {
 }
 
 void Audio_PlaySFX_LevelUp(void) {
+    /* Cries take full audio priority in Red/Blue: pause all active music
+     * channels so the cry briefly cuts the music completely. */
     Music_SuspendChannel(0);
     Music_SuspendChannel(1);
+    Music_SuspendChannel(2);
     lvl_up_step = 0;
     lvl_up_fire(0);
 }
@@ -821,7 +1089,7 @@ static void purchase_ch1_fire(int step) {
     Audio_WriteReg(0, 2, n->env);
     Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
     Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
-    purchase_ch1_timer = n->frames;
+    purchase_ch1_timer = sfx_cmd_len_frames(n->frames);
 }
 
 static void purchase_ch2_fire(int step) {
@@ -836,11 +1104,11 @@ static void purchase_ch2_fire(int step) {
         Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
         Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
     }
-    purchase_ch2_timer = n->frames;
+    purchase_ch2_timer = sfx_cmd_len_frames(n->frames);
 }
 
 void Audio_PlaySFX_Purchase(void) {
-    sfx_step       = -1;   /* cancel PressAB if playing */
+    cancel_pressab_sfx();
     lvl_up_step    = -1;   /* cancel level-up if playing */
     Music_SuspendChannel(0);
     Music_SuspendChannel(1);
@@ -912,23 +1180,153 @@ static void get_key_ch2_fire(int step) {
 
 int Audio_IsSFXPlaying_GetKeyItem(void) { return get_key_active; }
 
+/* ---- Gym trash-can switch click (SFX_SWITCH → SFX_Switch_1_Ch5) ----
+ * audio/sfx/switch_1.asm:
+ *   duty_cycle 2
+ *   square_note 4,  0, 0,    0  → 4 frames, silent
+ *   square_note 2, 15, 1, 1664  → 2 frames, vol=15, dec, pace=1
+ *   square_note 1,  0, 0,    0  → 1 frame,  silent
+ *   square_note 4, 15, 1, 1920  → 4 frames, vol=15, dec, pace=1
+ *   square_note 4,  0, 0,    0  → 4 frames, silent
+ */
+static const sfx_note_t kSwitch[] = {
+    {    0, 0x00, 4 },   /* silent lead-in */
+    { 1664, 0xF1, 2 },   /* first click  — vol=15, dec, pace=1 */
+    {    0, 0x00, 1 },   /* silent gap */
+    { 1920, 0xF1, 4 },   /* second click — vol=15, dec, pace=1 */
+    {    0, 0x00, 4 },   /* silent tail */
+};
+#define SWITCH_SFX_NOTES 5
+static int switch_sfx_step  = -1;
+static int switch_sfx_timer =  0;
+
+static void switch_sfx_fire(int step) {
+    const sfx_note_t *n = &kSwitch[step];
+    Audio_WriteReg(0, 0, 0x08);                              /* NR10: disable sweep */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                  /* duty=2 (50%) */
+    if (n->freq > 0) {
+        Audio_WriteReg(0, 2, n->env_byte);
+        Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    } else {
+        Audio_WriteReg(0, 2, 0x00);
+        Audio_WriteReg(0, 4, 0x00);
+    }
+    switch_sfx_timer = sfx_cmd_len_frames(n->frames);
+}
+
+void Audio_PlaySFX_Switch(void) {
+    Music_SuspendChannel(0);
+    switch_sfx_step = 0;
+    switch_sfx_fire(0);
+}
+
+/* ---- Denied / wrong-answer SFX (SFX_DENIED → SFX_Denied_1_Ch5/Ch6) -
+ * audio/sfx/denied_1.asm:
+ *
+ * SFX_Denied_1_Ch5 (square ch[0], duty_cycle 3):
+ *   pitch_sweep 5, -2            → NR10=0x5A: pace=5, decrease, shift=2
+ *   square_note  4, 15, 0, 1280  → 4 frames,  vol=15, hold
+ *   pitch_sweep  0,  8           → NR10=0x08 (disable sweep)
+ *   square_note  4,  0, 0,    0  → 4 frames,  silent
+ *   square_note 15, 15, 0, 1280  → 15 frames, vol=15, hold
+ *   square_note  1,  0, 0,    0  → 1 frame,   silent
+ *
+ * SFX_Denied_1_Ch6 (square ch[1], duty_cycle 3):
+ *   square_note  4, 15, 0, 1025  → 4 frames,  vol=15, hold
+ *   square_note  4,  0, 0,    0  → 4 frames,  silent
+ *   square_note 15, 15, 0, 1025  → 15 frames, vol=15, hold
+ *   square_note  1,  0, 0,    0  → 1 frame,   silent
+ *
+ * env = (vol << 4) | fade; fade=0 = hold.
+ * NR10=0x5A: (pace=5)<<4 | (dec=1)<<3 | (shift=2) = 0x5A.
+ */
+static const heal_sfx_note_t kDeniedCh1[] = {
+    { 0x5A, 1280, 0xF0,  4 },   /* sweep down, vol=15, hold */
+    { 0x08,    0, 0x00,  4 },   /* sweep off, silent */
+    { 0x08, 1280, 0xF0, 15 },   /* no sweep,  vol=15, hold */
+    { 0x08,    0, 0x00,  1 },   /* silent tail */
+};
+static const sq_sfx_note_t kDeniedCh2[] = {
+    { 1025, 0xF0,  4 },   /* vol=15, hold */
+    {    0, 0x00,  4 },   /* silent */
+    { 1025, 0xF0, 15 },   /* vol=15, hold */
+    {    0, 0x00,  1 },   /* silent tail */
+};
+#define DENIED_NOTES 4
+
+static int denied_ch1_step  = -1;
+static int denied_ch1_timer =  0;
+static int denied_ch2_step  = -1;
+static int denied_ch2_timer =  0;
+static int denied_active    =  0;
+
+static void denied_ch1_fire(int step) {
+    const heal_sfx_note_t *n = &kDeniedCh1[step];
+    Audio_WriteReg(0, 0, n->sweep);
+    Audio_WriteReg(0, 1, (3 << 6) | 0x3F);                  /* duty=3 (75%) */
+    if (n->freq > 0) {
+        Audio_WriteReg(0, 2, n->env);
+        Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    } else {
+        Audio_WriteReg(0, 2, 0x00);
+        Audio_WriteReg(0, 4, 0x00);
+    }
+    denied_ch1_timer = sfx_cmd_len_frames(n->frames);
+}
+
+static void denied_ch2_fire(int step) {
+    const sq_sfx_note_t *n = &kDeniedCh2[step];
+    Audio_WriteReg(1, 1, (3 << 6) | 0x3F);                  /* duty=3 (75%) */
+    if (n->freq > 0) {
+        Audio_WriteReg(1, 2, n->env);
+        Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    } else {
+        Audio_WriteReg(1, 2, 0x00);
+        Audio_WriteReg(1, 4, 0x00);
+    }
+    denied_ch2_timer = sfx_cmd_len_frames(n->frames);
+}
+
+void Audio_PlaySFX_Denied(void) {
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    denied_ch1_step = 0;
+    denied_ch2_step = 0;
+    denied_active   = 1;
+    denied_ch1_fire(0);
+    denied_ch2_fire(0);
+}
+
+/* Forward declaration — defined below with note tables */
+static int get_item1_active = 0;
+
 /* Returns 1 if any SFX channel is still active.
  * Mirrors WaitForSoundToFinish (home/delay.asm): polls wChannelSoundIDs
  * for Ch5 (sfx_step/ledge/collision), Ch6 (lvl_up/heal/purchase/get_key),
  * and Ch8 (noise_sfx_step) until all are silent. */
 int Audio_IsSFXPlaying(void) {
     return sfx_step >= 0
+        || pc_sfx_step >= 0
         || ledge_sfx_active
         || collision_sfx_active
         || noise_sfx_step >= 0
+        || ball_toss_active
+        || tink_sfx_step >= 0
+        || caught_mon_active
         || lvl_up_step >= 0
         || heal_sfx_step >= 0
         || purchase_active
-        || get_key_active;
+        || get_key_active
+        || get_item1_active
+        || switch_sfx_step >= 0
+        || denied_active;
 }
 
 void Audio_PlaySFX_GetKeyItem(void) {
-    sfx_step        = -1;   /* cancel PressAB if playing */
+    cancel_pressab_sfx();
     lvl_up_step     = -1;   /* cancel level-up if playing */
     purchase_active =  0;   /* cancel purchase if playing */
     Music_SuspendChannel(0);
@@ -938,6 +1336,142 @@ void Audio_PlaySFX_GetKeyItem(void) {
     get_key_active   = 1;
     get_key_ch1_fire(0);
     get_key_ch2_fire(0);
+}
+
+/* ---- Get Item 1 jingle (SFX_GET_ITEM_1 → SFX_Get_Item1_1) ----------
+ * audio/sfx/get_item1_1.asm — plays when receiving a regular item or TM.
+ * Ch5 (square ch[0]):  G#3×3 → E4          note_type 4/12, vol 11
+ * Ch6 (square ch[1]):  E4×3  → B4          note_type 4/12, vol 12
+ * Ch7 (wave): omitted — square channels carry the jingle.
+ *
+ * Frequencies: pokered octave N = standard octave N+1.
+ *   G#3 pokered = G#4 std = 415.3 Hz → reg 1732
+ *   E4  pokered = E5  std = 659.3 Hz → reg 1849
+ *   B4  pokered = B5  std = 987.8 Hz → reg 1915 */
+static const sq_sfx_note_t kGetItem1Ch1[] = {
+    { 1732, 0xB1,  8 },  /* G#3, note_type 4, len 2 × 3 */
+    { 1732, 0xB1,  8 },
+    { 1732, 0xB1,  8 },
+    { 1849, 0xB3, 48 },  /* E4,  note_type 12, len 4    */
+};
+static const sq_sfx_note_t kGetItem1Ch2[] = {
+    { 1849, 0xC1,  8 },  /* E4,  note_type 4, len 2 × 3 */
+    { 1849, 0xC1,  8 },
+    { 1849, 0xC1,  8 },
+    { 1915, 0xC3, 48 },  /* B4,  note_type 12, len 4    */
+};
+#define GET_ITEM1_CH1_NOTES 4
+#define GET_ITEM1_CH2_NOTES 4
+
+static int get_item1_ch1_step  = -1;
+static int get_item1_ch1_timer =  0;
+static int get_item1_ch2_step  = -1;
+static int get_item1_ch2_timer =  0;
+
+static void get_item1_ch1_fire(int step) {
+    const sq_sfx_note_t *n = &kGetItem1Ch1[step];
+    Audio_WriteReg(0, 0, 0x08);                              /* NR10: disable sweep */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                  /* duty=2 (50%) */
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    get_item1_ch1_timer = n->frames;
+}
+
+static void get_item1_ch2_fire(int step) {
+    const sq_sfx_note_t *n = &kGetItem1Ch2[step];
+    Audio_WriteReg(1, 1, (2 << 6) | 0x3F);                  /* duty=2 (50%) */
+    Audio_WriteReg(1, 2, n->env);
+    Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    get_item1_ch2_timer = n->frames;
+}
+
+void Audio_PlaySFX_GetItem1(void) {
+    cancel_pressab_sfx();
+    lvl_up_step     = -1;   /* cancel level-up if playing */
+    purchase_active =  0;   /* cancel purchase if playing */
+    get_key_active  =  0;   /* cancel get-key if playing  */
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    get_item1_ch1_step = 0;
+    get_item1_ch2_step = 0;
+    get_item1_active   = 1;
+    get_item1_ch1_fire(0);
+    get_item1_ch2_fire(0);
+}
+
+/* ---- SS Anne Horn (SFX_SS_ANNE_HORN → SFX_SS_Anne_Horn_1) --------------
+ * audio/sfx/ss_anne_horn_1.asm
+ * Ch5 (square ch[0]): duty 2, freq 1280, vol 15, 7 notes w/ 4-frame rest
+ * Ch6 (square ch[1]): duty 3, freq 1154, vol 15, same structure
+ * Total duration ~109 frames (~1.8 s). */
+
+static const sq_sfx_note_t kSSAnneHornCh1[] = {
+    { 1280, 0xF0, 15 },  /* note 1 */
+    {    0, 0x00,  4 },  /* rest   */
+    { 1280, 0xF0, 15 },  /* notes 2-7 */
+    { 1280, 0xF0, 15 },
+    { 1280, 0xF0, 15 },
+    { 1280, 0xF0, 15 },
+    { 1280, 0xF0, 15 },
+    { 1280, 0xF2, 15 },  /* fade on last */
+};
+static const sq_sfx_note_t kSSAnneHornCh2[] = {
+    { 1154, 0xF0, 15 },
+    {    0, 0x00,  4 },
+    { 1154, 0xF0, 15 },
+    { 1154, 0xF0, 15 },
+    { 1154, 0xF0, 15 },
+    { 1154, 0xF0, 15 },
+    { 1154, 0xF0, 15 },
+    { 1154, 0xF2, 15 },
+};
+#define HORN_CH_NOTES 8
+
+static int horn_ch1_step  = -1;
+static int horn_ch1_timer =  0;
+static int horn_ch2_step  = -1;
+static int horn_ch2_timer =  0;
+static int horn_active    =  0;
+
+static void horn_ch1_fire(int step) {
+    const sq_sfx_note_t *n = &kSSAnneHornCh1[step];
+    if (n->freq == 0) {
+        Audio_WriteReg(0, 4, 0x00);  /* silence ch1 */
+    } else {
+        Audio_WriteReg(0, 0, 0x08);
+        Audio_WriteReg(0, 1, (2 << 6) | 0x3F);
+        Audio_WriteReg(0, 2, n->env);
+        Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    }
+    horn_ch1_timer = sfx_cmd_len_frames(n->frames);
+}
+
+static void horn_ch2_fire(int step) {
+    const sq_sfx_note_t *n = &kSSAnneHornCh2[step];
+    if (n->freq == 0) {
+        Audio_WriteReg(1, 4, 0x00);
+    } else {
+        Audio_WriteReg(1, 1, (3 << 6) | 0x3F);
+        Audio_WriteReg(1, 2, n->env);
+        Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+        Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    }
+    horn_ch2_timer = sfx_cmd_len_frames(n->frames);
+}
+
+int Audio_IsSFXPlaying_SSAnneHorn(void) { return horn_active; }
+
+void Audio_PlaySFX_SSAnneHorn(void) {
+    Music_SuspendChannel(0);
+    Music_SuspendChannel(1);
+    horn_ch1_step = 0;
+    horn_ch2_step = 0;
+    horn_active   = 1;
+    horn_ch1_fire(0);
+    horn_ch2_fire(0);
 }
 
 void Audio_PlaySFX_Faint(void) {
@@ -1020,6 +1554,7 @@ void Audio_PlayCry(uint8_t species) {
     cry_cur   = &g_cry_defs[pc->base_cry];
     cry_pitch = pc->pitch_mod;
     cry_tempo = (uint16_t)((uint16_t)pc->tempo_mod + 0x80u);
+    s_cry_mix_boost = 1;
 
     Music_SuspendChannel(0);
     Music_SuspendChannel(1);
@@ -1042,6 +1577,10 @@ void Audio_PlayCry(uint8_t species) {
         cry_ch8_s.step = 0;
         cry_noise_fire(&cry_ch8_s, &cry_cur->ch8);
     } else { cry_ch8_s.step = -1; }
+}
+
+int Audio_IsCryPlaying(void) {
+    return cry_cur != NULL;
 }
 
 /* ---- Frame tick -------------------------------------------------- */
@@ -1086,6 +1625,92 @@ void Audio_Update(void) {
         if (--ball_poof_timer <= 0) {
             Audio_WriteReg(0, 0, 0x08);  /* NR10: disable sweep */
             Music_ResumeChannel(0);
+        }
+    }
+
+    /* Advance PC SFX (single-channel Ch5 sequence) */
+    if (pc_sfx_step >= 0) {
+        if (--pc_sfx_timer <= 0) {
+            pc_sfx_step++;
+            if (pc_sfx_step >= pc_sfx_count) {
+                pc_sfx_step = -1;
+                s_pc_sfx_mix_boost = 0;
+                Music_ResumeChannel(0);
+            } else {
+                pc_sfx_fire(pc_sfx_step);
+            }
+        }
+    }
+
+    /* Advance ball-toss SFX */
+    if (ball_toss_active) {
+        if (ball_toss_ch1_timer > 0 && --ball_toss_ch1_timer <= 0) {
+            Audio_WriteReg(0, 0, 0x08);
+            Audio_WriteReg(0, 2, 0x00);
+            Audio_WriteReg(0, 4, 0x00);
+        }
+        if (ball_toss_ch2_timer > 0 && --ball_toss_ch2_timer <= 0) {
+            Audio_WriteReg(1, 2, 0x00);
+            Audio_WriteReg(1, 4, 0x00);
+        }
+        if (ball_toss_ch1_timer <= 0 && ball_toss_ch2_timer <= 0) {
+            ball_toss_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
+        }
+    }
+
+    /* Advance tink SFX */
+    if (tink_sfx_step >= 0) {
+        if (--tink_sfx_timer <= 0) {
+            tink_sfx_step++;
+            if (tink_sfx_step >= TINK_SFX_NOTES) {
+                tink_sfx_step = -1;
+                Audio_WriteReg(0, 0, 0x08);
+                Music_ResumeChannel(0);
+            } else {
+                tink_sfx_fire(tink_sfx_step);
+            }
+        }
+    }
+
+    /* Advance switch click SFX */
+    if (switch_sfx_step >= 0) {
+        if (--switch_sfx_timer <= 0) {
+            switch_sfx_step++;
+            if (switch_sfx_step >= SWITCH_SFX_NOTES) {
+                switch_sfx_step = -1;
+                Music_ResumeChannel(0);
+            } else {
+                switch_sfx_fire(switch_sfx_step);
+            }
+        }
+    }
+
+    /* Advance denied SFX (two independent channels) */
+    if (denied_active) {
+        if (denied_ch1_step >= 0) {
+            if (--denied_ch1_timer <= 0) {
+                denied_ch1_step++;
+                if (denied_ch1_step >= DENIED_NOTES)
+                    denied_ch1_step = -1;
+                else
+                    denied_ch1_fire(denied_ch1_step);
+            }
+        }
+        if (denied_ch2_step >= 0) {
+            if (--denied_ch2_timer <= 0) {
+                denied_ch2_step++;
+                if (denied_ch2_step >= DENIED_NOTES)
+                    denied_ch2_step = -1;
+                else
+                    denied_ch2_fire(denied_ch2_step);
+            }
+        }
+        if (denied_ch1_step < 0 && denied_ch2_step < 0) {
+            denied_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
         }
     }
 
@@ -1163,6 +1788,83 @@ void Audio_Update(void) {
         }
         if (get_key_ch1_step < 0 && get_key_ch2_step < 0) {
             get_key_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
+        }
+    }
+
+    /* Advance get-item-1 jingle */
+    if (get_item1_active) {
+        if (get_item1_ch1_step >= 0) {
+            if (--get_item1_ch1_timer <= 0) {
+                get_item1_ch1_step++;
+                if (get_item1_ch1_step >= GET_ITEM1_CH1_NOTES)
+                    get_item1_ch1_step = -1;
+                else
+                    get_item1_ch1_fire(get_item1_ch1_step);
+            }
+        }
+        if (get_item1_ch2_step >= 0) {
+            if (--get_item1_ch2_timer <= 0) {
+                get_item1_ch2_step++;
+                if (get_item1_ch2_step >= GET_ITEM1_CH2_NOTES)
+                    get_item1_ch2_step = -1;
+                else
+                    get_item1_ch2_fire(get_item1_ch2_step);
+            }
+        }
+        if (get_item1_ch1_step < 0 && get_item1_ch2_step < 0) {
+            get_item1_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
+        }
+    }
+
+    /* Advance caught-mon fanfare */
+    if (caught_mon_active) {
+        if (caught_mon_ch1_step >= 0) {
+            if (--caught_mon_ch1_timer <= 0) {
+                caught_mon_ch1_step++;
+                if (caught_mon_ch1_step >= CAUGHT_MON_CH1_NOTES)
+                    caught_mon_ch1_step = -1;
+                else
+                    caught_mon_ch1_fire(caught_mon_ch1_step);
+            }
+        }
+        if (caught_mon_ch2_step >= 0) {
+            if (--caught_mon_ch2_timer <= 0) {
+                caught_mon_ch2_step++;
+                if (caught_mon_ch2_step >= CAUGHT_MON_CH2_NOTES)
+                    caught_mon_ch2_step = -1;
+                else
+                    caught_mon_ch2_fire(caught_mon_ch2_step);
+            }
+        }
+        if (caught_mon_ch1_step < 0 && caught_mon_ch2_step < 0) {
+            caught_mon_active = 0;
+            Music_ResumeChannel(0);
+            Music_ResumeChannel(1);
+        }
+    }
+
+    /* Advance SS Anne Horn */
+    if (horn_active) {
+        if (horn_ch1_step >= 0) {
+            if (--horn_ch1_timer <= 0) {
+                horn_ch1_step++;
+                if (horn_ch1_step >= HORN_CH_NOTES) horn_ch1_step = -1;
+                else horn_ch1_fire(horn_ch1_step);
+            }
+        }
+        if (horn_ch2_step >= 0) {
+            if (--horn_ch2_timer <= 0) {
+                horn_ch2_step++;
+                if (horn_ch2_step >= HORN_CH_NOTES) horn_ch2_step = -1;
+                else horn_ch2_fire(horn_ch2_step);
+            }
+        }
+        if (horn_ch1_step < 0 && horn_ch2_step < 0) {
+            horn_active = 0;
             Music_ResumeChannel(0);
             Music_ResumeChannel(1);
         }
@@ -1253,8 +1955,10 @@ void Audio_Update(void) {
         /* All three channels done → resume music */
         if (cry_ch5.step < 0 && cry_ch6.step < 0 && cry_ch8_s.step < 0) {
             cry_cur = NULL;
+            s_cry_mix_boost = 0;
             Music_ResumeChannel(0);
             Music_ResumeChannel(1);
+            Music_ResumeChannel(2);
         }
     }
 }

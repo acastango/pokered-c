@@ -1,6 +1,8 @@
 /* wram.c — Global variable definitions matching pokered wram.asm layout */
 #include "../platform/hardware.h"
+#include "../data/event_flag_names.h"
 #include <string.h>
+#include <stdio.h>
 
 /* ---- HRAM ------------------------------------------------ */
 uint8_t hJoyInput       = 0;
@@ -52,6 +54,7 @@ uint8_t  wCurMapTileset             = 0;
 /* ---- Map state ------------------------------------------- */
 uint8_t  wCurMap                    = 0;
 uint8_t  wLastMap                   = 0;
+uint8_t  wLastBlackoutMap           = 0xFF; /* 0xFF = unset → respawn at mom's house */
 int16_t  wYCoord                    = 0;
 int16_t  wXCoord                    = 0;
 uint8_t  wYBlockCoord               = 0;
@@ -69,6 +72,7 @@ uint8_t  wNumSigns                  = 0;
 uint8_t  wNumSprites                = 0;
 uint8_t  wDestinationWarpID         = 0xFF;
 uint8_t  wMapBackgroundTile         = 0;
+uint8_t  gMapPalOffset              = 0; /* darkness: 6=dark cave, 0=normal (wMapPalOffset) */
 
 /* ---- Player state ---------------------------------------- */
 uint8_t wPlayerMovingDirection      = 0;
@@ -83,6 +87,12 @@ uint8_t     wPartyCount             = 0;
 party_mon_t wPartyMons[PARTY_LENGTH];
 uint8_t     wPartyMonOT[PARTY_LENGTH][NAME_LENGTH];
 uint8_t     wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
+uint8_t     wCurrentBoxNum          = 0;
+uint8_t     wBoxCount[NUM_BOXES]    = {0};
+uint8_t     wBoxSpecies[NUM_BOXES][BOX_CAPACITY + 1] = {{0xFF}};
+box_mon_t   wBoxMons[NUM_BOXES][BOX_CAPACITY];
+uint8_t     wBoxMonOT[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
+uint8_t     wBoxMonNicks[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
 uint8_t     wNumBagItems            = 0;
 uint8_t     wBagItems[BAG_ITEM_CAPACITY * 2 + 1];
 uint8_t     wPlayerMoney[3]         = {0};
@@ -279,6 +289,16 @@ uint8_t CalcCheckSum(const uint8_t *data, uint16_t len) {
     return ~sum;
 }
 
+void Debug_LogEventFlagChange(uint16_t n, int new_value) {
+    printf("[event] %s (#%u) -> %d map=%u pos=(%d,%d)\n",
+           EventFlagName(n),
+           (unsigned)n,
+           new_value ? 1 : 0,
+           (unsigned)wCurMap,
+           (int)wXCoord,
+           (int)wYCoord);
+}
+
 /* Simple PRNG matching GB engine (hRandomAdd/hRandomSub updated by platform) */
 uint8_t BattleRandom(void) {
     /* On GB: rDIV provides entropy; here we just use the state directly */
@@ -293,6 +313,12 @@ void WRAMClear(void) {
     memset(wEventFlags, 0, sizeof(wEventFlags));
     memset(wPickedUpItems, 0, sizeof(wPickedUpItems));
     wPartyCount     = 0;
+    wCurrentBoxNum  = 0;
+    memset(wBoxCount, 0, sizeof(wBoxCount));
+    memset(wBoxSpecies, 0xFF, sizeof(wBoxSpecies));
+    memset(wBoxMons, 0, sizeof(wBoxMons));
+    memset(wBoxMonOT, 0, sizeof(wBoxMonOT));
+    memset(wBoxMonNicks, 0, sizeof(wBoxMonNicks));
     wNumBagItems    = 0;
     wObtainedBadges = 0;
     memset(wPokedexOwned, 0, sizeof(wPokedexOwned));

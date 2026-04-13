@@ -194,6 +194,7 @@ void Menu_Tick(void) {
         switch (idx) {
             case 0:  /* POKéMON → party menu */
                 menu_close();
+                NPC_HideOAM();  /* NPC OAM points at slots PartyIcons_LoadTiles() will overwrite */
                 PartyMenu_Open(0 /* cancelable */);
                 return;
             case 1:  /* ITEM → open bag menu */

@@ -37,3 +37,11 @@ void CeruleanScripts_OnVictory(void);
 
 /* Called by game.c after the rival battle ends — player lost. */
 void CeruleanScripts_OnDefeat(void);
+
+/* Returns 1 if the last battle started was the Cerulean Rocket thief.
+ * Clears the flag on return.  Called by game.c after battle ends. */
+int  CeruleanScripts_ConsumeRocketBattle(void);
+
+/* Called by game.c after the Rocket thief battle ends. */
+void CeruleanScripts_OnRocketVictory(void);
+void CeruleanScripts_OnRocketDefeat(void);

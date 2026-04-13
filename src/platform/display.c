@@ -37,9 +37,22 @@ static uint32_t fb[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 static int g_shake_ox = 0;
 static int g_shake_oy = 0;
 
+/* Per-band horizontal pixel offset: applied in Display_RenderScrolled to a
+ * contiguous range of screen rows.  Mirrors the GB raster trick (SCX change
+ * mid-frame) used by VermilionDock_SyncScrollWithLY.  row_start=-1 = disabled. */
+static int g_band_row_start = -1;
+static int g_band_num_rows  =  0;
+static int g_band_px        =  0;
+
 /* Debug tile overlay: per-screen-tile RGBA tint blended after rendering. */
 static uint32_t s_tile_ov[SCREEN_HEIGHT * SCREEN_WIDTH];
 static int      s_overlay_on = 0;
+
+/* Block-ID overlay state */
+static int s_bid_overlay = 0;
+static int s_bid_cam_tx  = 0;
+static int s_bid_cam_ty  = 0;
+static int (*s_bid_query)(int bx, int by) = NULL;
 
 /* BG color-index buffer: tracks the 2bpp palette index (0-3) written to each
  * screen pixel by the BG tile pass.  Used to implement OAM_FLAG_PRIORITY:
@@ -120,9 +133,41 @@ void Display_SetBGP(uint8_t bgp) {
     decode_palette(bgp, bg_palette);
 }
 
+void Display_SetOBP1(uint8_t obp1) {
+    decode_palette(obp1, obp1_palette);
+}
+
+/* Mirrors LoadGBPal (home/fade.asm):
+ *   hl = FadePal4; hl -= wMapPalOffset; load rBGP/rOBP0/rOBP1
+ * Each FadePal entry is 3 bytes {rBGP, rOBP0, rOBP1}.
+ * FadePal4 is index 3 (normal palette).  offset=6 → index 1 (very dark). */
+void Display_LoadMapPalette(void) {
+    /* {rBGP, rOBP0, rOBP1} for FadePal1..FadePal8 */
+    static const uint8_t kFadePals[8][3] = {
+        {0xFF, 0xFF, 0xFF}, /* FadePal1: all black              */
+        {0xFE, 0xFE, 0xF8}, /* FadePal2: dark cave (offset=6)   */
+        {0xF9, 0xE4, 0xE4}, /* FadePal3                         */
+        {0xE4, 0xD0, 0xE0}, /* FadePal4: normal   (offset=0)    */
+        {0xE4, 0xD0, 0xE0}, /* FadePal5: same as normal          */
+        {0x90, 0x80, 0x90}, /* FadePal6                         */
+        {0x40, 0x40, 0x40}, /* FadePal7                         */
+        {0x00, 0x00, 0x00}, /* FadePal8: all white               */
+    };
+    int idx = 3 - (int)(gMapPalOffset / 3);
+    if (idx < 0) idx = 0;
+    if (idx > 7) idx = 7;
+    Display_SetPalette(kFadePals[idx][0], kFadePals[idx][1], kFadePals[idx][2]);
+}
+
 void Display_SetShakeOffset(int ox, int oy) {
     g_shake_ox = ox;
     g_shake_oy = oy;
+}
+
+void Display_SetBandXPx(int row_start, int num_rows, int px) {
+    g_band_row_start = row_start;
+    g_band_num_rows  = num_rows;
+    g_band_px        = px;
 }
 
 /* Apply g_shake_ox/g_shake_oy by physically shifting the framebuffer.
@@ -169,7 +214,8 @@ static void blit_tile(int px, int py, uint8_t tile_id,
     }
 }
 
-static void apply_tile_overlay(void);  /* defined below the render functions */
+static void apply_tile_overlay(void);      /* defined below the render functions */
+static void apply_block_id_overlay(int px, int py); /* defined below */
 
 void Display_Render(void) {
     /* 1. Draw background tiles from wTileMap (20×18 visible) */
@@ -220,6 +266,7 @@ void Display_Render(void) {
     /* 3. Apply shake offset, overlay, upload to GPU and present */
     apply_shake_to_fb();
     apply_tile_overlay();
+    apply_block_id_overlay(0, 0);
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
@@ -231,10 +278,22 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
      * Buffer tile (bx,by) renders at screen pixel (bx*8 - 16 + px, by*8 - 16 + py).
      * At px=0,py=0: buffer tile (2,2) -> pixel (0,0) — normal 20x18 view.
      * At px=+16: buffer tile (0,2) -> pixel (0,0) — shows two tiles left (old pos).
-     * Two-tile margin required because each step shifts the camera by 2 tiles. */
+     * Two-tile margin required because each step shifts the camera by 2 tiles.
+     *
+     * Per-band X offset (g_band_*): mirrors the GB raster SCX trick where rows
+     * 10-15 use a different SCX than the rest of the screen.  A negative g_band_px
+     * shifts those rows LEFT (the departing ship scrolls off to the left). */
     for (int by = 0; by < SCREEN_HEIGHT + 4; by++) {
+        /* screen_row: 0-based row index matching the 20×18 visible area. */
+        int screen_row = by - 2;
+        int row_px = px;
+        if (g_band_row_start >= 0 &&
+            screen_row >= g_band_row_start &&
+            screen_row < g_band_row_start + g_band_num_rows) {
+            row_px += g_band_px;
+        }
         for (int bx = 0; bx < SCREEN_WIDTH + 4; bx++) {
-            int sx = bx * TILE_PX - 2 * TILE_PX + px;
+            int sx = bx * TILE_PX - 2 * TILE_PX + row_px;
             int sy = by * TILE_PX - 2 * TILE_PX + py;
             if (sx + TILE_PX <= 0 || sx >= SCREEN_WIDTH_PX) continue;
             if (sy + TILE_PX <= 0 || sy >= SCREEN_HEIGHT_PX) continue;
@@ -292,6 +351,7 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
 
     apply_shake_to_fb();
     apply_tile_overlay();
+    apply_block_id_overlay(px, py);
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
@@ -340,6 +400,94 @@ static void apply_tile_overlay(void) {
             }
         }
     }
+}
+
+/* 4×5 pixel hex font: each row is a nibble (bit3=leftmost pixel) */
+static const uint8_t kHexFont[16][5] = {
+    {0x6,0x9,0x9,0x9,0x6}, /* 0 */
+    {0x2,0x6,0x2,0x2,0x7}, /* 1 */
+    {0xE,0x1,0x6,0x8,0xF}, /* 2 */
+    {0xE,0x1,0x6,0x1,0xE}, /* 3 */
+    {0x9,0x9,0xF,0x1,0x1}, /* 4 */
+    {0xF,0x8,0xE,0x1,0xE}, /* 5 */
+    {0x6,0x8,0xE,0x9,0x6}, /* 6 */
+    {0xF,0x1,0x2,0x4,0x4}, /* 7 */
+    {0x6,0x9,0x6,0x9,0x6}, /* 8 */
+    {0x6,0x9,0x7,0x1,0x6}, /* 9 */
+    {0x6,0x9,0xF,0x9,0x9}, /* A */
+    {0xE,0x9,0xE,0x9,0xE}, /* B */
+    {0x7,0x8,0x8,0x8,0x7}, /* C */
+    {0xE,0x9,0x9,0x9,0xE}, /* D */
+    {0xF,0x8,0xE,0x8,0xF}, /* E */
+    {0xF,0x8,0xE,0x8,0x8}, /* F */
+};
+
+static void draw_hex_char(int sx, int sy, int nibble) {
+    nibble &= 0xF;
+    for (int row = 0; row < 5; row++) {
+        int py = sy + row;
+        if (py < 0 || py >= SCREEN_HEIGHT_PX) continue;
+        uint8_t bits = kHexFont[nibble][row];
+        for (int col = 0; col < 4; col++) {
+            if (!(bits & (0x8u >> col))) continue;
+            int px2 = sx + col;
+            if (px2 < 0 || px2 >= SCREEN_WIDTH_PX) continue;
+            fb[py * SCREEN_WIDTH_PX + px2] = 0xFFFFFFFFu;  /* white */
+        }
+    }
+}
+
+/* Overlay block IDs onto fb[].
+ * Each map block is 32×32 screen pixels.  The 2-char hex label is centered
+ * in the block with a semi-transparent dark background for readability. */
+static void apply_block_id_overlay(int px, int py) {
+    if (!s_bid_overlay || !s_bid_query) return;
+
+    int bx_start = s_bid_cam_tx / 4 - 2;
+    int bx_end   = s_bid_cam_tx / 4 + 7;
+    int by_start = s_bid_cam_ty / 4 - 2;
+    int by_end   = s_bid_cam_ty / 4 + 7;
+
+    for (int by = by_start; by <= by_end; by++) {
+        for (int bx = bx_start; bx <= bx_end; bx++) {
+            /* block top-left in screen pixels */
+            int sx = (bx * 4 - s_bid_cam_tx) * 8 + px;
+            int sy = (by * 4 - s_bid_cam_ty) * 8 + py;
+            if (sx + 32 <= 0 || sx >= SCREEN_WIDTH_PX) continue;
+            if (sy + 32 <= 0 || sy >= SCREEN_HEIGHT_PX) continue;
+
+            int bid = s_bid_query(bx, by);
+
+            /* semi-transparent dark background: 11×7 px, centered in block */
+            int bg_x = sx + 10, bg_y = sy + 12;
+            for (int r = 0; r < 7; r++) {
+                int fy = bg_y + r;
+                if (fy < 0 || fy >= SCREEN_HEIGHT_PX) continue;
+                for (int c = 0; c < 11; c++) {
+                    int fx = bg_x + c;
+                    if (fx < 0 || fx >= SCREEN_WIDTH_PX) continue;
+                    uint32_t *p2 = &fb[fy * SCREEN_WIDTH_PX + fx];
+                    uint8_t r2 = (uint8_t)((*p2 >> 24)        * 80 / 255);
+                    uint8_t g2 = (uint8_t)((*p2 >> 16 & 0xFF) * 80 / 255);
+                    uint8_t b2 = (uint8_t)((*p2 >>  8 & 0xFF) * 80 / 255);
+                    *p2 = ((uint32_t)r2 << 24) | ((uint32_t)g2 << 16) |
+                          ((uint32_t)b2 << 8) | 0xFF;
+                }
+            }
+
+            /* high nibble at sx+11, low nibble at sx+16, both at sy+13 */
+            draw_hex_char(sx + 11, sy + 13, (bid >> 4) & 0xF);
+            draw_hex_char(sx + 16, sy + 13, bid & 0xF);
+        }
+    }
+}
+
+void Display_SetBlockIDOverlay(int enabled) { s_bid_overlay = enabled; }
+int  Display_GetBlockIDOverlay(void)        { return s_bid_overlay; }
+void Display_SetBlockIDQueryFn(int (*fn)(int bx, int by)) { s_bid_query = fn; }
+void Display_SetBlockIDCam(int cam_tx, int cam_ty) {
+    s_bid_cam_tx = cam_tx;
+    s_bid_cam_ty = cam_ty;
 }
 
 int Display_SaveScreenshot(const char *path) {

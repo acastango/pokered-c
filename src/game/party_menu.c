@@ -29,6 +29,7 @@
 #include "../data/party_icon_data.h"
 #include "constants.h"
 #include "overworld.h"   /* gScrollTileMap, SCROLL_MAP_W */
+#include "field_moves.h"
 #include "pokemon.h"
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +38,7 @@
 extern uint8_t     wPartyCount;
 extern party_mon_t wPartyMons[PARTY_LENGTH];
 extern uint8_t     wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
+extern uint8_t     wPartySpecies[PARTY_LENGTH + 1];
 extern uint8_t     wWhichPokemon;
 
 /* ---- State ------------------------------------------------------------ */
@@ -46,9 +48,11 @@ static int g_cursor      = 0;
 static int g_selected    = -1;
 static int g_anim_tick   = 0;
 static int g_anim_frame  = 0;
-static int g_submenu     = 0;   /* 1 while STATS/CANCEL popup is showing */
-static int g_sub_cursor  = 0;   /* 0=STATS  1=CANCEL */
+static int g_submenu     = 0;   /* 1 while action popup is showing */
+static int g_sub_cursor  = 0;   /* cursor within popup */
 static int g_in_summary  = 0;   /* 1 while SummaryScreen is showing */
+static int g_switching   = 0;   /* 1 while waiting for swap-target selection */
+static int g_switch_from = -1;  /* party slot chosen as the source of the swap */
 
 /* OAM slots 0..(PARTY_LENGTH*4-1) are owned by the party menu while open.
  * Each slot uses 4 OAM entries: top-left, top-right, bottom-left, bottom-right.
@@ -311,47 +315,72 @@ static void pm_draw_msg_box(const char *line1, const char *line2) {
 /* Draw or redraw the small popup over the message box area.
  *
  * force=0 (overworld): 2 items — STATS / CANCEL
- *   Box: cols 12-19, rows 12-15
+ *   Box: cols 11-19, rows 12-15
  *
  * force=2 (battle voluntary switch): 3 items — SWITCH / STATS / CANCEL
- *   Box: cols 12-19, rows 12-16
+ *   Box: cols 11-19, rows 12-16
  */
 static void pm_draw_submenu(int sub_cursor) {
     if (g_force == 2) {
         /* 3-item box: rows 12-16 */
-        pm_gb(12, 12, 0x79);
-        for (int c = 13; c <= 18; c++) pm_gb(c, 12, 0x7A);
+        pm_gb(11, 12, 0x79);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 12, 0x7A);
         pm_gb(19, 12, 0x7B);
         for (int r = 13; r <= 15; r++) {
-            pm_gb(12, r, 0x7C);
-            for (int c = 13; c <= 18; c++) pm_put(c, r, BLANK_TILE_SLOT);
+            pm_gb(11, r, 0x7C);
+            for (int c = 12; c <= 18; c++) pm_put(c, r, BLANK_TILE_SLOT);
             pm_gb(19, r, 0x7C);
         }
-        pm_gb(12, 16, 0x7D);
-        for (int c = 13; c <= 18; c++) pm_gb(c, 16, 0x7A);
+        pm_gb(11, 16, 0x7D);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 16, 0x7A);
         pm_gb(19, 16, 0x7E);
 
-        pm_put(13, 13, sub_cursor == 0 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
-        pm_ascii(14, 13, "SWITCH");
-        pm_put(13, 14, sub_cursor == 1 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
-        pm_ascii(14, 14, "STATS");
-        pm_put(13, 15, sub_cursor == 2 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
-        pm_ascii(14, 15, "CANCEL");
-    } else {
-        /* 2-item box: rows 12-15 */
-        pm_gb(12, 12, 0x79);
-        for (int c = 13; c <= 18; c++) pm_gb(c, 12, 0x7A);
+        pm_put(12, 13, sub_cursor == 0 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 13, "SWITCH");
+        pm_put(12, 14, sub_cursor == 1 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 14, "STATS");
+        pm_put(12, 15, sub_cursor == 2 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 15, "CANCEL");
+    } else if (FieldMove_HasFlash(g_cursor)) {
+        /* 3-item box: STATS / USE / CANCEL (when mon knows Flash) */
+        pm_gb(11, 12, 0x79);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 12, 0x7A);
         pm_gb(19, 12, 0x7B);
-        pm_gb(12, 13, 0x7C);  pm_gb(12, 14, 0x7C);
-        pm_gb(19, 13, 0x7C);  pm_gb(19, 14, 0x7C);
-        pm_gb(12, 15, 0x7D);
-        for (int c = 13; c <= 18; c++) pm_gb(c, 15, 0x7A);
-        pm_gb(19, 15, 0x7E);
+        for (int r = 13; r <= 15; r++) {
+            pm_gb(11, r, 0x7C);
+            for (int c = 12; c <= 18; c++) pm_put(c, r, BLANK_TILE_SLOT);
+            pm_gb(19, r, 0x7C);
+        }
+        pm_gb(11, 16, 0x7D);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 16, 0x7A);
+        pm_gb(19, 16, 0x7E);
 
-        pm_put(13, 13, sub_cursor == 0 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
-        pm_ascii(14, 13, "STATS");
-        pm_put(13, 14, sub_cursor == 1 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
-        pm_ascii(14, 14, "CANCEL");
+        pm_put(12, 13, sub_cursor == 0 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 13, "STATS");
+        pm_put(12, 14, sub_cursor == 1 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 14, "FLASH");
+        pm_put(12, 15, sub_cursor == 2 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 15, "CANCEL");
+    } else {
+        /* 3-item box: SWITCH / STATS / CANCEL (overworld reorder) */
+        pm_gb(11, 12, 0x79);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 12, 0x7A);
+        pm_gb(19, 12, 0x7B);
+        for (int r = 13; r <= 15; r++) {
+            pm_gb(11, r, 0x7C);
+            for (int c = 12; c <= 18; c++) pm_put(c, r, BLANK_TILE_SLOT);
+            pm_gb(19, r, 0x7C);
+        }
+        pm_gb(11, 16, 0x7D);
+        for (int c = 12; c <= 18; c++) pm_gb(c, 16, 0x7A);
+        pm_gb(19, 16, 0x7E);
+
+        pm_put(12, 13, sub_cursor == 0 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 13, "SWITCH");
+        pm_put(12, 14, sub_cursor == 1 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 14, "STATS");
+        pm_put(12, 15, sub_cursor == 2 ? Font_CharToTile(0xED) : BLANK_TILE_SLOT);
+        pm_ascii(13, 15, "CANCEL");
     }
 }
 
@@ -408,7 +437,15 @@ static void pm_draw_all(void) {
         pm_draw_slot(i);
 
     pm_draw_cursor(g_cursor);
-    pm_draw_msg_box("Choose a", "POKeMON.");
+
+    if (g_switching) {
+        /* Mark the source slot's name row with ▶ so the player can see
+         * which mon is being moved (cursor stays on the target slots). */
+        pm_put(1, g_switch_from * 2, Font_CharToTile(0xED));
+        pm_draw_msg_box("SWITCH with", "which MON?");
+    } else {
+        pm_draw_msg_box("Choose a", "POKeMON.");
+    }
 }
 
 /* ---- Public API ------------------------------------------------------- */
@@ -417,14 +454,16 @@ void PartyMenu_Open(int force) {
     Font_LoadHudTiles();  /* HP bar tiles ($62-$78) required for bar drawing */
     PartyIcons_LoadTiles();
 
-    g_force      = force;
-    g_open       = 1;
-    g_selected   = -1;
-    g_anim_tick  = 0;
-    g_anim_frame = 0;
-    g_submenu    = 0;
-    g_sub_cursor = 0;
-    g_in_summary = 0;
+    g_force       = force;
+    g_open        = 1;
+    g_selected    = -1;
+    g_anim_tick   = 0;
+    g_anim_frame  = 0;
+    g_submenu     = 0;
+    g_sub_cursor  = 0;
+    g_in_summary  = 0;
+    g_switching   = 0;
+    g_switch_from = -1;
 
     /* Default to first non-fainted slot */
     g_cursor = 0;
@@ -464,9 +503,62 @@ void PartyMenu_Tick(void) {
         return;
     }
 
+    /* ---- Switching mode: waiting for swap-target selection ----------- */
+    if (g_switching) {
+        /* Icon animation */
+        if (++g_anim_tick >= PM_ANIM_RATE) {
+            g_anim_tick  = 0;
+            g_anim_frame ^= 1;
+            pm_write_all_oam(g_anim_frame);
+        }
+        if (hJoyPressed & PAD_UP) {
+            g_cursor = (g_cursor - 1 + (int)wPartyCount) % (int)wPartyCount;
+            pm_draw_cursor(g_cursor);
+            pm_put(1, g_switch_from * 2, Font_CharToTile(0xED));
+            return;
+        }
+        if (hJoyPressed & PAD_DOWN) {
+            g_cursor = (g_cursor + 1) % (int)wPartyCount;
+            pm_draw_cursor(g_cursor);
+            pm_put(1, g_switch_from * 2, Font_CharToTile(0xED));
+            return;
+        }
+        if (hJoyPressed & PAD_A) {
+            Audio_PlaySFX_PressAB();
+            if (g_cursor != g_switch_from) {
+                /* Swap party data: mon, nickname, species array */
+                party_mon_t tmp_mon = wPartyMons[g_cursor];
+                wPartyMons[g_cursor]       = wPartyMons[g_switch_from];
+                wPartyMons[g_switch_from]  = tmp_mon;
+
+                uint8_t tmp_nick[NAME_LENGTH];
+                memcpy(tmp_nick,                      wPartyMonNicks[g_cursor],      NAME_LENGTH);
+                memcpy(wPartyMonNicks[g_cursor],      wPartyMonNicks[g_switch_from], NAME_LENGTH);
+                memcpy(wPartyMonNicks[g_switch_from], tmp_nick,                      NAME_LENGTH);
+
+                uint8_t tmp_sp = wPartySpecies[g_cursor];
+                wPartySpecies[g_cursor]      = wPartySpecies[g_switch_from];
+                wPartySpecies[g_switch_from] = tmp_sp;
+            }
+            g_switching = 0;
+            pm_draw_all();
+            pm_write_all_oam(g_anim_frame);
+            return;
+        }
+        if (hJoyPressed & PAD_B) {
+            Audio_PlaySFX_PressAB();
+            g_switching = 0;
+            pm_draw_all();
+            pm_write_all_oam(g_anim_frame);
+            return;
+        }
+        return;
+    }
+
     /* ---- Action sub-menu is showing ---- */
     if (g_submenu) {
-        int num_items = (g_force == 2) ? 3 : 2;
+        /* force==0 overworld also has 3 items now (SWITCH/STATS/CANCEL) */
+        int num_items = (g_force == 2 || g_force == 0 || FieldMove_HasFlash(g_cursor)) ? 3 : 2;
         if (hJoyPressed & PAD_UP) {
             g_sub_cursor = (g_sub_cursor - 1 + num_items) % num_items;
             pm_draw_submenu(g_sub_cursor);
@@ -497,9 +589,29 @@ void PartyMenu_Tick(void) {
                     pm_draw_all();
                     pm_write_all_oam(g_anim_frame);
                 }
-            } else {
-                /* force=0 (overworld): STATS(0) / CANCEL(1) */
+            } else if (FieldMove_HasFlash(g_cursor)) {
+                /* force=0 + mon knows Flash: STATS(0) / USE(1) / CANCEL(2) */
                 if (g_sub_cursor == 0) {
+                    g_in_summary = 1;
+                    SummaryScreen_Open(g_cursor);
+                } else if (g_sub_cursor == 1) {
+                    g_selected = -1;
+                    g_open     = 0;
+                    pm_clear_icon_oam();
+                    FieldMove_TryFlash(g_cursor);
+                } else {
+                    pm_draw_all();
+                    pm_write_all_oam(g_anim_frame);
+                }
+            } else {
+                /* force=0 (overworld): SWITCH(0) / STATS(1) / CANCEL(2) */
+                if (g_sub_cursor == 0) {
+                    /* SWITCH — enter reorder mode */
+                    g_switching   = 1;
+                    g_switch_from = g_cursor;
+                    pm_draw_all();
+                    pm_write_all_oam(g_anim_frame);
+                } else if (g_sub_cursor == 1) {
                     g_in_summary = 1;
                     SummaryScreen_Open(g_cursor);
                 } else {
@@ -540,8 +652,8 @@ void PartyMenu_Tick(void) {
     }
     if (hJoyPressed & PAD_A) {
         Audio_PlaySFX_PressAB();
-        if (g_force == 1) {
-            /* Battle forced-faint: select directly (no submenu) */
+        if (g_force == 1 || g_force == PARTY_MENU_TMHM) {
+            /* Battle forced-faint or TMHM teach: select directly (no submenu) */
             wWhichPokemon = (uint8_t)g_cursor;
             g_selected    = g_cursor;
             g_open        = 0;

@@ -12,7 +12,7 @@ const map_connections_t gMapConnections[NUM_MAP_CONNECTIONS] = {
     [  7] = { .north={0xFF,   0,    0}, .south={0x1E,   1,  -20}, .west={0x1D,  98,  -16}, .east={0x1A,   0,  -16} },  /* FuchsiaCity */
     [  8] = { .north={0x20, 179,    0}, .south={0xFF,   0,    0}, .west={0xFF,   0,    0}, .east={0x1F,   0,    0} },  /* CinnabarIsland */
     [  9] = { .north={0xFF,   0,    0}, .south={0x22,   1,    0}, .west={0xFF,   0,    0}, .east={0xFF,   0,    0} },  /* IndigoPlateau */
-    [ 10] = { .north={0xFF,   0,    0}, .south={0xFF,   0,    0}, .west={0xFF,   0,    0}, .east={0xFF,   0,    0} },  /* SaffronCity */
+    [ 10] = { .north={0x10,  71,  -20}, .south={0x11,   1,  -20}, .west={0x12,  38,  -16}, .east={0x13,   0,  -16} },  /* SaffronCity */
     [ 11] = { .north={0x10,  71,  -20}, .south={0x11,   1,  -20}, .west={0x12,  38,  -16}, .east={0x13,   0,  -16} },  /* SaffronCity */
     [ 12] = { .north={0x01,  71,   20}, .south={0x00,   1,    0}, .west={0xFF,   0,    0}, .east={0xFF,   0,    0} },  /* Route1 */
     [ 13] = { .north={0x02,  71,   20}, .south={0x01,   1,   20}, .west={0xFF,   0,    0}, .east={0xFF,   0,    0} },  /* Route2 */

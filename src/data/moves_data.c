@@ -25,25 +25,25 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [20] = { .anim=0x14, .effect=0x23, .power= 15, .type=0x00, .accuracy=191, .pp=20 },  /* BIND */
     [21] = { .anim=0x15, .effect=0x00, .power= 80, .type=0x00, .accuracy=191, .pp=20 },  /* SLAM */
     [22] = { .anim=0x16, .effect=0x00, .power= 35, .type=0x16, .accuracy=255, .pp=10 },  /* VINE_WHIP */
-    [23] = { .anim=0x17, .effect=0x43, .power= 65, .type=0x00, .accuracy=255, .pp=20 },  /* STOMP */
+    [23] = { .anim=0x17, .effect=0x25, .power= 65, .type=0x00, .accuracy=255, .pp=20 },  /* STOMP */
     [24] = { .anim=0x18, .effect=0x25, .power= 30, .type=0x01, .accuracy=255, .pp=30 },  /* DOUBLE_KICK */
     [25] = { .anim=0x19, .effect=0x00, .power=120, .type=0x00, .accuracy=191, .pp= 5 },  /* MEGA_KICK */
     [26] = { .anim=0x1A, .effect=0x26, .power= 70, .type=0x01, .accuracy=243, .pp=25 },  /* JUMP_KICK */
-    [27] = { .anim=0x1B, .effect=0x43, .power= 60, .type=0x01, .accuracy=217, .pp=15 },  /* ROLLING_KICK */
+    [27] = { .anim=0x1B, .effect=0x25, .power= 60, .type=0x01, .accuracy=217, .pp=15 },  /* ROLLING_KICK */
     [28] = { .anim=0x1C, .effect=0x16, .power=  0, .type=0x00, .accuracy=255, .pp=15 },  /* SAND_ATTACK */
-    [29] = { .anim=0x1D, .effect=0x43, .power= 70, .type=0x00, .accuracy=255, .pp=15 },  /* HEADBUTT */
+    [29] = { .anim=0x1D, .effect=0x25, .power= 70, .type=0x00, .accuracy=255, .pp=15 },  /* HEADBUTT */
     [30] = { .anim=0x1E, .effect=0x00, .power= 65, .type=0x00, .accuracy=255, .pp=25 },  /* HORN_ATTACK */
     [31] = { .anim=0x1F, .effect=0x1D, .power= 15, .type=0x00, .accuracy=217, .pp=20 },  /* FURY_ATTACK */
     [32] = { .anim=0x20, .effect=0x1F, .power=  1, .type=0x00, .accuracy= 77, .pp= 5 },  /* HORN_DRILL */
     [33] = { .anim=0x21, .effect=0x00, .power= 35, .type=0x00, .accuracy=243, .pp=35 },  /* TACKLE */
-    [34] = { .anim=0x22, .effect=0x42, .power= 85, .type=0x00, .accuracy=255, .pp=15 },  /* BODY_SLAM */
+    [34] = { .anim=0x22, .effect=0x24, .power= 85, .type=0x00, .accuracy=255, .pp=15 },  /* BODY_SLAM */
     [35] = { .anim=0x23, .effect=0x23, .power= 15, .type=0x00, .accuracy=217, .pp=20 },  /* WRAP */
     [36] = { .anim=0x24, .effect=0x29, .power= 90, .type=0x00, .accuracy=217, .pp=20 },  /* TAKE_DOWN */
     [37] = { .anim=0x25, .effect=0x1B, .power= 90, .type=0x00, .accuracy=255, .pp=20 },  /* THRASH */
     [38] = { .anim=0x26, .effect=0x29, .power=100, .type=0x00, .accuracy=255, .pp=15 },  /* DOUBLE_EDGE */
     [39] = { .anim=0x27, .effect=0x13, .power=  0, .type=0x00, .accuracy=255, .pp=30 },  /* TAIL_WHIP */
     [40] = { .anim=0x28, .effect=0x02, .power= 15, .type=0x03, .accuracy=255, .pp=35 },  /* POISON_STING */
-    [41] = { .anim=0x29, .effect=0x45, .power= 25, .type=0x07, .accuracy=255, .pp=20 },  /* TWINEEDLE */
+    [41] = { .anim=0x29, .effect=0x4d, .power= 25, .type=0x07, .accuracy=255, .pp=20 },  /* TWINEEDLE */
     [42] = { .anim=0x2A, .effect=0x1D, .power= 14, .type=0x07, .accuracy=217, .pp=20 },  /* PIN_MISSILE */
     [43] = { .anim=0x2B, .effect=0x13, .power=  0, .type=0x00, .accuracy=255, .pp=30 },  /* LEER */
     [44] = { .anim=0x2C, .effect=0x1E, .power= 60, .type=0x00, .accuracy=255, .pp=25 },  /* BITE */
@@ -53,7 +53,7 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [48] = { .anim=0x30, .effect=0x2A, .power=  0, .type=0x00, .accuracy=140, .pp=20 },  /* SUPERSONIC */
     [49] = { .anim=0x31, .effect=0x22, .power=  1, .type=0x00, .accuracy=230, .pp=20 },  /* SONICBOOM */
     [50] = { .anim=0x32, .effect=0x4D, .power=  0, .type=0x00, .accuracy=140, .pp=20 },  /* DISABLE */
-    [51] = { .anim=0x33, .effect=0x3D, .power= 40, .type=0x03, .accuracy=255, .pp=30 },  /* ACID */
+    [51] = { .anim=0x33, .effect=0x45, .power= 40, .type=0x03, .accuracy=255, .pp=30 },  /* ACID */
     [52] = { .anim=0x34, .effect=0x04, .power= 40, .type=0x14, .accuracy=255, .pp=25 },  /* EMBER */
     [53] = { .anim=0x35, .effect=0x04, .power= 95, .type=0x14, .accuracy=255, .pp=15 },  /* FLAMETHROWER */
     [54] = { .anim=0x36, .effect=0x27, .power=  0, .type=0x19, .accuracy=255, .pp=30 },  /* MIST */
@@ -61,15 +61,15 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [56] = { .anim=0x38, .effect=0x00, .power=120, .type=0x15, .accuracy=204, .pp= 5 },  /* HYDRO_PUMP */
     [57] = { .anim=0x39, .effect=0x00, .power= 95, .type=0x15, .accuracy=255, .pp=15 },  /* SURF */
     [58] = { .anim=0x3A, .effect=0x05, .power= 95, .type=0x19, .accuracy=255, .pp=10 },  /* ICE_BEAM */
-    [59] = { .anim=0x3B, .effect=0x05, .power=120, .type=0x19, .accuracy=230, .pp= 5 },  /* BLIZZARD */
-    [60] = { .anim=0x3C, .effect=0x44, .power= 65, .type=0x18, .accuracy=255, .pp=20 },  /* PSYBEAM */
-    [61] = { .anim=0x3D, .effect=0x3E, .power= 65, .type=0x15, .accuracy=255, .pp=20 },  /* BUBBLEBEAM */
-    [62] = { .anim=0x3E, .effect=0x3C, .power= 65, .type=0x19, .accuracy=255, .pp=20 },  /* AURORA_BEAM */
+    [59] = { .anim=0x3B, .effect=0x23, .power=120, .type=0x19, .accuracy=230, .pp= 5 },  /* BLIZZARD */
+    [60] = { .anim=0x3C, .effect=0x4c, .power= 65, .type=0x18, .accuracy=255, .pp=20 },  /* PSYBEAM */
+    [61] = { .anim=0x3D, .effect=0x46, .power= 65, .type=0x15, .accuracy=255, .pp=20 },  /* BUBBLEBEAM */
+    [62] = { .anim=0x3E, .effect=0x44, .power= 65, .type=0x19, .accuracy=255, .pp=20 },  /* AURORA_BEAM */
     [63] = { .anim=0x3F, .effect=0x47, .power=150, .type=0x00, .accuracy=230, .pp= 5 },  /* HYPER_BEAM */
     [64] = { .anim=0x40, .effect=0x00, .power= 35, .type=0x02, .accuracy=255, .pp=35 },  /* PECK */
     [65] = { .anim=0x41, .effect=0x00, .power= 80, .type=0x02, .accuracy=255, .pp=20 },  /* DRILL_PECK */
     [66] = { .anim=0x42, .effect=0x29, .power= 80, .type=0x01, .accuracy=204, .pp=25 },  /* SUBMISSION */
-    [67] = { .anim=0x43, .effect=0x43, .power= 50, .type=0x01, .accuracy=230, .pp=20 },  /* LOW_KICK */
+    [67] = { .anim=0x43, .effect=0x25, .power= 50, .type=0x01, .accuracy=230, .pp=20 },  /* LOW_KICK */
     [68] = { .anim=0x44, .effect=0x00, .power=  1, .type=0x01, .accuracy=255, .pp=20 },  /* COUNTER */
     [69] = { .anim=0x45, .effect=0x22, .power=  1, .type=0x01, .accuracy=255, .pp=20 },  /* SEISMIC_TOSS */
     [70] = { .anim=0x46, .effect=0x00, .power= 80, .type=0x00, .accuracy=255, .pp=15 },  /* STRENGTH */
@@ -95,8 +95,8 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [90] = { .anim=0x5A, .effect=0x1F, .power=  1, .type=0x04, .accuracy= 77, .pp= 5 },  /* FISSURE */
     [91] = { .anim=0x5B, .effect=0x20, .power=100, .type=0x04, .accuracy=255, .pp=10 },  /* DIG */
     [92] = { .anim=0x5C, .effect=0x3A, .power=  0, .type=0x03, .accuracy=217, .pp=10 },  /* TOXIC */
-    [93] = { .anim=0x5D, .effect=0x44, .power= 50, .type=0x18, .accuracy=255, .pp=25 },  /* CONFUSION */
-    [94] = { .anim=0x5E, .effect=0x3F, .power= 90, .type=0x18, .accuracy=255, .pp=10 },  /* PSYCHIC_M */
+    [93] = { .anim=0x5D, .effect=0x4c, .power= 50, .type=0x18, .accuracy=255, .pp=25 },  /* CONFUSION */
+    [94] = { .anim=0x5E, .effect=0x47, .power= 90, .type=0x18, .accuracy=255, .pp=10 },  /* PSYCHIC_M */
     [95] = { .anim=0x5F, .effect=0x01, .power=  0, .type=0x18, .accuracy=153, .pp=20 },  /* HYPNOSIS */
     [96] = { .anim=0x60, .effect=0x0A, .power=  0, .type=0x18, .accuracy=255, .pp=40 },  /* MEDITATE */
     [97] = { .anim=0x61, .effect=0x0C, .power=  0, .type=0x18, .accuracy=255, .pp=30 },  /* AGILITY */
@@ -124,17 +124,17 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [119] = { .anim=0x77, .effect=0x09, .power=  0, .type=0x02, .accuracy=255, .pp=20 },  /* MIRROR_MOVE */
     [120] = { .anim=0x78, .effect=0x07, .power=130, .type=0x00, .accuracy=255, .pp= 5 },  /* SELFDESTRUCT */
     [121] = { .anim=0x79, .effect=0x00, .power=100, .type=0x00, .accuracy=191, .pp=10 },  /* EGG_BOMB */
-    [122] = { .anim=0x7A, .effect=0x42, .power= 20, .type=0x08, .accuracy=255, .pp=30 },  /* LICK */
+    [122] = { .anim=0x7A, .effect=0x24, .power= 20, .type=0x08, .accuracy=255, .pp=30 },  /* LICK */
     [123] = { .anim=0x7B, .effect=0x4E, .power= 20, .type=0x03, .accuracy=179, .pp=20 },  /* SMOG */
     [124] = { .anim=0x7C, .effect=0x4E, .power= 65, .type=0x03, .accuracy=255, .pp=20 },  /* SLUDGE */
     [125] = { .anim=0x7D, .effect=0x1E, .power= 65, .type=0x04, .accuracy=217, .pp=20 },  /* BONE_CLUB */
-    [126] = { .anim=0x7E, .effect=0x40, .power=120, .type=0x14, .accuracy=217, .pp= 5 },  /* FIRE_BLAST */
+    [126] = { .anim=0x7E, .effect=0x22, .power=120, .type=0x14, .accuracy=217, .pp= 5 },  /* FIRE_BLAST */
     [127] = { .anim=0x7F, .effect=0x00, .power= 80, .type=0x15, .accuracy=255, .pp=15 },  /* WATERFALL */
     [128] = { .anim=0x80, .effect=0x23, .power= 35, .type=0x15, .accuracy=191, .pp=10 },  /* CLAMP */
     [129] = { .anim=0x81, .effect=0x11, .power= 60, .type=0x00, .accuracy=255, .pp=20 },  /* SWIFT */
     [130] = { .anim=0x82, .effect=0x20, .power=100, .type=0x00, .accuracy=255, .pp=15 },  /* SKULL_BASH */
     [131] = { .anim=0x83, .effect=0x1D, .power= 20, .type=0x00, .accuracy=255, .pp=15 },  /* SPIKE_CANNON */
-    [132] = { .anim=0x84, .effect=0x3E, .power= 10, .type=0x00, .accuracy=255, .pp=35 },  /* CONSTRICT */
+    [132] = { .anim=0x84, .effect=0x46, .power= 10, .type=0x00, .accuracy=255, .pp=35 },  /* CONSTRICT */
     [133] = { .anim=0x85, .effect=0x2D, .power=  0, .type=0x18, .accuracy=255, .pp=20 },  /* AMNESIA */
     [134] = { .anim=0x86, .effect=0x16, .power=  0, .type=0x18, .accuracy=204, .pp=15 },  /* KINESIS */
     [135] = { .anim=0x87, .effect=0x30, .power=  0, .type=0x00, .accuracy=255, .pp=10 },  /* SOFTBOILED */
@@ -147,7 +147,7 @@ const move_t gMoves[NUM_MOVE_DEFS] = {
     [142] = { .anim=0x8E, .effect=0x01, .power=  0, .type=0x00, .accuracy=191, .pp=10 },  /* LOVELY_KISS */
     [143] = { .anim=0x8F, .effect=0x20, .power=140, .type=0x02, .accuracy=230, .pp= 5 },  /* SKY_ATTACK */
     [144] = { .anim=0x90, .effect=0x31, .power=  0, .type=0x00, .accuracy=255, .pp=10 },  /* TRANSFORM */
-    [145] = { .anim=0x91, .effect=0x3E, .power= 20, .type=0x15, .accuracy=255, .pp=30 },  /* BUBBLE */
+    [145] = { .anim=0x91, .effect=0x46, .power= 20, .type=0x15, .accuracy=255, .pp=30 },  /* BUBBLE */
     [146] = { .anim=0x92, .effect=0x00, .power= 70, .type=0x00, .accuracy=255, .pp=10 },  /* DIZZY_PUNCH */
     [147] = { .anim=0x93, .effect=0x01, .power=  0, .type=0x16, .accuracy=255, .pp=15 },  /* SPORE */
     [148] = { .anim=0x94, .effect=0x16, .power=  0, .type=0x00, .accuracy=179, .pp=20 },  /* FLASH */

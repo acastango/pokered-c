@@ -15,8 +15,11 @@
  */
 
 /* Open the party menu.
- * force=0: B cancels and returns -1.
- * force=1: B ignored (battle forced switch). */
+ * force=0: overworld — shows STATS/CANCEL submenu on A; B cancels.
+ * force=1: battle forced switch — selects directly on A; B ignored.
+ * force=2: battle voluntary — shows SWITCH/STATS/CANCEL submenu on A; B cancels.
+ * force=3: TMHM teach (mirrors TMHM_PARTY_MENU) — selects directly on A; B cancels. */
+#define PARTY_MENU_TMHM 3
 void PartyMenu_Open(int force);
 
 /* Returns non-zero while the menu is active. */

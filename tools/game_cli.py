@@ -15,6 +15,18 @@ Commands:
   wait [N]                 idle N frames (default 60)
   state                    refresh display without acting
   teleport <map> [x y]     jump to map (uses existing teleport.txt)
+  giveitem <name|id> [qty] add item to bag (e.g. giveitem pokeflute, giveitem potion 5)
+  givetm <n>               give TM n (1-50)
+  givehm <n>               give HM n (1-5)
+  givemon <dex> [level]    add pokemon to party (dex = national dex number)
+  givebadge <n>            set badge bit n (0=boulder … 7=earth)
+  setflag <n>              set event flag n (decimal or 0x hex)
+  clearflag <n>            clear event flag n
+  sethealth <slot> <hp>    set current HP for party slot (1-based)
+  setlevel <slot> <lvl>    set level for party slot (1-based)
+  healparty                full HP + clear status on all party mons
+  setmoney <amount>        set money (0-999999)
+  listbag                  print current bag contents
   quit / exit              leave interactive mode
 
 The game must be running. Commands are written to bugs/cli_cmd.txt;
@@ -141,7 +153,7 @@ NAMED_LOCATIONS = {
 
 
 def send_teleport(args_str: str):
-    """Handle teleport separately via the existing teleport.txt mechanism."""
+    """Send teleport via the cli_cmd.txt mechanism (same as all other commands)."""
     ensure_bugs_dir()
     args = args_str.strip()
 
@@ -155,10 +167,14 @@ def send_teleport(args_str: str):
         m, x, y = NAMED_LOCATIONS[key]
         args = f"{m} {x} {y}"
 
-    with open(TELE_FILE, "w") as f:
-        f.write(args + "\n")
-    print(f"[cli] Teleport written: {args}")
-    time.sleep(1.1)  # give the game's 60-frame poll cycle time to fire
+    # Convert any hex values (e.g. 0x52) to decimal for the game's sscanf
+    parts = args.split()
+    parts = [str(int(p, 0)) if p.startswith("0x") or p.startswith("0X") else p for p in parts]
+    cmd = "teleport " + " ".join(parts)
+
+    print(f"[cli] Teleport: {cmd}")
+    send_command(cmd)
+    time.sleep(0.3)
     show_state()
 
 

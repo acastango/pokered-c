@@ -19,6 +19,115 @@
 
 extern uint16_t wPlayerID;
 
+static uint8_t encode_name_char(char c) {
+    if (c >= 'A' && c <= 'Z') return (uint8_t)(0x80 + (c - 'A'));
+    if (c >= 'a' && c <= 'z') return (uint8_t)(0xA0 + (c - 'a'));
+    if (c >= '0' && c <= '9') return (uint8_t)(0xF6 + (c - '0'));
+    if (c == ' ')  return 0x7F;
+    if (c == '.')  return 0xE8;
+    if (c == '-')  return 0xE3;
+    if (c == '\'') return 0xE0;
+    return 0x7F;
+}
+
+void Pokemon_EncodeNameString(const char *src, uint8_t *dst) {
+    int i;
+    for (i = 0; i < NAME_LENGTH - 1 && src[i]; i++)
+        dst[i] = encode_name_char(src[i]);
+    dst[i] = 0x50;
+    for (i = i + 1; i < NAME_LENGTH; i++)
+        dst[i] = 0x50;
+}
+
+static uint32_t exp_bytes_to_u32(const uint8_t exp[3]) {
+    return ((uint32_t)exp[0] << 16) | ((uint32_t)exp[1] << 8) | (uint32_t)exp[2];
+}
+
+static uint8_t infer_level_from_exp(uint8_t species, const uint8_t exp[3]) {
+    uint8_t dex = gSpeciesToDex[species];
+    uint8_t growth_rate;
+    uint32_t cur_exp;
+    uint8_t best = 1;
+
+    if (dex == 0 || dex > NUM_POKEMON) return 1;
+    growth_rate = gBaseStats[dex].growth_rate;
+    cur_exp = exp_bytes_to_u32(exp);
+
+    for (uint8_t lv = 1; lv <= 100; lv++) {
+        uint32_t need = CalcExpForLevel(growth_rate, lv);
+        if (need > cur_exp) break;
+        best = lv;
+    }
+    return best;
+}
+
+static uint8_t hp_dv_from_dvs(uint16_t dvs) {
+    uint8_t atk = (uint8_t)((dvs >> 12) & 0xF);
+    uint8_t def = (uint8_t)((dvs >> 8) & 0xF);
+    uint8_t spd = (uint8_t)((dvs >> 4) & 0xF);
+    uint8_t spc = (uint8_t)(dvs & 0xF);
+    return (uint8_t)(((atk & 1) << 3) | ((def & 1) << 2) | ((spd & 1) << 1) | (spc & 1));
+}
+
+static void fill_party_from_box(party_mon_t *dst, const box_mon_t *src) {
+    uint8_t dex;
+    const base_stats_t *bs;
+    uint8_t level;
+    uint8_t atk_dv, def_dv, spd_dv, spc_dv, hp_dv;
+
+    memset(dst, 0, sizeof(*dst));
+    memcpy(&dst->base, src, sizeof(*src));
+
+    dex = gSpeciesToDex[src->species];
+    if (dex == 0 || dex > NUM_POKEMON) return;
+    bs = &gBaseStats[dex];
+    level = src->box_level;
+    if (level == 0) {
+        /* Recover tainted saves where box_level was left zeroed by older logic. */
+        level = infer_level_from_exp(src->species, src->exp);
+        dst->base.box_level = level;
+    }
+    atk_dv = (uint8_t)((src->dvs >> 12) & 0xF);
+    def_dv = (uint8_t)((src->dvs >> 8) & 0xF);
+    spd_dv = (uint8_t)((src->dvs >> 4) & 0xF);
+    spc_dv = (uint8_t)(src->dvs & 0xF);
+    hp_dv = hp_dv_from_dvs(src->dvs);
+
+    dst->level  = level;
+    dst->max_hp = CalcStat(bs->hp,  hp_dv,  src->stat_exp_hp,  level, 1);
+    dst->atk    = CalcStat(bs->atk, atk_dv, src->stat_exp_atk, level, 0);
+    dst->def    = CalcStat(bs->def, def_dv, src->stat_exp_def, level, 0);
+    dst->spd    = CalcStat(bs->spd, spd_dv, src->stat_exp_spd, level, 0);
+    dst->spc    = CalcStat(bs->spc, spc_dv, src->stat_exp_spc, level, 0);
+    if (dst->base.hp > dst->max_hp)
+        dst->base.hp = dst->max_hp;
+}
+
+static void shift_party_left(int start_slot) {
+    for (int i = start_slot; i < PARTY_LENGTH - 1; i++) {
+        wPartyMons[i] = wPartyMons[i + 1];
+        memcpy(wPartyMonOT[i], wPartyMonOT[i + 1], NAME_LENGTH);
+        memcpy(wPartyMonNicks[i], wPartyMonNicks[i + 1], NAME_LENGTH);
+    }
+    memset(&wPartyMons[PARTY_LENGTH - 1], 0, sizeof(wPartyMons[PARTY_LENGTH - 1]));
+    memset(wPartyMonOT[PARTY_LENGTH - 1], 0x50, NAME_LENGTH);
+    memset(wPartyMonNicks[PARTY_LENGTH - 1], 0x50, NAME_LENGTH);
+}
+
+static void shift_box_left(uint8_t box, int start_slot) {
+    for (int i = start_slot; i < BOX_CAPACITY - 1; i++) {
+        wBoxMons[box][i] = wBoxMons[box][i + 1];
+        memcpy(wBoxMonOT[box][i], wBoxMonOT[box][i + 1], NAME_LENGTH);
+        memcpy(wBoxMonNicks[box][i], wBoxMonNicks[box][i + 1], NAME_LENGTH);
+        wBoxSpecies[box][i] = wBoxSpecies[box][i + 1];
+    }
+    memset(&wBoxMons[box][BOX_CAPACITY - 1], 0, sizeof(wBoxMons[box][BOX_CAPACITY - 1]));
+    memset(wBoxMonOT[box][BOX_CAPACITY - 1], 0x50, NAME_LENGTH);
+    memset(wBoxMonNicks[box][BOX_CAPACITY - 1], 0x50, NAME_LENGTH);
+    wBoxSpecies[box][BOX_CAPACITY - 1] = 0xFF;
+    wBoxSpecies[box][BOX_CAPACITY] = 0xFF;
+}
+
 /* ---- CalcExpForLevel ---------------------------------------------------- *
  * Mirrors data/growth_rates.asm formula table.                              *
  * growth_rate values (GROWTH_* constants in constants.h):                   *
@@ -203,6 +312,109 @@ void Pokemon_AddToParty(uint8_t species, uint8_t level) {
     m->base.hp = m->max_hp;
 
     wPartyCount++;
+}
+
+int Pokemon_SendBattleMonToBox(const battle_mon_t *mon) {
+    uint8_t box;
+    uint8_t slot;
+    uint8_t dex;
+    const base_stats_t *bs;
+    const char *name;
+    box_mon_t *dst;
+    uint32_t exp;
+
+    if (!mon) return 0;
+
+    box = (uint8_t)(wCurrentBoxNum % NUM_BOXES);
+    if (box >= NUM_BOXES) return 0;
+    if (wBoxCount[box] >= BOX_CAPACITY) return 0;
+
+    dex = gSpeciesToDex[mon->species];
+    if (dex == 0 || dex > NUM_POKEMON) return 0;
+    bs = &gBaseStats[dex];
+
+    slot = wBoxCount[box];
+    dst = &wBoxMons[box][slot];
+    memset(dst, 0, sizeof(*dst));
+
+    dst->species    = mon->species;
+    dst->hp         = mon->hp;
+    dst->box_level  = mon->level;
+    dst->status     = mon->status;
+    dst->type1      = mon->type1;
+    dst->type2      = mon->type2;
+    dst->catch_rate = mon->catch_rate;
+    memcpy(dst->moves, mon->moves, sizeof(dst->moves));
+    dst->ot_id      = wPlayerID;
+    exp = CalcExpForLevel(bs->growth_rate, mon->level);
+    u32_to_exp(exp, dst->exp);
+    dst->dvs        = mon->dvs;
+    memcpy(dst->pp, mon->pp, sizeof(dst->pp));
+
+    memcpy(wBoxMonOT[box][slot], wPlayerName, NAME_LENGTH);
+    name = Pokemon_GetName(dex);
+    Pokemon_EncodeNameString(name ? name : "", wBoxMonNicks[box][slot]);
+
+    wBoxCount[box]++;
+    wBoxSpecies[box][slot] = mon->species;
+    wBoxSpecies[box][slot + 1] = 0xFF;
+    return 1;
+}
+
+int Pokemon_DepositPartyMonToBox(int party_slot) {
+    uint8_t box;
+    uint8_t slot;
+
+    if (party_slot < 0 || party_slot >= wPartyCount) return 0;
+
+    box = (uint8_t)(wCurrentBoxNum % NUM_BOXES);
+    if (wBoxCount[box] >= BOX_CAPACITY) return 0;
+
+    slot = wBoxCount[box];
+    memcpy(&wBoxMons[box][slot], &wPartyMons[party_slot].base, sizeof(box_mon_t));
+    /* Keep box level authoritative from party level field.
+     * This prevents stale/zero base.box_level from corrupting boxed mons. */
+    wBoxMons[box][slot].box_level = wPartyMons[party_slot].level;
+    memcpy(wBoxMonOT[box][slot], wPartyMonOT[party_slot], NAME_LENGTH);
+    memcpy(wBoxMonNicks[box][slot], wPartyMonNicks[party_slot], NAME_LENGTH);
+    wBoxCount[box]++;
+    wBoxSpecies[box][slot] = wPartyMons[party_slot].base.species;
+    wBoxSpecies[box][slot + 1] = 0xFF;
+
+    shift_party_left(party_slot);
+    if (wPartyCount > 0) wPartyCount--;
+    return 1;
+}
+
+int Pokemon_WithdrawBoxMonToParty(int box_slot) {
+    uint8_t box;
+    int party_slot;
+
+    if (wPartyCount >= PARTY_LENGTH) return 0;
+
+    box = (uint8_t)(wCurrentBoxNum % NUM_BOXES);
+    if (box_slot < 0 || box_slot >= wBoxCount[box]) return 0;
+
+    party_slot = wPartyCount;
+    fill_party_from_box(&wPartyMons[party_slot], &wBoxMons[box][box_slot]);
+    memcpy(wPartyMonOT[party_slot], wBoxMonOT[box][box_slot], NAME_LENGTH);
+    memcpy(wPartyMonNicks[party_slot], wBoxMonNicks[box][box_slot], NAME_LENGTH);
+    wPartyCount++;
+
+    shift_box_left(box, box_slot);
+    if (wBoxCount[box] > 0) wBoxCount[box]--;
+    wBoxSpecies[box][wBoxCount[box]] = 0xFF;
+    return 1;
+}
+
+int Pokemon_ReleaseBoxMon(int box_slot) {
+    uint8_t box = (uint8_t)(wCurrentBoxNum % NUM_BOXES);
+
+    if (box_slot < 0 || box_slot >= wBoxCount[box]) return 0;
+    shift_box_left(box, box_slot);
+    if (wBoxCount[box] > 0) wBoxCount[box]--;
+    wBoxSpecies[box][wBoxCount[box]] = 0xFF;
+    return 1;
 }
 
 /* ---- Pokemon_HealParty -------------------------------------------------- *

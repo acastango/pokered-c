@@ -1146,7 +1146,7 @@ execute_done:
  *   All paths arrive at EnemyCheckIfMirrorMoveEffect (5600) with levels unswapped.
  * ============================================================ */
 void Battle_ExecuteEnemyMove(void) {
-    if (wEnemySelectedMove == CANNOT_MOVE) return;
+    if (wEnemySelectedMove == CANNOT_MOVE) goto enemy_execute_done;
 
     wMoveMissed    = 0;
     wMoveDidntMiss = 0;
@@ -1155,7 +1155,7 @@ void Battle_ExecuteEnemyMove(void) {
     /* CheckEnemyStatusConditions (core.asm:5481-5483) */
     {
         int sr = check_enemy_status_conditions();
-        if (sr == PSTAT_DONE)     return;
+        if (sr == PSTAT_DONE)     goto enemy_execute_done;
         if (sr == PSTAT_MISSED)   goto enemy_handle_if_missed;
         if (sr == PSTAT_CALC_DMG) goto enemy_calc_damage;
         if (sr == PSTAT_GET_ANIM) {
@@ -1187,7 +1187,7 @@ void Battle_ExecuteEnemyMove(void) {
 enemy_check_charge:
     if (wEnemyMoveEffect == EFFECT_CHARGE || wEnemyMoveEffect == EFFECT_FLY) {
         Battle_JumpMoveEffect();
-        return;
+        goto enemy_execute_done;
     }
 
 enemy_can_execute_move:
@@ -1196,7 +1196,7 @@ enemy_can_execute_move:
     /* ResidualEffects1 (core.asm:5514-5518) */
     if (is_in_array(wEnemyMoveEffect, kResidualEffects1)) {
         Battle_JumpMoveEffect();
-        return;
+        goto enemy_execute_done;
     }
 
     /* SpecialEffectsCont (core.asm:5520-5523) */
@@ -1260,7 +1260,7 @@ enemy_mirror_move_check:
             get_current_move();
             goto enemy_check_charge;
         }
-        return;
+        goto enemy_execute_done;
     }
     if (wEnemyMoveEffect == EFFECT_METRONOME) {
         uint8_t pick;
@@ -1274,13 +1274,13 @@ enemy_mirror_move_check:
     /* core.asm:5613 .notMetronomeEffect — ResidualEffects2 */
     if (is_in_array(wEnemyMoveEffect, kResidualEffects2)) {
         Battle_JumpMoveEffect();
-        return;
+        goto enemy_execute_done;
     }
 
     /* core.asm:5618 wMoveMissed re-check */
     if (wMoveMissed) {
         BLOG("  %s used %s -- missed!", BMON_E(), BMOVE(wEnemyMoveNum));
-        if (wEnemyMoveEffect != EFFECT_EXPLODE) return;
+        if (wEnemyMoveEffect != EFFECT_EXPLODE) goto enemy_execute_done;
     } else {
         BLOG("  %s used %s", BMON_E(), BMOVE(wEnemyMoveNum));
         wEnemyUsedMove = wEnemyMoveNum;  /* DisplayUsedMoveText (used_move_text.asm) */
@@ -1296,7 +1296,7 @@ enemy_after_apply:
         Battle_JumpMoveEffect();
     }
 
-    if (wBattleMon.hp == 0) return;
+    if (wBattleMon.hp == 0) goto enemy_execute_done;
 
     handle_building_rage();
 
@@ -1308,7 +1308,7 @@ enemy_after_apply:
             apply_attack_to_player_pokemon();
             if (wBattleMon.hp == 0) {
                 wEnemyBattleStatus1 &= ~(1u << BSTAT1_ATTACKING_MULTIPLE);
-                return;
+                goto enemy_execute_done;
             }
             handle_building_rage();
             goto enemy_after_apply;
@@ -1317,12 +1317,15 @@ enemy_after_apply:
         wEnemyNumHits = 0;
     }
 
-    if (wEnemyMoveEffect == 0) return;
+    if (wEnemyMoveEffect == 0) goto enemy_execute_done;
 
     /* SpecialEffects (core.asm:5661-5664) */
     if (!is_in_array(wEnemyMoveEffect, kSpecialEffects)) {
         Battle_JumpMoveEffect();
     }
+
+enemy_execute_done:
+    wActionResultOrTookBattleTurn = 0;
 }
 
 /* ============================================================

@@ -41,6 +41,7 @@ typedef struct {
     uint16_t     flag_bit;
     const char  *before_text;
     const char  *after_text;
+    const char  *end_text;   /* shown after player wins; NULL = use fallback in OnGymTrainerVictory */
 } map_trainer_t;
 
 typedef struct {

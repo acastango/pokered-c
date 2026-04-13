@@ -26,12 +26,32 @@ uint8_t Battle_CalcLevelFromExp(uint8_t growth_rate, uint32_t exp);
  * Syncs to wBattleMon if slot == wPlayerMonNumber. */
 void Battle_LearnMoveFromLevelUp(uint8_t slot, uint8_t new_level);
 
-/* Battle_EvolutionAfterBattle — EvolutionAfterBattle (engine/pokemon/evos_moves.asm:13).
- * For each party mon with wCanEvolveFlags set, check evo conditions and evolve.
- * EVOLVE_TRADE is skipped (not link battling in smoke test).
- * EVOLVE_ITEM replicates the wCurItem == wCurPartySpecies overlap bug faithfully.
- * Animation is skipped — always treated as accepted. */
+/* Debug exp rate multiplier: 100 = 1×, 150 = 1.5×, 200 = 2×, 300 = 3×.
+ * Set via the "exprate" CLI command.  Applied inside Battle_GainExperience. */
+extern int gDebugExpRate;
+
+/* Battle_AddExpDirect — add raw exp to party slot directly (debug/testing).
+ * Handles level-up stat recalc, HP delta, move learning, wBattleMon sync.
+ * Does NOT queue text or trigger evolutions. */
+void Battle_AddExpDirect(uint8_t slot, uint32_t amount);
+
+/* Battle_EvolutionAfterBattle — silent fallback (no animation).
+ * Loops Battle_CheckNextEvolution + Battle_ApplyEvolution until done.
+ * Used by debug/tests; battle_ui.c uses the animated BUI_EVOLUTION path instead. */
 void Battle_EvolutionAfterBattle(void);
+
+/* Battle_CheckNextEvolution — find the first party mon in wCanEvolveFlags whose
+ * evo conditions are met.  Returns 1 and fills *slot_out / *new_species_out;
+ * returns 0 if nothing pending.  Does NOT modify any state. */
+int Battle_CheckNextEvolution(uint8_t *slot_out, uint8_t *new_species_out);
+
+/* Battle_ApplyEvolution — commit evolution for (slot, new_species): species change,
+ * CalcStats, HP delta, types, wBattleMon sync, LearnMoveFromLevelUp, Pokédex flags.
+ * Clears the wCanEvolveFlags bit for slot. */
+void Battle_ApplyEvolution(uint8_t slot, uint8_t new_species);
+
+/* Battle_CancelEvolution — clear the wCanEvolveFlags bit for slot without evolving. */
+void Battle_CancelEvolution(uint8_t slot);
 
 /* Stats snapshot attached to a level-up queue entry.
  * valid==1: this text is a "grew to level N!" message; show stats box after. */

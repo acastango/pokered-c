@@ -13,6 +13,7 @@
 #include "text.h"
 #include "player.h"
 #include "music.h"
+#include "inventory.h"
 #include "../platform/hardware.h"
 #include "../data/event_constants.h"
 
@@ -23,6 +24,10 @@ extern int16_t wXCoord, wYCoord;
 #define MAP_PEWTER_CITY     0x02
 #define MAP_ROUTE23         0x22
 #define MAP_ROUTE22GATE     0xc1
+#define MAP_ROUTE5GATE      0x46
+#define MAP_ROUTE6GATE      0x49
+#define MAP_ROUTE7GATE      0x4c
+#define MAP_ROUTE8GATE      0x4f
 
 /* ---- helpers -------------------------------------------------------- */
 
@@ -352,7 +357,7 @@ void Gate_ViridianDoPush(void) {
 
 /* ---- Route 22 Gate -------------------------------------------------- */
 
-/* object_event 6, 2 (SPRITE_GUARD) — checks BOULDER badge.
+/* object_event 6, 2 (SPRITE_GUARD) — A-press interaction, checks BOULDER badge.
  * Mirrors Route22GateGuardText in scripts/Route22Gate.asm. */
 void Gate_Route22_Guard(void) {
     if (Badge_Has(BADGE_BOULDER)) {
@@ -360,9 +365,31 @@ void Gate_Route22_Guard(void) {
         pass_guard(0);  /* no persistent event flag for Route 22 */
         Text_ShowASCII("Oh! That is the\nBOULDERBADGE!\nGo right ahead!");
     } else {
-        /* _Route22GateGuardNoBoulderbadgeText + _ICantLetYouPassText */
+        /* _Route22GateGuardNoBoulderbadgeText + _Route22GateGuardICantLetYouPassText */
         Text_ShowASCII("Only truly skilled\ntrainers are\nallowed through.\fYou don't have the\nBOULDERBADGE yet!\fThe rules are\nrules. I can't\nlet you pass.");
     }
+}
+
+/* Position trigger — fires from gStepJustCompleted when player reaches the
+ * corridor tiles (4,2) or (5,2), mirroring Route22GateDefaultScript's
+ * ArePlayerCoordsInArray check.  Pushes player back south if no Boulder Badge. */
+static int s_route22_push = 0;
+
+void Gate_Route22StepCheck(void) {
+    if (wCurMap != MAP_ROUTE22GATE) return;
+    if (s_route22_push) return;
+    if (Badge_Has(BADGE_BOULDER)) return;
+    if (wYCoord == 2 && (wXCoord == 4 || wXCoord == 5)) {
+        Text_ShowASCII("Only truly skilled\ntrainers are\nallowed through.\fYou don't have the\nBOULDERBADGE yet!\fThe rules are\nrules. I can't\nlet you pass.");
+        s_route22_push = 1;
+    }
+}
+
+void Gate_Route22DoPush(void) {
+    if (!s_route22_push) return;
+    if (Text_IsOpen()) return;
+    s_route22_push = 0;
+    Player_DoScriptedStep(DIR_DOWN);
 }
 
 /* ---- Route 23 guards ------------------------------------------------ */
@@ -432,4 +459,81 @@ void Gate_Route23_Cascade(void) {
     } else {
         Text_ShowASCII("You can pass here\nonly if you have\nthe CASCADEBADGE!\fYou don't have the\nCASCADEBADGE yet!\fYou have to have\nit to get to\nPOKEMON LEAGUE!");
     }
+}
+
+/* ---- Saffron City gate guards (Routes 5/6/7/8) ----------------------- */
+/* All 4 gates share EVENT_GAVE_SAFFRON_GUARDS_DRINK.
+ *
+ * Two-part mechanic (mirrors pokered scripts/Route*Gate.asm):
+ *   1. A-press on guard NPC → drink exchange (Gate_SaffronGuard_Interact)
+ *   2. Step trigger on corridor tile → push back if event not set
+ *      (Gate_SaffronStepCheck / Gate_SaffronDoPush)
+ *
+ * The guard stands BEHIND the counter; the step trigger does the blocking.
+ */
+
+/* A-press on the counter guard. */
+void Gate_SaffronGuard_Interact(void) {
+    if (CheckEvent(EVENT_GAVE_SAFFRON_GUARDS_DRINK)) {
+        /* _SaffronGateGuardThanksForTheDrinkText */
+        Text_ShowASCII("Hi, thanks for\nthe cool drinks!");
+        return;
+    }
+    static const uint8_t kDrinks[] = {
+        ITEM_FRESH_WATER, ITEM_SODA_POP, ITEM_LEMONADE, 0
+    };
+    for (int i = 0; kDrinks[i]; i++) {
+        if (Inventory_GetQty(kDrinks[i]) > 0) {
+            Inventory_Remove(kDrinks[i], 1);
+            SetEvent(EVENT_GAVE_SAFFRON_GUARDS_DRINK);
+            /* _SaffronGateGuardImParchedText + sound_get_key_item + _SaffronGateGuardYouCanGoOnThroughText */
+            Text_ShowASCII("Whoa, boy!\nI'm parched!\n...\nHuh? I can have\nthis drink?\nGee, thanks!\f...\nGlug glug...\n...\nGulp...\nIf you want to go\nto SAFFRON CITY...\n...\nYou can go on\nthrough. I'll\nshare this with\nthe other guards!");
+            return;
+        }
+    }
+    /* _SaffronGateGuardGeeImThirstyText */
+    Text_ShowASCII("I'm on guard duty.\nGee, I'm thirsty,\nthough!\fOh wait there,\nthe road's closed.");
+}
+
+/* Step trigger — fires from the gStepJustCompleted block in game.c. */
+static int s_saffron_push_dir = -1;  /* DIR_* pending push, -1 = none */
+
+void Gate_SaffronStepCheck(void) {
+    if (CheckEvent(EVENT_GAVE_SAFFRON_GUARDS_DRINK)) return;
+    if (s_saffron_push_dir >= 0) return;  /* already pending */
+
+    int trigger = 0, push_dir = 0;
+    switch (wCurMap) {
+    case MAP_ROUTE5GATE:  /* N-S gate, Route 5 to north — push north (PAD_UP) */
+        if (wYCoord == 3 && (wXCoord == 3 || wXCoord == 4))
+            { trigger = 1; push_dir = DIR_UP; }
+        break;
+    case MAP_ROUTE6GATE:  /* N-S gate, Saffron to north */
+        if (wYCoord == 2 && (wXCoord == 3 || wXCoord == 4))
+            { trigger = 1; push_dir = DIR_DOWN; }
+        break;
+    case MAP_ROUTE7GATE:  /* E-W gate, Saffron to east */
+        if (wXCoord == 3 && (wYCoord == 3 || wYCoord == 4))
+            { trigger = 1; push_dir = DIR_LEFT; }
+        break;
+    case MAP_ROUTE8GATE:  /* E-W gate, Saffron to west */
+        if (wXCoord == 2 && (wYCoord == 3 || wYCoord == 4))
+            { trigger = 1; push_dir = DIR_RIGHT; }
+        break;
+    default: return;
+    }
+    if (!trigger) return;
+
+    /* _SaffronGateGuardGeeImThirstyText */
+    Text_ShowASCII("I'm on guard duty.\nGee, I'm thirsty,\nthough!\fOh wait there,\nthe road's closed.");
+    s_saffron_push_dir = push_dir;
+}
+
+/* Called every frame before Player_Update (after text guard) — deferred push. */
+void Gate_SaffronDoPush(void) {
+    if (s_saffron_push_dir < 0) return;
+    if (Text_IsOpen()) return;
+    int dir = s_saffron_push_dir;
+    s_saffron_push_dir = -1;
+    Player_DoScriptedStep(dir);
 }

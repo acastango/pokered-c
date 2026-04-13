@@ -15,6 +15,8 @@
 #include "inventory.h"
 #include "overworld.h"
 #include "npc.h"
+#include "tmhm.h"
+#include "pokeflute.h"
 #include "../platform/hardware.h"
 #include "../data/font_data.h"
 #include <string.h>
@@ -280,8 +282,15 @@ void BagMenu_Tick(void) {
                         /* In battle: record selection and close immediately */
                         gBagSelectedItem = id;
                         bag_close();
+                    } else if (id >= HM01) {
+                        /* Overworld TM/HM: start teaching flow */
+                        TMHM_Use(id);
+                        bag_close();
+                    } else if (id == ITEM_POKE_FLUTE) {
+                        PokeFlute_Use();
+                        bag_close();
                     } else {
-                        /* Overworld: stub (no overworld item effects yet) */
+                        /* Overworld: no effect for other items yet */
                         gBagState = BAG_LIST;
                         erase_action_submenu();
                     }

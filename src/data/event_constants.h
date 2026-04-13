@@ -537,3 +537,6 @@
 /* EVENT_GOT_HM01, EVENT_RUBBED_CAPTAINS_BACK, EVENT_SS_ANNE_LEFT defined above (~1504-1506) */
 
 /* Total named flags: 528, max value: 2542 */
+
+/* Hand-added: Saffron City gate guard — one flag covers all 4 gates. */
+#define EVENT_GAVE_SAFFRON_GUARDS_DRINK 2543u

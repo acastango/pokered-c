@@ -41,6 +41,10 @@ void Audio_PlaySFX_PressAB(void);
 
 /* Start menu open — mirrors SFX_START_MENU (home/start_menu.asm) */
 void Audio_PlaySFX_StartMenu(void);
+/* PC boot/enter/logoff SFX — mirrors SFX_TURN_ON_PC / SFX_ENTER_PC / SFX_TURN_OFF_PC. */
+void Audio_PlaySFX_TurnOnPC(void);
+void Audio_PlaySFX_EnterPC(void);
+void Audio_PlaySFX_TurnOffPC(void);
 
 /* Ledge-hop bloop — mirrors SFX_LEDGE (SFX_Ledge_1_Ch5) from audio/sfx/ledge_1.asm */
 void Audio_PlaySFX_Ledge(void);
@@ -63,6 +67,12 @@ void Audio_PlaySFX_BattleHit(uint8_t dmg_mult);
 
 /* Pokeball open poof — mirrors SFX_BALL_POOF (Ch5 sweep + Ch8 noise). */
 void Audio_PlaySFX_BallPoof(void);
+/* Pokeball throw — mirrors SFX_BALL_TOSS (Ch5+Ch6). */
+void Audio_PlaySFX_BallToss(void);
+/* Pokeball shake chime — mirrors SFX_TINK (Ch5). */
+void Audio_PlaySFX_Tink(void);
+/* Successful capture fanfare — mirrors SFX_CAUGHT_MON (Ch5+Ch6; wave omitted). */
+void Audio_PlaySFX_CaughtMon(void);
 
 /* Faint sequence — mirrors SFX_FAINT_FALL then SFX_FAINT_THUD.
  * Falls on Ch5 (square+sweep) then thuds on Ch5+Ch8 (square+noise). */
@@ -70,6 +80,17 @@ void Audio_PlaySFX_Faint(void);
 
 /* Run away — mirrors SFX_RUN (audio/sfx/run.asm, noise channel Ch8). */
 void Audio_PlaySFX_Run(void);
+
+/* Cut field move — mirrors SFX_CUT (audio/sfx/cut_1.asm, noise channel Ch8). */
+void Audio_PlaySFX_Cut(void);
+
+/* Gym trash-can switch click — mirrors SFX_SWITCH (audio/sfx/switch_1.asm, Ch5).
+ * Two-tone two-click sequence; ~15 frames. */
+void Audio_PlaySFX_Switch(void);
+
+/* Denied / wrong-answer buzz — mirrors SFX_DENIED (audio/sfx/denied_1.asm, Ch5+Ch6).
+ * Two-channel alternating buzz; ~24 frames. */
+void Audio_PlaySFX_Denied(void);
 
 /* Level-up jingle — mirrors SFX_LEVEL_UP (audio/sfx/level_up.asm).
  * Plays on Ch5 (ch[0]) and Ch6 (ch[1]) simultaneously. ~132 frames. */
@@ -80,6 +101,10 @@ void Audio_PlaySFX_LevelUp(void);
  * with ~30-frame gaps between calls (mirrors AnimateHealingMachine loop). */
 void Audio_PlaySFX_HealingMachine(void);
 
+/* Get item 1 jingle — mirrors SFX_GET_ITEM_1 (audio/sfx/get_item1_1.asm).
+ * Two-channel ascending jingle on Ch5/Ch6. Plays when receiving items or TMs. */
+void Audio_PlaySFX_GetItem1(void);
+
 /* Get key item jingle — mirrors SFX_GET_KEY_ITEM (audio/sfx/get_key_item_1.asm).
  * Two-channel ascending fanfare on Ch5 (ch[0]) and Ch6 (ch[1]).
  * Plays when receiving a starter Pokémon or key item. ~120 frames. */
@@ -89,6 +114,11 @@ int  Audio_IsSFXPlaying_GetKeyItem(void);
 /* Returns 1 if any SFX channel is active — mirrors WaitForSoundToFinish. */
 int  Audio_IsSFXPlaying(void);
 
+/* SS Anne departure horn — mirrors SFX_SS_ANNE_HORN (audio/sfx/ss_anne_horn_1.asm).
+ * Two sustained notes on Ch5 (freq 1280) and Ch6 (freq 1154). ~110 frames. */
+void Audio_PlaySFX_SSAnneHorn(void);
+int  Audio_IsSFXPlaying_SSAnneHorn(void);
+
 /* Purchase kaching — mirrors SFX_PURCHASE (audio/sfx/purchase_1.asm).
  * Two-channel ascending arpeggio on Ch5 (ch[0]) and Ch6 (ch[1]).
  * Total duration ~12 frames. */
@@ -97,5 +127,6 @@ void Audio_PlaySFX_Purchase(void);
 /* Pokémon cry — mirrors PlayCry (home/pokemon.asm:145).
  * species: 1-based internal species ID (SPECIES_* constants).
  * Looks up CryData for pitch/tempo modifiers, plays 3-channel cry.
- * Suspends music ch[0] and ch[1]; resumes when done. */
+ * Suspends all music channels while active, then resumes them when done. */
 void Audio_PlayCry(uint8_t species);
+int  Audio_IsCryPlaying(void);

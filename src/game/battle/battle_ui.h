@@ -25,3 +25,12 @@ int BattleUI_IsActive(void);
 
 /* Debug: returns current bui_state_t value as int. */
 int BattleUI_GetState(void);
+
+/* Queue badge-info text to be shown after the key-item jingle in gym-leader
+ * defeat sequences.  Set before the battle starts (e.g. in GS_BROCK_PRE_WAIT).
+ * Mirrors the text_far _PewterGymBrockBoulderBadgeInfoText chained after
+ * _PewterGymBrockReceivedBoulderBadgeText with sound_level_up between them. */
+/* "[PLAYER] received the BADGE!" — shown simultaneously with key-item jingle. */
+void BattleUI_SetBadgeRecvText(const char *text);
+/* Badge info pages shown after the received text is dismissed. */
+void BattleUI_SetBadgeInfoText(const char *text);

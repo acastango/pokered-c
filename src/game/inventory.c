@@ -61,6 +61,18 @@ int Inventory_GetQty(uint8_t item_id) {
 
 void Inventory_DecodeASCII(uint8_t item_id, char *buf, int buf_size) {
     if (buf_size <= 0) return;
+    if (item_id >= HM01 && item_id < TM01) {
+        int n = item_id - HM01 + 1;
+        if (buf_size >= 5) { buf[0]='H'; buf[1]='M'; buf[2]='0'+n/10; buf[3]='0'+n%10; buf[4]='\0'; }
+        else buf[0] = '\0';
+        return;
+    }
+    if (item_id >= TM01) {
+        int n = item_id - TM01 + 1;
+        if (buf_size >= 5) { buf[0]='T'; buf[1]='M'; buf[2]='0'+n/10; buf[3]='0'+n%10; buf[4]='\0'; }
+        else buf[0] = '\0';
+        return;
+    }
     if (item_id == 0 || item_id > NUM_ITEMS) { buf[0] = '\0'; return; }
     const uint8_t *src = kItemNames[item_id];
     int out = 0;
@@ -95,7 +107,26 @@ int Inventory_IsKeyItem(uint8_t item_id) {
 }
 
 const uint8_t *Inventory_GetName(uint8_t item_id) {
-    /* IDs beyond NUM_ITEMS (TMs/HMs) fall back to NO_ITEM blank */
+    /* TM/HM IDs are beyond kItemNames — build a Pokemon-font-encoded name */
+    static uint8_t tmhm_name[6];
+    if (item_id >= HM01 && item_id < TM01) {
+        int n = item_id - HM01 + 1;
+        tmhm_name[0] = 0x87;            /* H */
+        tmhm_name[1] = 0x8C;            /* M */
+        tmhm_name[2] = 0xF6 + n / 10;  /* tens */
+        tmhm_name[3] = 0xF6 + n % 10;  /* ones */
+        tmhm_name[4] = 0x50;            /* terminator */
+        return tmhm_name;
+    }
+    if (item_id >= TM01) {
+        int n = item_id - TM01 + 1;
+        tmhm_name[0] = 0x93;            /* T */
+        tmhm_name[1] = 0x8C;            /* M */
+        tmhm_name[2] = 0xF6 + n / 10;
+        tmhm_name[3] = 0xF6 + n % 10;
+        tmhm_name[4] = 0x50;
+        return tmhm_name;
+    }
     if (item_id > NUM_ITEMS) item_id = 0;
     return kItemNames[item_id];
 }

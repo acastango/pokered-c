@@ -133,13 +133,14 @@ void Player_IgnoreInputFrames(int n) {
     gInputIgnoreFrames = n;
 }
 
-/* Signed Y-pixel offsets relative to the player's normal sprite Y,
- * indexed by arc frame 0-15 (frames 0-7 = step 1, frames 8-15 = step 2).
- * Derived from PlayerJumpingYScreenCoords: $38=base, values relative to $38.
- * Negative = upward (visual rise), positive = downward (visual drop/bounce). */
+/* Signed Y-pixel offsets relative to the player's normal standing sprite Y.
+ * Indexed by arc frame 0-15 (frames 0-7 = step 1, frames 8-15 = step 2).
+ * Derived from ASM PlayerJumpingYScreenCoords using $3C as standing baseline:
+ *   db $38,$36,$34,$32,$31,$30,$30,$30,$31,$32,$33,$34,$36,$38,$3C,$3C
+ * Offsets = coord - $3C, so jump ends exactly at standing Y (no settle jitter). */
 static const int kLedgeArc[16] = {
-     0, -2, -4, -6, -7, -8, -8, -8,   /* step 1: rising */
-    -7, -6, -5, -4, -2,  0, +4, +4    /* step 2: falling + bounce */
+    -4, -6, -8,-10,-11,-12,-12,-12,   /* step 1: rising */
+   -11,-10, -9, -8, -6, -4,  0,  0    /* step 2: falling -> settle at standing Y */
 };
 
 /* LedgeTiles table — mirrors data/tilesets/ledge_tiles.asm.

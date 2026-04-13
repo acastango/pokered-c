@@ -272,6 +272,7 @@ void Pokecenter_Tick(void) {
             if (g_cursor == 0) {
                 /* YES / HEAL — mirrors SetLastBlackoutMap + NeedYourPokemonText */
                 g_used_pokecenter = 1;
+                wLastBlackoutMap = wCurMap;  /* SetLastBlackoutMap: save respawn destination */
                 Map_BuildScrollView();  /* restore map tiles under YES/NO box immediately */
                 Text_ShowASCII("OK. We'll need\nyour POKeMON.");
                 g_state = PC_WAIT_NEED;

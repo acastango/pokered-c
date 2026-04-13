@@ -2102,7 +2102,7 @@ const map_info_t gMapTable[NUM_MAPS] = {
     [91] = { .width=  4, .height=  4, .tileset_id= 2, .border_block=0, .blocks=kBlk_VermilionMart, .name="VermilionMart" },
     [92] = { .width=  5, .height=  9, .tileset_id= 7, .border_block=0, .blocks=kBlk_VermilionGym, .name="VermilionGym" },
     [93] = { .width=  4, .height=  4, .tileset_id= 8, .border_block=0, .blocks=kBlk_VermilionPidgeyHouse, .name="VermilionPidgeyHouse" },
-    [94] = { .width= 14, .height=  6, .tileset_id=14, .border_block=0, .blocks=kBlk_VermilionDock, .name="VermilionDock" },
+    [94] = { .width= 14, .height=  6, .tileset_id=14, .border_block=0x0F, .blocks=kBlk_VermilionDock, .name="VermilionDock" },
     [95] = { .width= 20, .height=  9, .tileset_id=13, .border_block=0, .blocks=kBlk_SSAnne1F, .name="SSAnne1F" },
     [96] = { .width= 20, .height=  9, .tileset_id=13, .border_block=0, .blocks=kBlk_SSAnne2F, .name="SSAnne2F" },
     [97] = { .width= 10, .height=  3, .tileset_id=13, .border_block=0, .blocks=kBlk_SSAnne3F, .name="SSAnne3F" },

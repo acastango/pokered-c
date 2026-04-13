@@ -20,6 +20,10 @@
 #include <string.h>
 #include <math.h>
 
+/* Debug exp rate multiplier (100 = 1×, 150 = 1.5×, 200 = 2×, 300 = 3×).
+ * Set via game_cli.py "exprate" command.  Applied in Battle_GainExperience. */
+int gDebugExpRate = 100;
+
 /* ---- Pending text queue (drained by battle_ui.c BUI_EXP_DRAIN) ---- */
 #define EXP_QUEUE_MAX 20
 #define EXP_TEXT_LEN  80
@@ -215,6 +219,10 @@ void Battle_GainExperience(void) {
             gained += gained / 2;
         }
 
+        /* Debug exp rate multiplier (100 = 1×, 200 = 2×, etc.) */
+        if (gDebugExpRate != 100)
+            gained = gained * (uint32_t)gDebugExpRate / 100;
+
         wExpAmountGained = (uint16_t)(gained > 0xFFFF ? 0xFFFF : gained);
 
         /* Add to party mon's 3-byte exp (experience.asm:.noCarry) */
@@ -302,101 +310,181 @@ done:
 }
 
 /* ============================================================
+ * Evolution helpers — split out from EvolutionAfterBattle so that
+ * battle_ui.c can drive the animation frame-by-frame via BUI_EVOLUTION.
+ * ============================================================ */
+
+/* Scan evo data for party slot i, return new_species (0 = no evo). */
+static uint8_t evo_check_one_mon(uint8_t i) {
+    party_mon_t *p = &wPartyMons[i];
+    uint8_t old_species = p->base.species;
+    if (old_species == 0 || old_species >= EVOS_MOVES_TABLE_SIZE) return 0;
+    const uint8_t *data = gEvosMoves[old_species];
+    if (!data) return 0;
+
+    uint8_t new_species = 0;
+    int skip_mon = 0;
+    while (!skip_mon && *data != 0) {
+        uint8_t evo_type = *data++;
+        if (evo_type == EVOLVE_TRADE) {
+            if (wLinkState != LINK_STATE_TRADING) { data += 2; continue; }
+            uint8_t lr = *data++; uint8_t ns = *data++;
+            if (p->level < lr) { skip_mon = 1; break; }
+            new_species = ns; break;
+        }
+        if (wLinkState == LINK_STATE_TRADING) { skip_mon = 1; break; }
+        if (evo_type == EVOLVE_ITEM) {
+            uint8_t item_id = *data++;
+            if (wCurPartySpecies != item_id) { data += 2; continue; }
+            uint8_t lr = *data++; uint8_t ns = *data++;
+            if (p->level < lr) continue;
+            new_species = ns; break;
+        }
+        if (wForceEvolution) { skip_mon = 1; break; }
+        if (evo_type == EVOLVE_LEVEL) {
+            uint8_t lr = *data++; uint8_t ns = *data++;
+            if (p->level < lr) continue;
+            new_species = ns; break;
+        }
+        data += 2;
+    }
+    return new_species;
+}
+
+/* Battle_CheckNextEvolution — find the first party mon with wCanEvolveFlags
+ * set whose evo conditions are met.  Returns 1 and fills *slot_out /
+ * *new_species_out; returns 0 if nothing is pending.
+ * Called by battle_ui.c to decide whether to enter BUI_EVOLUTION. */
+int Battle_CheckNextEvolution(uint8_t *slot_out, uint8_t *new_species_out) {
+    for (uint8_t i = 0; i < wPartyCount; i++) {
+        if (!(wCanEvolveFlags & (1u << i))) continue;
+        uint8_t ns = evo_check_one_mon(i);
+        if (ns) {
+            *slot_out        = i;
+            *new_species_out = ns;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Battle_ApplyEvolution — commit species change, recalc stats, learn move,
+ * update Pokédex.  Clears the wCanEvolveFlags bit for slot.
+ * Mirrors the .doEvolution block of EvolveMon (evos_moves.asm:231+). */
+void Battle_ApplyEvolution(uint8_t slot, uint8_t new_species) {
+    wEvolutionOccurred = 1;
+    wWhichPokemon      = slot;
+    party_mon_t *p     = &wPartyMons[slot];
+    uint8_t old_species = p->base.species;
+    wEvoOldSpecies     = old_species;
+    wEvoNewSpecies     = new_species;
+
+    uint8_t new_dex = gSpeciesToDex[new_species];
+    if (new_dex == 0 || new_dex > NUM_POKEMON) {
+        wCanEvolveFlags &= (uint8_t)~(1u << slot);
+        return;
+    }
+    const base_stats_t *bs = &gBaseStats[new_dex];
+
+    p->base.species      = new_species;
+    wPartySpecies[slot]  = new_species;
+
+    uint8_t atk_dv = (uint8_t)((p->base.dvs >> 12) & 0x0F);
+    uint8_t def_dv = (uint8_t)((p->base.dvs >>  8) & 0x0F);
+    uint8_t spd_dv = (uint8_t)((p->base.dvs >>  4) & 0x0F);
+    uint8_t spc_dv = (uint8_t)( p->base.dvs        & 0x0F);
+    uint8_t hp_dv  = (uint8_t)(((atk_dv & 1) << 3) | ((def_dv & 1) << 2) |
+                                ((spd_dv & 1) << 1) |  (spc_dv & 1));
+
+    uint16_t old_max_hp = p->max_hp;
+    p->max_hp = CalcStat(bs->hp,  hp_dv,  p->base.stat_exp_hp,  p->level, 1);
+    p->atk    = CalcStat(bs->atk, atk_dv, p->base.stat_exp_atk, p->level, 0);
+    p->def    = CalcStat(bs->def, def_dv, p->base.stat_exp_def, p->level, 0);
+    p->spd    = CalcStat(bs->spd, spd_dv, p->base.stat_exp_spd, p->level, 0);
+    p->spc    = CalcStat(bs->spc, spc_dv, p->base.stat_exp_spc, p->level, 0);
+
+    uint16_t cur_hp  = (slot == wPlayerMonNumber) ? wBattleMon.hp : p->base.hp;
+    uint16_t hp_gain = (p->max_hp > old_max_hp) ? (p->max_hp - old_max_hp) : 0;
+    uint32_t new_hp  = (uint32_t)cur_hp + hp_gain;
+    p->base.hp = (uint16_t)(new_hp > p->max_hp ? p->max_hp : new_hp);
+
+    p->base.type1 = bs->type1;
+    p->base.type2 = bs->type2;
+
+    if (slot == wPlayerMonNumber) {
+        wBattleMon.species = new_species;
+        wBattleMon.hp      = p->base.hp;
+        wBattleMon.max_hp  = p->max_hp;
+        wBattleMon.atk     = p->atk;
+        wBattleMon.def     = p->def;
+        wBattleMon.spd     = p->spd;
+        wBattleMon.spc     = p->spc;
+        wBattleMon.type1   = bs->type1;
+        wBattleMon.type2   = bs->type2;
+    }
+
+    Battle_LearnMoveFromLevelUp(slot, p->level);
+
+    if (new_dex >= 1 && new_dex <= NUM_POKEMON) {
+        uint8_t bidx = (uint8_t)((new_dex - 1) % 8);
+        uint8_t boff = (uint8_t)((new_dex - 1) / 8);
+        if (boff < 19) {
+            wPokedexOwned[boff] |= (uint8_t)(1u << bidx);
+            wPokedexSeen[boff]  |= (uint8_t)(1u << bidx);
+        }
+    }
+
+    printf("[battle]   %s evolved into %s!\n",
+           Pokemon_GetName(gSpeciesToDex[old_species]),
+           Pokemon_GetName(new_dex));
+
+    wCanEvolveFlags &= (uint8_t)~(1u << slot);
+}
+
+/* Battle_CancelEvolution — clear the can-evolve flag without applying. */
+void Battle_CancelEvolution(uint8_t slot) {
+    wCanEvolveFlags &= (uint8_t)~(1u << slot);
+}
+
+/* ============================================================
  * Battle_EvolutionAfterBattle — EvolutionAfterBattle (evos_moves.asm:13)
  *
- * For each party mon flagged in wCanEvolveFlags, parse its evo block and
- * evolve if conditions are met.  Animation (EvolveMon) is skipped — always
- * treated as accepted in the smoke test.
+ * Silent fallback used outside the main battle-UI path (e.g. debug/tests).
+ * battle_ui.c drives the animated path via BUI_EVOLUTION instead.
  * ============================================================ */
 void Battle_EvolutionAfterBattle(void) {
     wEvolutionOccurred = 0;
+    uint8_t slot, new_species;
+    while (Battle_CheckNextEvolution(&slot, &new_species))
+        Battle_ApplyEvolution(slot, new_species);
+}
 
-    for (wWhichPokemon = 0; wWhichPokemon < wPartyCount; wWhichPokemon++) {
-        /* Skip if can-evolve flag not set (Evolution_FlagAction FLAG_TEST) */
-        if (!(wCanEvolveFlags & (1u << wWhichPokemon))) continue;
+/* ============================================================
+ * Battle_AddExpDirect — add raw exp to one party slot (debug/testing).
+ * Handles level-up: stat recalc, HP delta, move learning, wBattleMon sync.
+ * Does NOT queue text, trigger evolutions, or touch wCanEvolveFlags.
+ * ============================================================ */
+void Battle_AddExpDirect(uint8_t slot, uint32_t amount) {
+    if (slot >= wPartyCount) return;
+    party_mon_t *p = &wPartyMons[slot];
+    uint8_t dex    = gSpeciesToDex[p->base.species];
+    if (dex == 0 || dex > NUM_POKEMON) return;
+    const base_stats_t *bs = &gBaseStats[dex];
 
-        party_mon_t *p = &wPartyMons[wWhichPokemon];
-        uint8_t old_species = p->base.species;
-        wEvoOldSpecies = old_species;
+    uint32_t cur_exp = exp_to_u32(p->base.exp);
+    cur_exp += amount;
+    uint32_t max_exp = CalcExpForLevel(bs->growth_rate, MAX_LEVEL);
+    if (cur_exp > max_exp) cur_exp = max_exp;
+    u32_to_exp(cur_exp, p->base.exp);
 
-        if (old_species == 0 || old_species >= EVOS_MOVES_TABLE_SIZE) continue;
+    uint8_t old_level = p->level;
+    uint8_t new_level = Battle_CalcLevelFromExp(bs->growth_rate, cur_exp);
+    if (new_level > MAX_LEVEL) new_level = MAX_LEVEL;
 
-        const uint8_t *data = gEvosMoves[old_species];
-        if (!data) continue;
+    if (new_level > old_level) {
+        p->level          = new_level;
+        p->base.box_level = new_level;
 
-        /* Scan evo entries (.evoEntryLoop).  Consuming bytes mirrors hl increments.
-         * Entry formats (after type byte):
-         *   EVOLVE_LEVEL  [level_req, new_species]        — 2 more bytes
-         *   EVOLVE_ITEM   [item_id, level_req, new_species]— 3 more bytes
-         *   EVOLVE_TRADE  [level_req, new_species]        — 2 more bytes
-         *   0x00          end of evo block
-         */
-        uint8_t new_species = 0;
-        int skip_mon = 0;
-
-        while (!skip_mon && *data != 0) {
-            uint8_t evo_type = *data++;
-
-            if (evo_type == EVOLVE_TRADE) {
-                /* .checkTradeEvo */
-                if (wLinkState != LINK_STATE_TRADING) {
-                    data += 2; /* .nextEvoEntry1: skip level_req + new_species */
-                    continue;
-                }
-                uint8_t lr = *data++;
-                uint8_t ns = *data++;
-                if (p->level < lr) { skip_mon = 1; break; } /* jp c, Evolution_PartyMonLoop */
-                new_species = ns;
-                break;
-            }
-
-            /* Not TRADE: if currently trading, skip entire mon */
-            if (wLinkState == LINK_STATE_TRADING) { skip_mon = 1; break; }
-
-            if (evo_type == EVOLVE_ITEM) {
-                /* .checkItemEvo
-                 * Bug: wCurItem overlaps wCurPartySpecies in WRAM — faithfully replicated. */
-                uint8_t item_id = *data++;
-                if (wCurPartySpecies != item_id) {
-                    data += 2; /* .nextEvoEntry1: skip level_req + new_species */
-                    continue;
-                }
-                uint8_t lr = *data++;
-                uint8_t ns = *data++; /* .nextEvoEntry2 already consumed */
-                if (p->level < lr) continue;
-                new_species = ns;
-                break;
-            }
-
-            /* .checkLevel path: wForceEvolution != 0 skips entire mon */
-            if (wForceEvolution) { skip_mon = 1; break; }
-
-            if (evo_type == EVOLVE_LEVEL) {
-                uint8_t lr = *data++;
-                uint8_t ns = *data++; /* .nextEvoEntry2 already consumed */
-                if (p->level < lr) continue;
-                new_species = ns;
-                break;
-            }
-
-            data += 2; /* unknown type — skip like .nextEvoEntry1 */
-        }
-
-        if (!new_species) continue;
-
-        /* ---- .doEvolution ---- */
-        wEvoNewSpecies     = new_species;
-        wEvolutionOccurred = 1;
-
-        uint8_t new_dex = gSpeciesToDex[new_species];
-        if (new_dex == 0 || new_dex > NUM_POKEMON) continue;
-        const base_stats_t *bs = &gBaseStats[new_dex];
-
-        /* Change species in party (evos_moves.asm:231) */
-        p->base.species          = new_species;
-        wPartySpecies[wWhichPokemon] = new_species;
-
-        /* CalcStats with new base stats (evos_moves.asm:call CalcStats) */
         uint8_t atk_dv = (uint8_t)((p->base.dvs >> 12) & 0x0F);
         uint8_t def_dv = (uint8_t)((p->base.dvs >>  8) & 0x0F);
         uint8_t spd_dv = (uint8_t)((p->base.dvs >>  4) & 0x0F);
@@ -405,50 +493,32 @@ void Battle_EvolutionAfterBattle(void) {
                                     ((spd_dv & 1) << 1) |  (spc_dv & 1));
 
         uint16_t old_max_hp = p->max_hp;
-        p->max_hp = CalcStat(bs->hp,  hp_dv,  p->base.stat_exp_hp,  p->level, 1);
-        p->atk    = CalcStat(bs->atk, atk_dv, p->base.stat_exp_atk, p->level, 0);
-        p->def    = CalcStat(bs->def, def_dv, p->base.stat_exp_def, p->level, 0);
-        p->spd    = CalcStat(bs->spd, spd_dv, p->base.stat_exp_spd, p->level, 0);
-        p->spc    = CalcStat(bs->spc, spc_dv, p->base.stat_exp_spc, p->level, 0);
+        p->max_hp = CalcStat(bs->hp,  hp_dv,  p->base.stat_exp_hp,  new_level, 1);
+        p->atk    = CalcStat(bs->atk, atk_dv, p->base.stat_exp_atk, new_level, 0);
+        p->def    = CalcStat(bs->def, def_dv, p->base.stat_exp_def, new_level, 0);
+        p->spd    = CalcStat(bs->spd, spd_dv, p->base.stat_exp_spd, new_level, 0);
+        p->spc    = CalcStat(bs->spc, spc_dv, p->base.stat_exp_spc, new_level, 0);
 
-        /* Add max_hp gain to current HP (evos_moves.asm: wLoadedMonMaxHP delta) */
-        uint16_t cur_hp  = (wWhichPokemon == wPlayerMonNumber) ? wBattleMon.hp : p->base.hp;
         uint16_t hp_gain = (p->max_hp > old_max_hp) ? (p->max_hp - old_max_hp) : 0;
-        uint32_t new_hp  = (uint32_t)cur_hp + hp_gain;
+        uint32_t new_hp  = (uint32_t)p->base.hp + hp_gain;
         p->base.hp = (uint16_t)(new_hp > p->max_hp ? p->max_hp : new_hp);
 
-        /* SetPartyMonTypes (set_types.asm) — update type1/type2 from new base stats */
-        p->base.type1 = bs->type1;
-        p->base.type2 = bs->type2;
-
-        /* Sync wBattleMon if this is the active mon */
-        if (wWhichPokemon == wPlayerMonNumber) {
-            wBattleMon.species = new_species;
-            wBattleMon.hp      = p->base.hp;
-            wBattleMon.max_hp  = p->max_hp;
-            wBattleMon.atk     = p->atk;
-            wBattleMon.def     = p->def;
-            wBattleMon.spd     = p->spd;
-            wBattleMon.spc     = p->spc;
-            wBattleMon.type1   = bs->type1;
-            wBattleMon.type2   = bs->type2;
+        /* Sync wBattleMon if this is the active battle mon */
+        if (slot == wPlayerMonNumber && wIsInBattle) {
+            wBattleMon.max_hp = p->max_hp;
+            wBattleMon.hp     = p->base.hp;
+            wBattleMon.atk    = p->atk;
+            wBattleMon.def    = p->def;
+            wBattleMon.spd    = p->spd;
+            wBattleMon.spc    = p->spc;
         }
 
-        /* LearnMoveFromLevelUp for the new species (evos_moves.asm:212) */
-        Battle_LearnMoveFromLevelUp((uint8_t)wWhichPokemon, p->level);
+        /* Learn moves for each level gained */
+        for (uint8_t lv = (uint8_t)(old_level + 1); lv <= new_level; lv++)
+            Battle_LearnMoveFromLevelUp(slot, lv);
 
-        /* Update Pokédex owned/seen flags (evos_moves.asm:predef IndexToPokedex + flags) */
-        if (new_dex >= 1 && new_dex <= NUM_POKEMON) {
-            uint8_t bidx = (uint8_t)((new_dex - 1) % 8);
-            uint8_t boff = (uint8_t)((new_dex - 1) / 8);
-            if (boff < 19) {
-                wPokedexOwned[boff] |= (uint8_t)(1u << bidx);
-                wPokedexSeen[boff]  |= (uint8_t)(1u << bidx);
-            }
-        }
-
-        uint8_t old_dex = gSpeciesToDex[old_species];
-        printf("[battle]   %s evolved into %s!\n",
-               Pokemon_GetName(old_dex), Pokemon_GetName(new_dex));
+        printf("[battle] %s grew to Lv%d!\n", Pokemon_GetName(dex), new_level);
     }
+    printf("[cli] addexp: slot %d +%u exp → %u total, Lv%d\n",
+           slot + 1, (unsigned)amount, (unsigned)cur_exp, (int)p->level);
 }

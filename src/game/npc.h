@@ -5,6 +5,10 @@
 /* Load NPC GFX and OAM for the current map. Call after Map_Load(). */
 void NPC_Load(void);
 
+/* Reload sprite tile GFX for active NPCs without resetting facing/position.
+ * Call after any VRAM-overwriting operation that doesn't change map state. */
+void NPC_ReloadTiles(void);
+
 /* Per-frame update: advances walk animations and drives random movement
  * for WALK NPCs. Call once per game tick before NPC_BuildView(). */
 void NPC_Update(void);
@@ -33,6 +37,10 @@ void NPC_ShowSprite(int npc_slot_idx);
 /* Hide / show all NPC slots — used by mart/pokecenter UIs. */
 void NPC_HideAll(void);
 void NPC_ShowAll(void);
+
+/* Zero all NPC OAM Y positions without touching npc_hidden flags.
+ * Use before menus that overwrite NPC sprite VRAM; NPC_BuildView restores. */
+void NPC_HideOAM(void);
 
 /* Mirror Gen 1 CheckSpriteAvailability: hide any NPC whose 2×2-tile sprite
  * footprint contains a tile slot >= MAP_TILESET_SIZE (96) — i.e. a UI/font

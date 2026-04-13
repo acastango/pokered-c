@@ -17,8 +17,21 @@ void SSAnneScripts_OnMapLoad(void);
 /* Called after each player step completes in the overworld. */
 void SSAnneScripts_StepCheck(void);
 
+/* Called immediately after Player_Update(), before Warp_JustHappened() check.
+ * Intercepts the VermilionDock exit warp to trigger the SS Anne departure. */
+void SSAnneScripts_WarpCheck(void);
+
 /* Per-frame tick — drives the rival and captain state machines. */
 void SSAnneScripts_Tick(void);
+
+/* Called after Map_BuildScrollView() during departure: fills the ship rows of
+ * gScrollTileMap with water tile $14, mirroring the original's FillMemory call
+ * (hlcoord 0,10 / SCREEN_WIDTH*6 / $14) so the BG behind the ship is all water. */
+void SSAnneScripts_PostBuildScrollView(void);
+
+/* Returns 1 while the player is auto-walking off the dock (DEP_WALK_OUT).
+ * game.c uses this to call Player_Update + warp check during the walk-out phase. */
+int SSAnneScripts_IsWalkingOut(void);
 
 /* Returns 1 while a script is actively running. */
 int  SSAnneScripts_IsActive(void);
@@ -38,3 +51,9 @@ void SSAnneScripts_OnDefeat(void);
 /* npc_script_fn callback — wired into the captain NPC in event_data.c.
  * Called when player presses A on the captain. */
 void SSAnne_CaptainScript(void);
+
+/* Vermilion dock guard — SS Ticket step check.
+ * Ports VermilionCityDefaultScript (scripts/VermilionCity.asm).
+ * Step trigger at (18,30) facing DOWN: blocks without S_S_TICKET. */
+void VermilionScripts_StepCheck(void);
+void VermilionScripts_DoPush(void);

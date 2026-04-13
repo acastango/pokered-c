@@ -18,6 +18,7 @@
 #include "battle.h"
 #include "../../platform/hardware.h"
 #include "../constants.h"
+#include "../pokedex.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -107,6 +108,7 @@ int Battle_EnemySendOut_State(void) {
 
     wEnemyMonPartyPos = new_slot;
     Battle_LoadEnemyMonFromParty();
+    Pokedex_SetSeen(wEnemyMon.species);
 
     /* Reset enemy per-switch-in battle state (mirrors SendOutMon_State for enemy):
      * clear all status flags, counters, and move locks. */

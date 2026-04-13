@@ -45,6 +45,7 @@
 #define ITEM_NUGGET      0x31
 #define ITEM_SS_TICKET   0x3F
 #define ITEM_OAKS_PARCEL 0x46
+#define ITEM_POKE_FLUTE  0x49
 #define HM01             0xC4
 #define TM01             0xC9
 #define TM_THUNDER_WAVE  0xF5

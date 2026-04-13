@@ -27,6 +27,7 @@
 #include "../data/font_data.h"
 #include "inventory.h"
 #include "pokedex.h"
+#include "trainer_sight.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -69,6 +70,8 @@ static void encode_string(const char *src, uint8_t *dst, int max_len) {
 #define OAKSLAB_SQUIRTLE_IDX    2
 #define OAKSLAB_BULBASAUR_IDX   3
 #define OAKSLAB_OAK1_IDX        4
+#define OAKSLAB_POKEDEX1_IDX    5
+#define OAKSLAB_POKEDEX2_IDX    6
 #define OAKSLAB_OAK2_IDX        7
 
 #define DIR_DOWN  0
@@ -155,7 +158,8 @@ typedef enum {
     OLS_RIVAL_LEAVE_WALK,   /* Rival walks down and out */
     OLS_RIVAL_LEAVE_DONE,   /* Rival gone, restore state */
 
-    OLS_PARCEL_SHOW_RIVAL,  /* One text-free frame so NPC_BuildView can render rival */
+    OLS_PARCEL_SHOW_RIVAL,  /* Wait for "Gramps!" text, then position+show rival at entrance */
+    OLS_RIVAL_WALK_IN,      /* Rival walks up from entrance toward Oak */
 } oakslab_state_t;
 
 static oakslab_state_t gState          = OLS_IDLE;
@@ -200,6 +204,10 @@ static int gRivalExitPending           = 0;
 
 /* Pokédex scene rival exit */
 static int gRivalPokedexExitStep       = 0;
+
+/* Parcel delivery rival walk-in */
+#define RIVAL_WALK_IN_STEPS 7  /* entrance y=10 → near Oak y=3 */
+static int gRivalWalkInStep            = 0;
 
 static void set_player_facing(int dir) {
     gPlayerFacing = dir & 3;
@@ -259,11 +267,18 @@ static const char kRivalIllTakeThisOne[] =
 static const char kRivalIllTakeYouOn[] =
     "{RIVAL}: Wait\n{PLAYER}!\nLet's check out\nour #MON!";
 
+/* _OaksLabRivalIPickedTheWrongPokemonText — defeat quote shown in battle UI */
+static const char kRivalIPickedTheWrongPokemon[] =
+    "WHAT?\nUnbelievable!\nI picked the\nwrong #MON!";
+
 static const char kRivalSmellYouLater[] =
     "{RIVAL}: Okay!\nI'll make my\n#MON fight to\ntoughen it up!"
     "\f{PLAYER}! Gramps!\nSmell you later!";
 
 /* ---- Oak's Parcel / Pokédex sequence (OaksLabOak1Text, OaksLabOakGivesPokedexScript) --- */
+
+/* _OaksLabRivalGrampsText — rival calls from offscreen before walking in */
+static const char kRivalGramps[] = "{RIVAL}: Gramps!";
 
 /* _OaksLabOak1DeliverParcelText */
 static const char kOakParcelText1[] =
@@ -516,17 +531,14 @@ void OaksLab_OakCallback(void) {
     if (wCurMap != MAP_OAKS_LAB) return;
     if (gState != OLS_IDLE) return;
 
-    /* Has parcel but hasn't delivered it yet → trigger delivery sequence */
+    /* Has parcel but hasn't delivered it yet → trigger delivery sequence.
+     * ASM: OaksLabOak1Text.got_parcel / OaksLabRivalArrivesAtOaksRequestScript.
+     * Rival stays hidden until after the "Gramps!" offscreen text fires. */
     if (Inventory_GetQty(ITEM_OAKS_PARCEL) > 0 && !CheckEvent(EVENT_OAK_GOT_PARCEL)) {
         gScriptedMovement = 1;
         NPC_SetFacing(OAKSLAB_OAK1_IDX, DIR_DOWN);
-        /* Show rival now with no text open so NPC_BuildView gets one clean
-         * frame to write his OAM entry before the text chain begins. */
-        NPC_SetTilePos(OAKSLAB_RIVAL_IDX, 4, 3);
-        NPC_SetFacing(OAKSLAB_RIVAL_IDX, DIR_UP);
-        NPC_ShowSprite(OAKSLAB_RIVAL_IDX);
-        gDelay = 1;  /* hold one tick so NPC_BuildView fires before text opens */
-        gState = OLS_PARCEL_SHOW_RIVAL;
+        Text_ShowASCII(kOakParcelText1);
+        gState = OLS_PARCEL_TEXT1;
         return;
     }
 
@@ -587,6 +599,12 @@ void OaksLabScripts_OnMapLoad(void) {
         /* After rival exits, nothing more to do */
         if (CheckEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB)) {
             NPC_HideSprite(OAKSLAB_RIVAL_IDX);
+            /* Hide Pokédex table sprites once the player has received the Pokédex.
+             * ASM: HideObject TOGGLE_POKEDEX_1/2 in OaksLabOakGivesPokedexScript. */
+            if (CheckEvent(EVENT_GOT_POKEDEX)) {
+                NPC_HideSprite(OAKSLAB_POKEDEX1_IDX);
+                NPC_HideSprite(OAKSLAB_POKEDEX2_IDX);
+            }
             return;
         }
 
@@ -742,7 +760,10 @@ void OaksLabScripts_Tick(void) {
                 /* Restore overworld: tileset, font, NPC sprite tiles, palette */
                 Map_ReloadGfx();
                 Font_Load();
-                NPC_Load();  /* reload NPC sprite tiles (overwritten by dex sprite) */
+                NPC_ReloadTiles();  /* reload NPC sprite tiles (overwritten by dex sprite).
+                                 * NPC_Load() would reset npc_hidden[], making Oak2 visible
+                                 * at the bottom of the lab. NPC_ReloadTiles() restores
+                                 * GFX only, without touching positions or hidden state. */
                 Display_SetPalette(0xE4, 0xD0, 0xE0);
             }
             gShowDataDelay--;
@@ -785,6 +806,7 @@ void OaksLabScripts_Tick(void) {
                 NPC_HideSprite(gSelectedBallIdx);
                 set_ball_toggle(gSelectedBallIdx);
                 Pokemon_AddToParty(gSelectedSpecies, 5);
+                Pokedex_SetOwned(gSelectedSpecies);
                 Text_ShowASCII(gEnergeticText);
                 gState = OLS_BALL_ENERGETIC;
             } else {
@@ -1007,6 +1029,8 @@ void OaksLabScripts_Tick(void) {
         /* ASM: GetSpritePosition1 — save rival position before battle */
         NPC_GetTilePos(OAKSLAB_RIVAL_IDX, &gRivalSavedX, &gRivalSavedY);
         gRivalExitPending    = 1;
+        /* ASM: SaveEndBattleTextPointers hl=IPickedTheWrongPokemon de=AmIGreatOrWhat */
+        gTrainerAfterText    = kRivalIPickedTheWrongPokemon;
         /* Battle_StartTrainer expects the raw 1-based trainer class, not OPP_ID space. */
         gPendingBattleClass  = OPP_RIVAL1 - OPP_ID_OFFSET;
         gPendingBattleNo     = trainer_no;
@@ -1083,14 +1107,6 @@ void OaksLabScripts_Tick(void) {
 
     /* ---- Oak's Parcel delivery → Pokédex giving ----------------------- */
 
-    case OLS_PARCEL_SHOW_RIVAL:
-        /* Wait gDelay frames with no text open so NPC_BuildView renders the
-         * rival's OAM entry before the text chain begins. */
-        if (gDelay-- > 0) return;
-        Text_ShowASCII(kOakParcelText1);
-        gState = OLS_PARCEL_TEXT1;
-        return;
-
     case OLS_PARCEL_TEXT1:
         if (Text_IsOpen()) return;
         /* Remove parcel from bag */
@@ -1100,73 +1116,110 @@ void OaksLabScripts_Tick(void) {
         return;
 
     case OLS_PARCEL_TEXT2:
+        /* ASM: OaksLabRivalArrivesAtOaksRequestScript — stop music, play rival
+         * theme, then show TEXT_OAKSLAB_RIVAL_GRAMPS while rival is still offscreen. */
         if (Text_IsOpen()) return;
         Music_PlayFromLoop(MUSIC_MEET_RIVAL);  /* ASM: Music_RivalAlternateStart */
-        Text_ShowASCII(kRivalWhatDidYouCall);
-        gState = OLS_RIVAL_ARRIVE_TEXT;
+        Text_ShowASCII(kRivalGramps);          /* "{RIVAL}: Gramps!" — rival offscreen */
+        gState = OLS_PARCEL_SHOW_RIVAL;
+        return;
+
+    case OLS_PARCEL_SHOW_RIVAL:
+        /* ASM: OaksLabCalcRivalMovementScript + ShowObject(TOGGLE_OAKS_LAB_RIVAL)
+         * + MoveSprite.  Rival appears at the entrance and walks up to Oak. */
+        if (Text_IsOpen()) return;
+        NPC_SetTilePos(OAKSLAB_RIVAL_IDX, 4, 10);  /* entrance position (y=10) */
+        NPC_SetFacing(OAKSLAB_RIVAL_IDX, DIR_UP);
+        NPC_ShowSprite(OAKSLAB_RIVAL_IDX);
+        gRivalWalkInStep = 0;
+        gState = OLS_RIVAL_WALK_IN;
+        return;
+
+    case OLS_RIVAL_WALK_IN:
+        /* Walk rival up toward Oak one step at a time. */
+        if (NPC_IsWalking(OAKSLAB_RIVAL_IDX)) return;
+        if (gRivalWalkInStep < RIVAL_WALK_IN_STEPS) {
+            NPC_DoScriptedStep(OAKSLAB_RIVAL_IDX, DIR_UP);
+            gRivalWalkInStep++;
+        } else {
+            gState = OLS_RIVAL_ARRIVE_TEXT;
+        }
         return;
 
     case OLS_RIVAL_ARRIVE_TEXT:
-        if (Text_IsOpen()) return;
-        Text_ShowASCII(kOakRequest);
+        /* ASM: OaksLabOakGivesPokedexScript — rival has arrived, now speak. */
+        if (NPC_IsWalking(OAKSLAB_RIVAL_IDX)) return;
+        NPC_SetFacing(OAKSLAB_RIVAL_IDX, DIR_UP);
+        Text_ShowASCII(kRivalWhatDidYouCall);
         gState = OLS_OAK_REQUEST_TEXT;
         return;
 
     case OLS_OAK_REQUEST_TEXT:
         if (Text_IsOpen()) return;
-        Text_ShowASCII(kOakPokedexText);
+        Text_ShowASCII(kOakRequest);  /* "OAK: Oh right! I have a request of you two." */
         gState = OLS_POKEDEX_TEXT;
         return;
 
     case OLS_POKEDEX_TEXT:
+        /* ASM: OaksLabOakGivesPokedexScript — "On the desk is my invention, #DEX!" */
         if (Text_IsOpen()) return;
-        /* Give Pokédex, set event flags */
-        Inventory_Add(ITEM_POKEDEX, 1);
-        SetEvent(EVENT_GOT_POKEDEX);
-        SetEvent(EVENT_OAK_GOT_PARCEL);
-        Text_ShowASCII(kOakGivesPokedex);
+        Text_ShowASCII(kOakPokedexText);
         gState = OLS_GIVE_POKEDEX;
         return;
 
     case OLS_GIVE_POKEDEX:
+        /* ASM: OAK_GOT_POKEDEX text + give item */
         if (Text_IsOpen()) return;
-        Text_ShowASCII(kOakDreamText);
+        Inventory_Add(ITEM_POKEDEX, 1);
+        SetEvent(EVENT_GOT_POKEDEX);
+        SetEvent(EVENT_OAK_GOT_PARCEL);
+        Text_ShowASCII(kOakGivesPokedex);
         gState = OLS_GAVE_POKEDEX_TEXT;
         return;
 
     case OLS_GAVE_POKEDEX_TEXT:
+        /* ASM: after OAK_GOT_POKEDEX text + Delay3, HideObject TOGGLE_POKEDEX_1/2,
+         * then TEXT_OAKSLAB_OAK_THAT_WAS_MY_DREAM. */
         if (Text_IsOpen()) return;
-        Text_ShowASCII(kRivalLeaveText);
+        NPC_HideSprite(OAKSLAB_POKEDEX1_IDX);
+        NPC_HideSprite(OAKSLAB_POKEDEX2_IDX);
+        Text_ShowASCII(kOakDreamText);
         gState = OLS_OAK_DREAM_TEXT;
         return;
 
     case OLS_OAK_DREAM_TEXT:
+        /* ASM: RIVAL_LEAVE_IT_ALL_TO_ME text */
         if (Text_IsOpen()) return;
-        /* Rival starts walking out */
-        NPC_SetFacing(OAKSLAB_RIVAL_IDX, DIR_DOWN);
-        gRivalPokedexExitStep = 0;
+        Text_ShowASCII(kRivalLeaveText);
         gState = OLS_RIVAL_LEAVE_TEXT;
         return;
 
     case OLS_RIVAL_LEAVE_TEXT:
+        /* Rival turns and walks down to exit after his leave text. */
+        if (Text_IsOpen()) return;
+        NPC_SetFacing(OAKSLAB_RIVAL_IDX, DIR_DOWN);
+        gRivalPokedexExitStep = 0;
+        gState = OLS_RIVAL_LEAVE_WALK;
+        return;
+
+    case OLS_RIVAL_LEAVE_WALK:
         if (NPC_IsWalking(OAKSLAB_RIVAL_IDX)) return;
         if (gRivalPokedexExitStep >= RIVAL_POKEDEX_EXIT_STEPS) {
-            gState = OLS_RIVAL_LEAVE_WALK;
+            NPC_HideSprite(OAKSLAB_RIVAL_IDX);
+            gState = OLS_RIVAL_LEAVE_DONE;
             return;
         }
         NPC_DoScriptedStep(OAKSLAB_RIVAL_IDX, DIR_DOWN);
         gRivalPokedexExitStep++;
         return;
 
-    case OLS_RIVAL_LEAVE_WALK:
-        if (NPC_IsWalking(OAKSLAB_RIVAL_IDX)) return;
-        NPC_HideSprite(OAKSLAB_RIVAL_IDX);
-        gState = OLS_RIVAL_LEAVE_DONE;
-        return;
-
     case OLS_RIVAL_LEAVE_DONE:
         gScriptedMovement = 0;
         Music_Play(Music_GetMapID(wCurMap));
+        /* OaksLabRivalLeavesWithPokedexScript: arm the Route 22 rival encounter */
+        SetEvent(EVENT_1ST_ROUTE22_RIVAL_BATTLE);
+        ClearEvent(EVENT_2ND_ROUTE22_RIVAL_BATTLE);
+        SetEvent(EVENT_ROUTE22_RIVAL_WANTS_BATTLE);
         gState = OLS_IDLE;
         return;
     }

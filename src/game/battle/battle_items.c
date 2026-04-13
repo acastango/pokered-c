@@ -23,6 +23,7 @@
 #include "battle_catch.h"
 #include "../../platform/hardware.h"
 #include "../constants.h"
+#include "../pokedex.h"
 #include <stdio.h>
 
 /* ---- Forward declarations ---- */
@@ -102,6 +103,31 @@ item_use_result_t Battle_UseItem(uint8_t item_id, uint8_t target_slot) {
         printf("[item]   Used Poké Doll! Fled from battle.\n");
         return ITEM_USE_FLED;
 
+    /* ---- POKe FLUTE — ItemUsePokeFlute in-battle (item_effects.asm:1671) ---- */
+    case ITEM_POKE_FLUTE: {
+        int any_asleep = 0;
+        /* Wake all player party mons (WakeUpEntireParty) */
+        for (int i = 0; i < wPartyCount; i++) {
+            if (wPartyMons[i].base.status & STATUS_SLP_MASK) {
+                any_asleep = 1;
+                wPartyMons[i].base.status &= (uint8_t)~STATUS_SLP_MASK;
+            }
+        }
+        /* Always clear active battle mon sleep (wBattleMonStatus) */
+        if (wBattleMon.status & STATUS_SLP_MASK) {
+            any_asleep = 1;
+            wBattleMon.status &= (uint8_t)~STATUS_SLP_MASK;
+            if (wPlayerMonNumber < wPartyCount)
+                wPartyMons[wPlayerMonNumber].base.status = wBattleMon.status;
+        }
+        /* Clear enemy active mon sleep (wEnemyMonStatus) — always in Gen 1 */
+        if (wEnemyMon.status & STATUS_SLP_MASK) {
+            any_asleep = 1;
+            wEnemyMon.status &= (uint8_t)~STATUS_SLP_MASK;
+        }
+        return any_asleep ? ITEM_USE_OK : ITEM_USE_FAILED;
+    }
+
     default:
         return ITEM_USE_CANNOT_USE;
     }
@@ -123,6 +149,7 @@ static item_use_result_t use_ball(uint8_t item_id) {
 
     switch (result) {
     case CATCH_RESULT_SUCCESS:
+        Pokedex_SetOwned(wEnemyMon.species);
         printf("[item]   Gotcha! Enemy Pokémon was caught!\n");
         return ITEM_USE_CAUGHT;
     case CATCH_RESULT_0_SHAKES:
@@ -206,6 +233,14 @@ static item_use_result_t use_medicine(uint8_t item_id, uint8_t slot) {
         printf("[item]   Pokémon revived with %d HP.\n", (int)p->base.hp);
         return ITEM_USE_OK;
     }
+
+    /* Sync active mon's HP from the battle copy.
+     * Damage during battle is written to wBattleMon.hp; wPartyMons[].base.hp
+     * is only flushed back at faint/end-of-battle, so it can be stale here.
+     * Without this, the HP-full check below sees the pre-damage party HP and
+     * incorrectly rejects a Potion on a damaged active mon. */
+    if (wIsInBattle && slot == (uint8_t)wPlayerMonNumber)
+        p->base.hp = wBattleMon.hp;
 
     /* Regular HP items — fail on already-fainted mons */
     if (p->base.hp == 0) {

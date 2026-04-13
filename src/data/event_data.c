@@ -8,7 +8,11 @@
 #include "../game/mtmoon_scripts.h"
 #include "../game/gym_scripts.h"
 #include "../game/bills_house_scripts.h"
+#include "../game/pc_menu.h"
+#include "../game/route2gate_scripts.h"
+#include "../game/gate_scripts.h"
 #include "../game/ss_anne_scripts.h"
+#include "../game/vermilion_gym_scripts.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {   5,   5, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -441,12 +445,43 @@ static const map_warp_t kWarps_Route6[] = {
 };
 
 static const npc_event_t kNpcs_Route6[] = {
-    {  10,  21, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M1 */
-    {  11,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F1 */
-    {   0,  15, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER1 */
-    {  11,  31, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE6_COOLTRAINER_M2 */
-    {  11,  30, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE6_COOLTRAINER_F2 */
-    {  19,  26, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE6_YOUNGSTER2 */
+    {  10,  21, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, ROUTE6_COOLTRAINER_M1 */
+    {  11,  21, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, ROUTE6_COOLTRAINER_F1 */
+    {   0,  15, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER,     ROUTE6_YOUNGSTER1 */
+    {  11,  31, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, ROUTE6_COOLTRAINER_M2 */
+    {  11,  30, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, ROUTE6_COOLTRAINER_F2 */
+    {  19,  26, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER,     ROUTE6_YOUNGSTER2 */
+};
+
+/* Route 6 trainers — from scripts/Route6.asm and data/maps/objects/Route6.asm.
+ * NPC indices match kNpcs_Route6 order (0-based).
+ * facing: 0=down, 1=up, 2=left, 3=right
+ * before_text = battle challenge; after_text = defeat speech (gTrainerAfterText) */
+static const map_trainer_t kTrainers_Route6[] = {
+    /* npc 0 — CooltrainerM1: facing RIGHT, JR_TRAINER_M (#4) */
+    { 0, 3, 5, 4, 4, EVENT_BEAT_ROUTE_6_TRAINER_0,
+      "Who's there?\nQuit listening\nin on us!",
+      "I\njust can't win!" },
+    /* npc 1 — CooltrainerF1: facing LEFT, JR_TRAINER_F (#2) */
+    { 1, 2, 6, 2, 4, EVENT_BEAT_ROUTE_6_TRAINER_1,
+      "Excuse me! This\nis a private\nconversation!",
+      "Ugh!\nI hate losing!" },
+    /* npc 2 — Youngster1: facing RIGHT, BUG_CATCHER (#10) */
+    { 2, 3, 2, 10, 4, EVENT_BEAT_ROUTE_6_TRAINER_2,
+      "There aren't\nmany bugs out\nhere.",
+      "No!\nYou're kidding!" },
+    /* npc 3 — CooltrainerM2: facing LEFT, JR_TRAINER_M (#5) */
+    { 3, 2, 5, 5, 4, EVENT_BEAT_ROUTE_6_TRAINER_3,
+      "Huh? You want\nto talk to me?",
+      "I\ndidn't start it!" },
+    /* npc 4 — CooltrainerF2: facing LEFT, JR_TRAINER_F (#3) */
+    { 4, 2, 6, 3, 4, EVENT_BEAT_ROUTE_6_TRAINER_4,
+      "Me? Well, OK.\nI'll play!",
+      "Just\ndidn't work!" },
+    /* npc 5 — Youngster2: facing LEFT, BUG_CATCHER (#11) */
+    { 5, 2, 2, 11, 4, EVENT_BEAT_ROUTE_6_TRAINER_5,
+      "I've never seen\nyou around!\nAre you good?",
+      "You\nare too good!" },
 };
 
 static const sign_event_t kSigns_Route6[] = {
@@ -952,6 +987,14 @@ static const map_warp_t kWarps_ViridianPokecenter[] = {
     {   4,   7, 0xff, 0 },  /* LAST_MAP */
 };
 
+static const hidden_event_t kHiddenEvents_Pokecenter[] = {
+    { 13, 3, NULL, PCMenu_Activate },
+};
+
+static const hidden_event_t kHiddenEvents_IndigoPlateauLobby[] = {
+    { 15, 7, NULL, PCMenu_Activate },
+};
+
 static const npc_event_t kNpcs_ViridianPokecenter[] = {
     {   3,   1, 0x29, 0, NULL, Pokecenter_Start },  /* SPRITE_NURSE, STAY, TEXT_VIRIDIANPOKECENTER_NURSE */
     {  10,   5, 0x10, 1, "You can use that\nPC in the corner.\fThe receptionist\ntold me. So kind!", NULL },  /* SPRITE_GENTLEMAN, WALK, TEXT_VIRIDIANPOKECENTER_GENTLEMAN */
@@ -1015,8 +1058,8 @@ static const item_event_t kItems_ViridianGym[] = {
 };
 
 static const map_warp_t kWarps_DiglettsCaveRoute2[] = {
-    {   2,   7, 0xff, 0 },  /* LAST_MAP */
-    {   3,   7, 0xff, 0 },  /* LAST_MAP */
+    {   2,   7, 0x0d, 0 },  /* ROUTE_2 */
+    {   3,   7, 0x0d, 0 },  /* ROUTE_2 */
     {   4,   4, 0xc5, 0 },  /* DIGLETTS_CAVE */
 };
 
@@ -1054,7 +1097,7 @@ static const map_warp_t kWarps_Route2Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route2Gate[] = {
-    {   1,   4, 0x20, 0, "The HM FLASH\nlights even the\ndarkest dungeons.", NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_ROUTE2GATE_OAKS_AIDE */
+    {   1,   4, 0x20, 0, NULL, Route2GateScripts_AideInteract },  /* SPRITE_SCIENTIST, STAY — Oak's aide, gives HM05 FLASH */
     {   5,   4, 0x04, 1, "Once a POKEMON\nlearns FLASH, you\ncan get through\nROCK TUNNEL.", NULL },  /* SPRITE_YOUNGSTER, WALK, TEXT_ROUTE2GATE_YOUNGSTER */
 };
 
@@ -1109,13 +1152,13 @@ static const item_event_t kItems_ViridianForest[] = {
  * Event flags: EVENT_BEAT_VIRIDIAN_FOREST_TRAINER_0..2 = 357, 358, 359. */
 static const map_trainer_t kTrainers_ViridianForest[] = {
     /* npc_idx, facing, class, no, sight, flag, before_text, after_text */
-    { 0, 1, 2, 1, 4, 357,
+    { 1, 2, 2, 1, 4, 357,
       "Hey! You have\nPOKEMON! Come\non! Let's\nbattle'em!",
       "Ssh! You'll\nscare the\nbugs away!" },
-    { 1, 1, 2, 2, 4, 358,
+    { 2, 2, 2, 2, 4, 358,
       "Yo! You can't\njam out if\nyou're a POKEMON\ntrainer!",
       "Darn! I'm going\nto catch some\nstronger ones!" },
-    { 1, 1, 2, 3, 1, 359,
+    { 3, 2, 2, 3, 1, 359,
       "Hey, wait up!\nWhat's the\nhurry?",
       "Sometimes, you\ncan find stuff\non the ground!" },
 };
@@ -1159,9 +1202,17 @@ static const map_warp_t kWarps_PewterGym[] = {
 };
 
 static const npc_event_t kNpcs_PewterGym[] = {
-    {   4,   1, 0x0c, 0, NULL, GymScripts_BrockInteract },        /* SPRITE_SUPER_NERD, STAY, TEXT_PEWTERGYM_BROCK */
-    {   3,   6, 0x07, 0, NULL, GymScripts_GymTrainerInteract },   /* SPRITE_COOLTRAINER_M, STAY, TEXT_PEWTERGYM_COOLTRAINER_M */
-    {   7,  10, 0x24, 0, NULL, GymScripts_GuideInteract },        /* SPRITE_GYM_GUIDE, STAY, TEXT_PEWTERGYM_GYM_GUIDE */
+    {   4,   1, 0x0c, 0, NULL, GymScripts_BrockInteract },        /* SPRITE_SUPER_NERD, STAY, DOWN, TEXT_PEWTERGYM_BROCK */
+    {   3,   6, 0x07, 0, NULL, GymScripts_GymTrainerInteract },   /* SPRITE_COOLTRAINER_M, STAY, RIGHT, TEXT_PEWTERGYM_COOLTRAINER_M */
+    {   7,  10, 0x24, 0, NULL, GymScripts_GuideInteract },        /* SPRITE_GYM_GUIDE, STAY, DOWN, TEXT_PEWTERGYM_GYM_GUIDE */
+};
+
+static const map_trainer_t kTrainers_PewterGym[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 1, 3, 5, 1, 5, EVENT_BEAT_PEWTER_GYM_TRAINER_0,  /* class 5 = JrTrainerM */
+      "Stop right there,\nkid!\fYou're still light\nyears from facing\nBROCK!",
+      "You're pretty hot,\nbut not as hot\nas BROCK!",
+      "Darn!\fLight years isn't\ntime! It measures\ndistance!" },
 };
 
 static const map_warp_t kWarps_PewterNidoranHouse[] = {
@@ -1362,6 +1413,20 @@ static const map_warp_t kWarps_CeruleanGym[] = {
     {   5,  13, 0xff, 3 },  /* LAST_MAP */
 };
 
+static const map_trainer_t kTrainers_CeruleanGym[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    /* Cooltrainer F — ASM: OPP_JR_TRAINER_F=6, facing RIGHT=3, sight 3 */
+    { 1, 3, 6, 1, 3, EVENT_BEAT_CERULEAN_GYM_TRAINER_0,
+      "I'm more than good\nenough for you!\fMISTY can wait!",
+      "You have to face\nother trainers to\nfind out how good\nyou really are.",
+      "You\noverwhelmed me!" },
+    /* Swimmer — ASM: OPP_SWIMMER=15, facing LEFT=2, sight 3 */
+    { 2, 2, 15, 1, 3, EVENT_BEAT_CERULEAN_GYM_TRAINER_1,
+      "Splash!\fI'm first up!\nLet's do it!",
+      "MISTY is going to\nkeep improving!\fShe won't lose to\nsomeone like you!",
+      "That\ncan't be!" },
+};
+
 static const npc_event_t kNpcs_CeruleanGym[] = {
     {   4,   2, 0x1d, 0, NULL, GymScripts_MistyInteract },             /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_CERULEANGYM_MISTY */
     {   2,   3, 0x06, 0, NULL, GymScripts_CeruleanTrainer0Interact },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CERULEANGYM_COOLTRAINER_F */
@@ -1413,7 +1478,7 @@ static const map_warp_t kWarps_Route5Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route5Gate[] = {
-    {   1,   3, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE5GATE_GUARD */
+    {   1,   3, 0x31, 0, NULL, Gate_SaffronGuard_Interact },  /* SPRITE_GUARD, STAY — drink check */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute5[] = {
@@ -1443,7 +1508,7 @@ static const map_warp_t kWarps_Route6Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route6Gate[] = {
-    {   6,   2, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE6GATE_GUARD */
+    {   6,   2, 0x31, 0, NULL, Gate_SaffronGuard_Interact },  /* SPRITE_GUARD, STAY — drink check */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute6[] = {
@@ -1464,7 +1529,7 @@ static const map_warp_t kWarps_Route7Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route7Gate[] = {
-    {   3,   1, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE7GATE_GUARD */
+    {   3,   1, 0x31, 0, NULL, Gate_SaffronGuard_Interact },  /* SPRITE_GUARD, STAY — drink check */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute7[] = {
@@ -1496,7 +1561,7 @@ static const map_warp_t kWarps_Route8Gate[] = {
 };
 
 static const npc_event_t kNpcs_Route8Gate[] = {
-    {   2,   1, 0x31, 0, NULL, NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE8GATE_GUARD */
+    {   2,   1, 0x31, 0, NULL, Gate_SaffronGuard_Interact },  /* SPRITE_GUARD, STAY — drink check */
 };
 
 static const map_warp_t kWarps_UndergroundPathRoute8[] = {
@@ -1585,8 +1650,8 @@ static const npc_event_t kNpcs_Route11Gate1F[] = {
 };
 
 static const map_warp_t kWarps_DiglettsCaveRoute11[] = {
-    {   2,   7, 0xff, 4 },  /* LAST_MAP */
-    {   3,   7, 0xff, 4 },  /* LAST_MAP */
+    {   2,   7, 0x16, 4 },  /* ROUTE_11 */
+    {   3,   7, 0x16, 4 },  /* ROUTE_11 */
     {   4,   4, 0xc5, 1 },  /* DIGLETTS_CAVE */
 };
 
@@ -1686,11 +1751,32 @@ static const map_warp_t kWarps_VermilionGym[] = {
 };
 
 static const npc_event_t kNpcs_VermilionGym[] = {
-    {   5,   1, 0x21, 0, "Hey, kid! What do\nyou think you're\ndoing here?\fYou won't live\nlong in combat!\nThat's for sure!\fI tell you kid,\nelectric POKEMON\nsaved me during\nthe war!\fThey zapped my\nenemies into\nparalysis!\fThe same as I'll\ndo to you!", NULL },  /* SPRITE_ROCKER, STAY, TEXT_VERMILIONGYM_LT_SURGE */
-    {   9,   6, 0x10, 0, NULL, NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_VERMILIONGYM_GENTLEMAN */
-    {   3,   8, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_VERMILIONGYM_SUPER_NERD */
-    {   0,  10, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_VERMILIONGYM_SAILOR */
-    {   4,  14, 0x24, 0, "Yo! Champ in\nmaking!\fLT.SURGE has a\nnickname. People\nrefer to him as\nthe Lightning\nAmerican!\fHe's an expert on\nelectric POKEMON!\fBirds and water\nPOKEMON are at\nrisk! Beware of\nparalysis too!\fLT.SURGE is very\ncautious!\fYou'll have to\nbreak a code to\nget to him!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_VERMILIONGYM_GYM_GUIDE */
+    {   5,   1, 0x21, 0, NULL, GymScripts_SurgeInteract },             /* SPRITE_ROCKER,     LT_SURGE   */
+    {   9,   6, 0x10, 0, NULL, VermilionGymScripts_GentlemanInteract },/* SPRITE_GENTLEMAN              */
+    {   3,   8, 0x0c, 0, NULL, VermilionGymScripts_RockerInteract },   /* SPRITE_SUPER_NERD, OPP_ROCKER */
+    {   0,  10, 0x13, 0, NULL, VermilionGymScripts_SailorInteract },   /* SPRITE_SAILOR                 */
+    {   4,  14, 0x24, 0, "Yo! Champ in\nmaking!\fLT.SURGE has a\nnickname. People\nrefer to him as\nthe Lightning\nAmerican!\fHe's an expert on\nelectric #MON!\fBirds and water\n#MON are at\nrisk! Beware of\nparalysis too!\fLT.SURGE is very\ncautious!\fYou'll have to\nbreak a code to\nget to him!", NULL },  /* SPRITE_GYM_GUIDE */
+};
+
+/* Trash can hidden events — 15 cans in a 5x3 grid (cols 1,3,5,7,9 x rows 7,9,11).
+ * Coords match ASM hidden_events.asm data/events/hidden_events.asm lines 217-232.
+ * wHiddenEventFunctionArgument (can index 0-14) encoded via separate callbacks. */
+static const hidden_event_t kHiddenEvents_VermilionGym[] = {
+    {  1,  7, NULL, VermilionGymScripts_Trash0  },
+    {  1,  9, NULL, VermilionGymScripts_Trash1  },
+    {  1, 11, NULL, VermilionGymScripts_Trash2  },
+    {  3,  7, NULL, VermilionGymScripts_Trash3  },
+    {  3,  9, NULL, VermilionGymScripts_Trash4  },
+    {  3, 11, NULL, VermilionGymScripts_Trash5  },
+    {  5,  7, NULL, VermilionGymScripts_Trash6  },
+    {  5,  9, NULL, VermilionGymScripts_Trash7  },
+    {  5, 11, NULL, VermilionGymScripts_Trash8  },
+    {  7,  7, NULL, VermilionGymScripts_Trash9  },
+    {  7,  9, NULL, VermilionGymScripts_Trash10 },
+    {  7, 11, NULL, VermilionGymScripts_Trash11 },
+    {  9,  7, NULL, VermilionGymScripts_Trash12 },
+    {  9,  9, NULL, VermilionGymScripts_Trash13 },
+    {  9, 11, NULL, VermilionGymScripts_Trash14 },
 };
 
 static const map_warp_t kWarps_VermilionPidgeyHouse[] = {
@@ -3771,7 +3857,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x0e] = { NULL, 0, kNpcs_Route3, 9, kSigns_Route3, 1, NULL, 0, 0x2c, kTrainers_Route3, 8 },
     [0x0f] = { kWarps_Route4, 3, kNpcs_Route4, 2, kSigns_Route4, 3, kItems_Route4, 1, 0x2c },
     [0x10] = { kWarps_Route5, 5, NULL, 0, kSigns_Route5, 1, NULL, 0, 0x0a },
-    [0x11] = { kWarps_Route6, 4, kNpcs_Route6, 6, kSigns_Route6, 1, NULL, 0, 0x0f },
+    [0x11] = { kWarps_Route6, 4, kNpcs_Route6, 6, kSigns_Route6, 1, NULL, 0, 0x0f, kTrainers_Route6, 6 },
     [0x12] = { kWarps_Route7, 5, NULL, 0, kSigns_Route7, 1, NULL, 0, 0x0f },
     [0x13] = { kWarps_Route8, 5, kNpcs_Route8, 9, kSigns_Route8, 1, NULL, 0, 0x2c },
     [0x14] = { NULL, 0, kNpcs_Route9, 9, kSigns_Route9, 1, kItems_Route9, 1, 0x2c },
@@ -3795,7 +3881,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x26] = { kWarps_RedsHouse2F, 1, NULL, 0, NULL, 0, NULL, 0, 0x0a },
     [0x27] = { kWarps_BluesHouse, 2, kNpcs_BluesHouse, 3, NULL, 0, NULL, 0, 0x0a },
     [0x28] = { kWarps_OaksLab, 2, kNpcs_OaksLab, 11, NULL, 0, NULL, 0, 0x03 },
-    [0x29] = { kWarps_ViridianPokecenter, 2, kNpcs_ViridianPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x29] = { kWarps_ViridianPokecenter, 2, kNpcs_ViridianPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x2a] = { kWarps_ViridianMart, 2, kNpcs_ViridianMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0x2b] = { kWarps_ViridianSchoolHouse, 2, kNpcs_ViridianSchoolHouse, 2, NULL, 0, NULL, 0, 0x0a },
     [0x2c] = { kWarps_ViridianNicknameHouse, 2, kNpcs_ViridianNicknameHouse, 4, NULL, 0, NULL, 0, 0x0a },
@@ -3808,21 +3894,21 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x33] = { kWarps_ViridianForest, 6, kNpcs_ViridianForest, 5, kSigns_ViridianForest, 6, kItems_ViridianForest, 3, 0x03, kTrainers_ViridianForest, 3 },
     [0x34] = { kWarps_Museum1F, 5, kNpcs_Museum1F, 5, NULL, 0, NULL, 0, 0x0a },
     [0x35] = { kWarps_Museum2F, 1, kNpcs_Museum2F, 5, kSigns_Museum2F, 2, NULL, 0, 0x0a },
-    [0x36] = { kWarps_PewterGym, 2, kNpcs_PewterGym, 3, NULL, 0, NULL, 0, 0x03 },
+    [0x36] = { kWarps_PewterGym, 2, kNpcs_PewterGym, 3, NULL, 0, NULL, 0, 0x03, kTrainers_PewterGym, 1 },
     [0x37] = { kWarps_PewterNidoranHouse, 2, kNpcs_PewterNidoranHouse, 3, NULL, 0, NULL, 0, 0x0a },
     [0x38] = { kWarps_PewterMart, 2, kNpcs_PewterMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0x39] = { kWarps_PewterSpeechHouse, 2, kNpcs_PewterSpeechHouse, 2, NULL, 0, NULL, 0, 0x0a },
-    [0x3a] = { kWarps_PewterPokecenter, 2, kNpcs_PewterPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x3a] = { kWarps_PewterPokecenter, 2, kNpcs_PewterPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x3b] = { kWarps_MtMoon1F, 5, kNpcs_MtMoon1F, 7, kSigns_MtMoon1F, 1, kItems_MtMoon1F, 6, 0x03, kTrainers_MtMoon1F, 7 },
     [0x3c] = { kWarps_MtMoonB1F, 8, NULL, 0, NULL, 0, NULL, 0, 0x03 },
     [0x3d] = { kWarps_MtMoonB2F, 4, kNpcs_MtMoonB2F, 7, NULL, 0, kItems_MtMoonB2F, 2, 0x03, kTrainers_MtMoonB2F, 5 },
     [0x3e] = { kWarps_CeruleanTrashedHouse, 3, kNpcs_CeruleanTrashedHouse, 2, kSigns_CeruleanTrashedHouse, 1, NULL, 0, 0x0a },
     [0x3f] = { kWarps_CeruleanTradeHouse, 2, kNpcs_CeruleanTradeHouse, 2, NULL, 0, NULL, 0, 0x0a },
-    [0x40] = { kWarps_CeruleanPokecenter, 2, kNpcs_CeruleanPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
-    [0x41] = { kWarps_CeruleanGym, 2, kNpcs_CeruleanGym, 4, NULL, 0, NULL, 0, 0x03 },
+    [0x40] = { kWarps_CeruleanPokecenter, 2, kNpcs_CeruleanPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
+    [0x41] = { kWarps_CeruleanGym, 2, kNpcs_CeruleanGym, 4, NULL, 0, NULL, 0, 0x03, kTrainers_CeruleanGym, 2 },
     [0x42] = { kWarps_BikeShop, 2, kNpcs_BikeShop, 3, NULL, 0, NULL, 0, 0x0e },
     [0x43] = { kWarps_CeruleanMart, 2, kNpcs_CeruleanMart, 3, NULL, 0, NULL, 0, 0x00 },
-    [0x44] = { kWarps_MtMoonPokecenter, 2, kNpcs_MtMoonPokecenter, 6, NULL, 0, NULL, 0, 0x00 },
+    [0x44] = { kWarps_MtMoonPokecenter, 2, kNpcs_MtMoonPokecenter, 6, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x45] = { kWarps_CeruleanTrashedHouse, 3, kNpcs_CeruleanTrashedHouse, 2, kSigns_CeruleanTrashedHouse, 1, NULL, 0, 0x0a },
     [0x46] = { kWarps_Route5Gate, 4, kNpcs_Route5Gate, 1, NULL, 0, NULL, 0, 0x0a },
     [0x47] = { kWarps_UndergroundPathRoute5, 3, kNpcs_UndergroundPathRoute5, 1, NULL, 0, NULL, 0, 0x0a },
@@ -3835,7 +3921,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x4e] = { kWarps_UndergroundPathRoute7Copy, 3, kNpcs_UndergroundPathRoute7Copy, 2, NULL, 0, NULL, 0, 0x0a },
     [0x4f] = { kWarps_Route8Gate, 4, kNpcs_Route8Gate, 1, NULL, 0, NULL, 0, 0x0a },
     [0x50] = { kWarps_UndergroundPathRoute8, 3, kNpcs_UndergroundPathRoute8, 1, NULL, 0, NULL, 0, 0x0a },
-    [0x51] = { kWarps_RockTunnelPokecenter, 2, kNpcs_RockTunnelPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x51] = { kWarps_RockTunnelPokecenter, 2, kNpcs_RockTunnelPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x52] = { kWarps_RockTunnel1F, 8, kNpcs_RockTunnel1F, 7, kSigns_RockTunnel1F, 1, NULL, 0, 0x03 },
     [0x53] = { kWarps_PowerPlant, 3, kNpcs_PowerPlant, 1, NULL, 0, kItems_PowerPlant, 13, 0x2e },
     [0x54] = { kWarps_Route11Gate1F, 5, kNpcs_Route11Gate1F, 1, NULL, 0, NULL, 0, 0x0a },
@@ -3843,10 +3929,10 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x56] = { kWarps_Route11Gate2F, 1, kNpcs_Route11Gate2F, 2, kSigns_Route11Gate2F, 2, NULL, 0, 0x0a },
     [0x57] = { kWarps_Route12Gate1F, 5, kNpcs_Route12Gate1F, 1, NULL, 0, NULL, 0, 0x0a },
     [0x58] = { kWarps_BillsHouse, 2, kNpcs_BillsHouse, 3, NULL, 0, NULL, 0, 0x0d, NULL, 0, kHiddenEvents_BillsHouse, 1 },
-    [0x59] = { kWarps_VermilionPokecenter, 2, kNpcs_VermilionPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x59] = { kWarps_VermilionPokecenter, 2, kNpcs_VermilionPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x5a] = { kWarps_PokemonFanClub, 2, kNpcs_PokemonFanClub, 6, kSigns_PokemonFanClub, 2, NULL, 0, 0x0d },
     [0x5b] = { kWarps_VermilionMart, 2, kNpcs_VermilionMart, 3, NULL, 0, NULL, 0, 0x00 },
-    [0x5c] = { kWarps_VermilionGym, 2, kNpcs_VermilionGym, 5, NULL, 0, NULL, 0, 0x03 },
+    [0x5c] = { kWarps_VermilionGym, 2, kNpcs_VermilionGym, 5, NULL, 0, NULL, 0, 0x03, NULL, 0, kHiddenEvents_VermilionGym, 15 },
     [0x5d] = { kWarps_VermilionPidgeyHouse, 2, kNpcs_VermilionPidgeyHouse, 3, NULL, 0, NULL, 0, 0x0a },
     [0x5e] = { kWarps_VermilionDock, 2, NULL, 0, NULL, 0, NULL, 0, 0x0f },
     [0x5f] = { kWarps_SSAnne1F, 11, kNpcs_SSAnne1F, 2, NULL, 0, NULL, 0, 0x0c },
@@ -3887,7 +3973,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x82] = { kWarps_CeladonMansion3F, 4, kNpcs_CeladonMansion3F, 4, kSigns_CeladonMansion3F, 4, NULL, 0, 0x0f },
     [0x83] = { kWarps_CeladonMansionRoof, 3, NULL, 0, kSigns_CeladonMansionRoof, 1, NULL, 0, 0x09 },
     [0x84] = { kWarps_CeladonMansionRoofHouse, 2, kNpcs_CeladonMansionRoofHouse, 1, NULL, 0, NULL, 0, 0x0a },
-    [0x85] = { kWarps_CeladonPokecenter, 2, kNpcs_CeladonPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x85] = { kWarps_CeladonPokecenter, 2, kNpcs_CeladonPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x86] = { kWarps_CeladonGym, 2, kNpcs_CeladonGym, 8, NULL, 0, NULL, 0, 0x03 },
     [0x87] = { kWarps_GameCorner, 3, kNpcs_GameCorner, 11, kSigns_GameCorner, 1, NULL, 0, 0x0f },
     [0x88] = { kWarps_CeladonMart5F, 3, kNpcs_CeladonMart5F, 4, kSigns_CeladonMart5F, 1, NULL, 0, 0x0f },
@@ -3895,7 +3981,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x8a] = { kWarps_CeladonDiner, 2, kNpcs_CeladonDiner, 5, NULL, 0, NULL, 0, 0x0f },
     [0x8b] = { kWarps_CeladonChiefHouse, 2, kNpcs_CeladonChiefHouse, 3, NULL, 0, NULL, 0, 0x0f },
     [0x8c] = { kWarps_CeladonHotel, 2, kNpcs_CeladonHotel, 3, NULL, 0, NULL, 0, 0x00 },
-    [0x8d] = { kWarps_LavenderPokecenter, 2, kNpcs_LavenderPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x8d] = { kWarps_LavenderPokecenter, 2, kNpcs_LavenderPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x8e] = { kWarps_PokemonTower1F, 3, kNpcs_PokemonTower1F, 5, NULL, 0, NULL, 0, 0x01 },
     [0x8f] = { kWarps_PokemonTower2F, 2, kNpcs_PokemonTower2F, 2, NULL, 0, NULL, 0, 0x01 },
     [0x90] = { kWarps_PokemonTower3F, 2, kNpcs_PokemonTower3F, 3, NULL, 0, kItems_PokemonTower3F, 1, 0x01 },
@@ -3908,7 +3994,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x97] = { kWarps_LavenderCuboneHouse, 2, kNpcs_LavenderCuboneHouse, 2, NULL, 0, NULL, 0, 0x0a },
     [0x98] = { kWarps_FuchsiaMart, 2, kNpcs_FuchsiaMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0x99] = { kWarps_FuchsiaBillsGrandpasHouse, 2, kNpcs_FuchsiaBillsGrandpasHouse, 3, NULL, 0, NULL, 0, 0x0a },
-    [0x9a] = { kWarps_FuchsiaPokecenter, 2, kNpcs_FuchsiaPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0x9a] = { kWarps_FuchsiaPokecenter, 2, kNpcs_FuchsiaPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x9b] = { kWarps_WardensHouse, 2, kNpcs_WardensHouse, 2, kSigns_WardensHouse, 2, kItems_WardensHouse, 1, 0x17 },
     [0x9c] = { kWarps_SafariZoneGate, 4, kNpcs_SafariZoneGate, 2, NULL, 0, NULL, 0, 0x0a },
     [0x9d] = { kWarps_FuchsiaGym, 2, kNpcs_FuchsiaGym, 8, NULL, 0, NULL, 0, 0x03 },
@@ -3925,10 +4011,10 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xa8] = { kWarps_CinnabarLabTradeRoom, 2, kNpcs_CinnabarLabTradeRoom, 3, NULL, 0, NULL, 0, 0x17 },
     [0xa9] = { kWarps_CinnabarLabMetronomeRoom, 2, kNpcs_CinnabarLabMetronomeRoom, 2, kSigns_CinnabarLabMetronomeRoom, 3, NULL, 0, 0x17 },
     [0xaa] = { kWarps_CinnabarLabFossilRoom, 2, kNpcs_CinnabarLabFossilRoom, 2, NULL, 0, NULL, 0, 0x17 },
-    [0xab] = { kWarps_CinnabarPokecenter, 2, kNpcs_CinnabarPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0xab] = { kWarps_CinnabarPokecenter, 2, kNpcs_CinnabarPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0xac] = { kWarps_CinnabarMart, 2, kNpcs_CinnabarMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0xad] = { kWarps_CinnabarMart, 2, kNpcs_CinnabarMart, 3, NULL, 0, NULL, 0, 0x00 },
-    [0xae] = { kWarps_IndigoPlateauLobby, 3, kNpcs_IndigoPlateauLobby, 5, NULL, 0, NULL, 0, 0x00 },
+    [0xae] = { kWarps_IndigoPlateauLobby, 3, kNpcs_IndigoPlateauLobby, 5, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_IndigoPlateauLobby, 1 },
     [0xaf] = { kWarps_CopycatsHouse1F, 3, kNpcs_CopycatsHouse1F, 3, NULL, 0, NULL, 0, 0x0a },
     [0xb0] = { kWarps_CopycatsHouse2F, 1, kNpcs_CopycatsHouse2F, 5, kSigns_CopycatsHouse2F, 2, NULL, 0, 0x0a },
     [0xb1] = { kWarps_FightingDojo, 2, kNpcs_FightingDojo, 5, NULL, 0, NULL, 0, 0x03 },
@@ -3936,7 +4022,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xb3] = { kWarps_SaffronPidgeyHouse, 2, kNpcs_SaffronPidgeyHouse, 4, NULL, 0, NULL, 0, 0x0a },
     [0xb4] = { kWarps_SaffronMart, 2, kNpcs_SaffronMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0xb5] = { kWarps_SilphCo1F, 5, kNpcs_SilphCo1F, 1, NULL, 0, NULL, 0, 0x2e },
-    [0xb6] = { kWarps_SaffronPokecenter, 2, kNpcs_SaffronPokecenter, 4, NULL, 0, NULL, 0, 0x00 },
+    [0xb6] = { kWarps_SaffronPokecenter, 2, kNpcs_SaffronPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0xb7] = { kWarps_MrPsychicsHouse, 2, kNpcs_MrPsychicsHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0xb8] = { kWarps_Route15Gate1F, 5, kNpcs_Route15Gate1F, 1, NULL, 0, NULL, 0, 0x0a },
     [0xb9] = { kWarps_Route15Gate2F, 1, kNpcs_Route15Gate2F, 1, kSigns_Route15Gate2F, 1, NULL, 0, 0x0a },

@@ -19,10 +19,22 @@ void    Map_BuildView(void);
 void    Map_BuildScrollView(void);
 void    Map_UpdateCamera(void);
 uint8_t Map_GetTile(int tx, int ty);
+/* Override a single map block at block coords (bx, by).  Survives until the
+ * next Map_Load.  Used by gym door scripts (ReplaceTileBlock equivalent). */
+void    Map_SetBlock(int bx, int by, uint8_t block_id);
 /* Convenience: look up tile at game coordinates (ASM wXCoord/wYCoord units).
  * Converts to tile coords internally: tile_x = gx*2, tile_y = gy*2+1. */
 uint8_t Map_GetGameTile(int gx, int gy);
+/* Return the block ID (tileset metatile index) at game coordinates.
+ * This is the value stored in cur_map->blocks[], after any runtime overrides. */
+uint8_t Map_GetBlockAt(int gx, int gy);
+/* Set (override) the block ID at game coordinates.  Same as Map_SetBlock but
+ * accepts game coords so callers don't need to do the coordinate conversion. */
+void    Map_SetBlockAt(int gx, int gy, uint8_t block_id);
 int     Tile_IsPassable(uint8_t tile_id);
+/* Query block ID at (bx, by) including runtime Map_SetBlock overrides.
+ * Used as the Display_SetBlockIDQueryFn callback for the debug overlay. */
+int     Map_GetBlockIdRaw(int bx, int by);
 int     Tile_IsPairBlocked(uint8_t a, uint8_t b);
 int     Connection_Check(int dx, int dy);  /* dx/dy: step direction (-1,0,+1) */
 void    Map_PreBuildScrollStep(int dx, int dy); /* pre-fill scroll buffer from old map before a connection transition */

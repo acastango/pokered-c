@@ -76,12 +76,12 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 
 ## Prerequisites
 
-| Tool | Notes |
-|---|---|
+| Tool         | Notes                                                  |
+| ------------ | ------------------------------------------------------ |
 | C11 compiler | GCC via MSYS2/MinGW64 on Windows; `gcc` on Linux/macOS |
-| CMake ≥ 3.16 | |
-| SDL2 | `pacman -S mingw-w64-x86_64-SDL2` on MSYS2 |
-| Python 3 | Only needed to regenerate data files from `tools/` |
+| CMake ≥ 3.16 |                                                        |
+| SDL2         | `pacman -S mingw-w64-x86_64-SDL2` on MSYS2             |
+| Python 3     | Only needed to regenerate data files from `tools/`     |
 
 > **Windows note:** `CMakeLists.txt` currently hardcodes `C:/msys64/mingw64` as the SDL2 search path. Edit that line if your MSYS2 is installed elsewhere, or remove it on Linux/macOS.
 

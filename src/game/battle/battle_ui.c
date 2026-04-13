@@ -31,6 +31,7 @@
 #include "battle_switch.h"
 #include "battle_trainer.h"
 #include "battle_catch.h"
+#include "battle_items.h"
 #include "../party_menu.h"
 #include "../bag_menu.h"
 #include "../inventory.h"
@@ -41,10 +42,12 @@
 #include "../../data/font_data.h"
 #include "../../data/moves_data.h"
 #include "../../data/base_stats.h"
+#include "../../data/event_constants.h"
 #include "../../data/pokemon_sprites.h"
 #include "../../data/trainer_sprites.h"
 #include "../constants.h"
 #include "../text.h"
+#include "../pokedex.h"
 #include "../pokemon.h"
 #include "../overworld.h"   /* gScrollTileMap, SCROLL_MAP_W */
 #include "../trainer_sight.h" /* gEngagedTrainerClass */
@@ -81,6 +84,8 @@ typedef enum {
     BUI_TRAINER_VICTORY_SLIDE, /* trainer sprite slides in from right (56px, 4px/tick) */
     BUI_TRAINER_VICTORY_PAUSE, /* 40-frame hold after slide completes                  */
     BUI_TRAINER_VICTORY_TEXT,  /* defeat quote dismissed: wait for SFX                 */
+    BUI_GYM_BADGE_JINGLE,      /* wait for key-item jingle, then show badge info text  */
+    BUI_WAIT_CRY,              /* WaitForSoundToFinish for a cry before continuing     */
     BUI_WAIT_SOUND,            /* WaitForSoundToFinish then show money text            */
     BUI_FADE_WHITE,            /* white palette hold ~30f then BUI_END                 */
     BUI_LEVELUP_STATS,  /* wait for A on the level-up stats box     */
@@ -92,10 +97,14 @@ typedef enum {
     BUI_RETREAT_ANIM,   /* voluntary: player sprite shrink (7×7→3×3) */
     BUI_SWITCH_ENEMY_TURN, /* voluntary: enemy executes their pre-selected move */
     BUI_BAG_BATTLE,     /* bag menu open during battle                       */
+    BUI_ITEM_TARGET,    /* party menu: choose which mon to use item on       */
     BUI_BALL_THROW,     /* pokéball arc animation (player → enemy)           */
     BUI_BALL_POOF,      /* pokéball poof cloud (24f, Subanim_0BallPoofEnemy) */
     BUI_BALL_SHAKE,     /* pokéball shake animation (0–3 rocks)              */
-    BUI_CAUGHT,         /* add caught mon to party / box, end battle         */
+    BUI_CAUGHT,         /* add caught mon to party / box, maybe show dex     */
+    BUI_CAUGHT_DEX_WAIT,/* wait through "new dex data" text + dex page       */
+    BUI_CAUGHT_BOX_TEXT,/* wait for post-dex PC transfer text                */
+    BUI_EVOLUTION,      /* post-battle evolution screen (flicker + B-cancel) */
     BUI_END,            /* battle over                              */
 } bui_state_t;
 
@@ -113,6 +122,9 @@ static char s_pfx_b[8];
 /* Shared message buffer — never modified while Text_IsOpen() */
 static char s_msg_buf[384];
 
+/* Item selected from bag that requires a party-slot target (medicine, revive, etc.) */
+static uint8_t s_pending_item = 0;
+
 /* BUI_EXP_DRAIN destination and optional suffix messages (2 pages, like original) */
 static bui_state_t   bui_exp_dest    = BUI_END;
 static char          s_exp_suffix[64];
@@ -129,8 +141,18 @@ static int s_faint_timer = 0;
 static levelup_stats_t s_pending_lvl_stats;
 
 /* Trainer victory sequence (BUI_TRAINER_VICTORY_SLIDE/PAUSE/TEXT/FADE_WHITE) */
-static int  s_victory_timer      = 0;
-static char s_trainer_money_text[80];
+static int         s_victory_timer      = 0;
+static char        s_trainer_money_text[80];
+/* Gym-leader badge receipt sequence:
+ *   s_badge_recv_text  — "[PLAYER] received the BOULDERBADGE!" (page shown while jingle plays)
+ *   s_badge_info_text  — badge info pages shown after received text is dismissed */
+static const char *s_badge_recv_text    = NULL;
+static const char *s_badge_info_text    = NULL;
+static bui_state_t s_wait_cry_next_state = BUI_END;
+static char        s_wait_cry_text[64];
+
+void BattleUI_SetBadgeRecvText(const char *text) { s_badge_recv_text = text; }
+void BattleUI_SetBadgeInfoText(const char *text) { s_badge_info_text = text; }
 
 /* Pokemon appear (grow) animation state — AnimateSendingOutMon equivalent.
  * stage 0 = pokeball OAM at center; 1 = 3×3 crop; 2 = 5×5 crop; 3 → BUI_DRAW_HUD */
@@ -147,6 +169,19 @@ static int     s_retreat_stage;
 static int     s_retreat_frame;
 static uint8_t s_retreat_species;  /* old mon species for sprite tile lookup */
 static uint8_t s_switch_slot;      /* party slot chosen for voluntary switch */
+static int     s_struggle_pending; /* 1 = all PP exhausted, execute Struggle after text */
+
+/* BUI_EVOLUTION state (EvolveMon equivalent) */
+static uint8_t s_evo_slot;         /* party slot of the evolving mon */
+static uint8_t s_evo_old_species;  /* species before evolution */
+static uint8_t s_evo_new_species;  /* species after evolution */
+static int     s_evo_phase;        /* 0=entry text, 1=init flicker, 2=flicker, 3=result text, 4=apply */
+static int     s_evo_timer;        /* ticks until next flicker swap */
+static int     s_evo_blink;        /* 0=old sprite showing, 1=new sprite showing */
+static int     s_evo_wave;         /* ASM b-counter surrogate: 1..8 */
+static int     s_evo_wave_units;   /* remaining back-and-forth units in current wave */
+static int     s_evo_cancelled;    /* 1 if B was pressed during flicker */
+static int     s_evo_screen_white; /* 1 if BUI_FADE_WHITE already ran (screen clear + white) */
 
 /* ---- Ball-throw / catch animation state (BUI_BAG_BATTLE → BUI_BALL_THROW → *
  *       BUI_BALL_SHAKE → BUI_CAUGHT)                                          *
@@ -219,10 +254,10 @@ static const uint8_t kBallTileTiltBR[16] = /* tile 23 */
 
 /* Poof cloud tile data — Subanim_0BallPoofEnemy (subanimations.asm:160).
  * FrameBlocks 06-0A use tiles $20-$25, $30-$34 of move_anim_0.
- * Sprite tile slots POOF_TILE_BASE+0..+9 (reuse player-slide OAM sprite slots
- * which are idle after the intro slide; BG tile slots 49-97 are unaffected). */
+ * Sprite tile slots POOF_TILE_BASE+0..+9 reuse the player-slide sprite tiles,
+ * and the OAM entries reuse the player-slide OAM block once the intro is over. */
 #define POOF_TILE_BASE    53   /* sprite_tile_gfx slots 53-62 */
-#define POOF_OAM_BASE     53   /* wShadowOAM slots 53-68 (max 16 per frame) */
+#define POOF_OAM_BASE     4    /* reuse player-slide OAM slots 4-19 (max 16 per frame) */
 #define POOF_OAM_COUNT    16
 /* tile index helpers: POOF_TILE(anim_id) maps move_anim tile $20-$34 → slot */
 #define POOF_T20  (POOF_TILE_BASE + 0)
@@ -263,6 +298,11 @@ static int            s_throw_frame   = 0;  /* counts 0..11*THROW_FPW-1 */
 static int            s_shake_total   = 0;  /* 0-3 shakes */
 static int            s_shake_frame   = 0;
 static int            s_poof_frame    = 0;  /* counts 0..23 (6 entries × 4 frames) */
+static uint8_t        s_caught_species = 0;
+static uint8_t        s_caught_dex = 0;
+static int            s_caught_new_entry = 0;
+static int            s_caught_sent_to_box = 0;
+static int            s_caught_dex_started = 0;
 
 /* Move animation state — PlayApplyingAttackAnimation equivalent.
  * type: 0=none  1=vert-shake(b=8)  2=horiz-heavy(b=8)  4=blink-enemy  5=horiz-light(b=2)
@@ -347,6 +387,52 @@ static int bui_is_ball(uint8_t id) {
     return id == ITEM_MASTER_BALL || id == ITEM_ULTRA_BALL ||
            id == ITEM_GREAT_BALL  || id == ITEM_POKE_BALL  ||
            id == ITEM_SAFARI_BALL;
+}
+
+/* Medicine and revive items require the player to select a party slot target. */
+static int item_needs_target(uint8_t id) {
+    switch (id) {
+    case ITEM_ANTIDOTE:    case ITEM_BURN_HEAL:   case ITEM_ICE_HEAL:
+    case ITEM_AWAKENING:   case ITEM_PARLYZ_HEAL: case ITEM_FULL_HEAL:
+    case ITEM_FULL_RESTORE:case ITEM_MAX_POTION:  case ITEM_HYPER_POTION:
+    case ITEM_SUPER_POTION:case ITEM_POTION:      case ITEM_FRESH_WATER:
+    case ITEM_SODA_POP:    case ITEM_LEMONADE:
+    case ITEM_REVIVE:      case ITEM_MAX_REVIVE:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static void bui_clear_rows(int r0, int r1);
+static void bui_draw_enemy_hud(void);
+static void bui_draw_player_hud(void);
+static void bui_load_sprites(void);
+static void bui_hide_pokeballs(void);
+static void bui_set_enemy_oam_visible(int visible);
+static void bui_draw_box(void);
+
+static int bui_pokedex_owned_num(uint8_t dex_num) {
+    int bit;
+    if (dex_num < 1 || dex_num > 151) return 0;
+    bit = dex_num - 1;
+    return (wPokedexOwned[bit >> 3] >> (bit & 7)) & 1;
+}
+
+static int bui_current_box_is_full(void) {
+    uint8_t box = (uint8_t)(wCurrentBoxNum % NUM_BOXES);
+    return wBoxCount[box] >= BOX_CAPACITY;
+}
+
+static void bui_restore_catch_screen_after_dex(void) {
+    bui_clear_rows(0, SCREEN_HEIGHT - 1);
+    bui_draw_enemy_hud();
+    bui_draw_player_hud();
+    bui_load_sprites();
+    bui_hide_pokeballs();
+    bui_set_enemy_oam_visible(0);
+    bui_draw_box();
+    Display_SetPalette(0xE4, 0xE4, 0xE4);
 }
 
 /* Load the 6 ball throw/shake tiles + 10 poof cloud tiles into sprite_tile_gfx.
@@ -537,10 +623,35 @@ static void bui_put_str(int col, int row, const char *s) {
     }
 }
 
+/* Bit-reverse helper for horizontal sprite mirroring in BG tile data. */
+static uint8_t bui_reverse_bits(uint8_t v) {
+    v = (uint8_t)(((v & 0xF0u) >> 4) | ((v & 0x0Fu) << 4));
+    v = (uint8_t)(((v & 0xCCu) >> 2) | ((v & 0x33u) << 2));
+    v = (uint8_t)(((v & 0xAAu) >> 1) | ((v & 0x55u) << 1));
+    return v;
+}
+
 static void bui_clear_rows(int r0, int r1) {
     for (int r = r0; r <= r1; r++)
         for (int c = 0; c < SCREEN_WIDTH; c++)
             bui_set_tile(c, r, BLANK_TILE_SLOT);
+}
+
+static void bui_fill_rows_tile(int r0, int r1, uint8_t tile) {
+    for (int r = r0; r <= r1; r++)
+        for (int c = 0; c < SCREEN_WIDTH; c++)
+            bui_set_tile(c, r, tile);
+}
+
+/* Mirror writes to both battle tile backbuffers so scene clears happen in one
+ * visual step even if a code path samples wTileMap directly this frame. */
+static void bui_fill_rows_tile_both(int r0, int r1, uint8_t tile) {
+    bui_fill_rows_tile(r0, r1, tile);
+    if (r0 < 0) r0 = 0;
+    if (r1 >= SCREEN_HEIGHT) r1 = SCREEN_HEIGHT - 1;
+    for (int r = r0; r <= r1; r++)
+        for (int c = 0; c < SCREEN_WIDTH; c++)
+            wTileMap[r * SCREEN_WIDTH + c] = tile;
 }
 
 /* Clear a rectangular region of tiles (inclusive). */
@@ -609,8 +720,10 @@ static void bui_draw_levelup_stats(const levelup_stats_t *s) {
 #define ENEMY_SPR_TILE_BASE   0
 #define PLAYER_SPR_BG_BASE    53   /* BG tile slots for back sprite (53-101) */
 #define ENEMY_SPR_OAM_BASE    53   /* OAM 53-101: renders below player (higher index = lower priority) */
-/* Enemy: top-left at tile col 11, row 0 = pixel (88, 0) */
-#define ENEMY_SPR_PX_X        88
+/* Enemy front pic is drawn at hlcoord(12,0) in the original battle ASM:
+ * InitOpponent / InitWildBattle call CopyUncompressedPicToTilemap there,
+ * so the 7x7 front sprite's top-left is pixel (96, 0). */
+#define ENEMY_SPR_PX_X        96
 /* Victory slide final X: col 14 = pixel 112.  Rightmost tile (tx=6) lands at
  * pixel 160 = just off-screen right, matching ASM scroll (6 of 7 cols visible). */
 #define VICTORY_TRAINER_PX_X  112
@@ -1750,6 +1863,11 @@ void BattleUI_Enter(void) {
     s_anim_type     = 0;
     s_anim_frame    = 0;
     s_anim_total    = 0;
+    s_caught_species = 0;
+    s_caught_dex = 0;
+    s_caught_new_entry = 0;
+    s_caught_sent_to_box = 0;
+    s_caught_dex_started = 0;
     Display_SetShakeOffset(0, 0);
     gScrollPxX = 0;
     gScrollPxY = 0;
@@ -1878,13 +1996,15 @@ void BattleUI_Tick(void) {
                 const char *t_name = (tc >= 0 && tc < NUM_TRAINERS)
                                      ? gTrainerClassNames[tc] : "TRAINER";
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nwants to fight!", t_name);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_SEND_OUT;
             } else {
                 Audio_PlayCry(wEnemyMon.species);
                 const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "Wild %s\nappeared!", e_name2);
+                snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Wild %s\nappeared!", e_name2);
+                s_wait_cry_next_state = BUI_SEND_OUT;
+                bui_state = BUI_WAIT_CRY;
             }
-            Text_ShowASCII(s_msg_buf);
-            bui_state = BUI_SEND_OUT;
         }
         break;
     }
@@ -2042,7 +2162,7 @@ void BattleUI_Tick(void) {
             if (s_mid_battle_send) {
                 /* Mid-battle trainer replacement: no player send-out needed */
                 s_mid_battle_send = 0;
-                bui_state = BUI_DRAW_HUD;
+                s_wait_cry_next_state = BUI_DRAW_HUD;
             } else {
                 /* Battle intro: load player back sprite, show "Go! X!", slide Red out */
                 uint8_t p_dex2 = gSpeciesToDex[wBattleMon.species];
@@ -2052,11 +2172,11 @@ void BattleUI_Tick(void) {
                                          gPokemonBackSprite[p_dex2][i]);
                 }
                 const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
-                Text_ShowASCII(s_msg_buf);
+                snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Go! %s!", p_name2);
                 s_slide_cx = 0;
-                bui_state = BUI_TRAINER_SLIDE_OUT;
+                s_wait_cry_next_state = BUI_TRAINER_SLIDE_OUT;
             }
+            bui_state = BUI_WAIT_CRY;
         }
         break;
     }
@@ -2139,10 +2259,11 @@ void BattleUI_Tick(void) {
             if (s_grow_after_switch) {
                 /* Voluntary switch: enemy still needs to take their turn */
                 s_grow_after_switch = 0;
-                bui_state = BUI_SWITCH_ENEMY_TURN;
+                s_wait_cry_next_state = BUI_SWITCH_ENEMY_TURN;
             } else {
-                bui_state = BUI_DRAW_HUD;
+                s_wait_cry_next_state = BUI_DRAW_HUD;
             }
+            bui_state = BUI_WAIT_CRY;
         }
         break;
     }
@@ -2189,9 +2310,23 @@ void BattleUI_Tick(void) {
         if (hJoyPressed & PAD_A) {
             switch (bui_cursor) {
             case 0: /* FIGHT */
-                bui_cursor = 0;
-                bui_draw_move_menu(0);
-                bui_state = BUI_MOVE_SELECT;
+                /* AnyMoveToSelect: if all moves have 0 PP, force Struggle */
+                {
+                    int any_pp = 0;
+                    for (int i = 0; i < 4 && !any_pp; i++)
+                        if (wBattleMon.moves[i] && (wBattleMon.pp[i] & 0x3F) > 0)
+                            any_pp = 1;
+                    if (!any_pp) {
+                        wPlayerSelectedMove  = MOVE_STRUGGLE;
+                        wPlayerMoveListIndex = 0;
+                        s_struggle_pending   = 1;
+                        Text_ShowASCII("No moves left!");
+                    } else {
+                        bui_cursor = 0;
+                        bui_draw_move_menu(0);
+                        bui_state = BUI_MOVE_SELECT;
+                    }
+                }
                 break;
             case 1: /* PKMN — voluntary switch */
                 bui_set_enemy_oam_visible(0);  /* hide enemy sprite over party menu */
@@ -2222,6 +2357,17 @@ void BattleUI_Tick(void) {
 
     /* ---- Move selection ------------------------------------------- */
     case BUI_MOVE_SELECT:
+        /* s_struggle_pending: "No moves left!" text was shown, now execute Struggle */
+        if (s_struggle_pending) {
+            s_struggle_pending = 0;
+            battle_result_t prep = Battle_TurnPrepare();
+            if (prep == BATTLE_RESULT_PLAYER_FAINTED) { bui_state = BUI_PLAYER_FAINTED; break; }
+            if (prep == BATTLE_RESULT_ENEMY_FAINTED)  { Battle_HandleEnemyMonFainted(); bui_state = BUI_END; break; }
+            s_player_first = Battle_TurnPlayerFirst();
+            bui_exec_first_move();
+            break;
+        }
+
         /* Single-column list: UP/DOWN navigate, LEFT/RIGHT unused */
         if (hJoyPressed & PAD_UP)   { if (bui_cursor > 0) { bui_cursor--; bui_draw_move_menu(bui_cursor); } }
         if (hJoyPressed & PAD_DOWN) { if (bui_cursor < 3) { bui_cursor++; bui_draw_move_menu(bui_cursor); } }
@@ -2238,18 +2384,19 @@ void BattleUI_Tick(void) {
         if (hJoyPressed & PAD_A) {
             uint8_t move = wBattleMon.moves[bui_cursor];
             if (!move) break;   /* empty slot */
+
+            /* MoveNoPPText: can't select a move with 0 PP — return to menu */
+            if ((wBattleMon.pp[bui_cursor] & 0x3F) == 0) {
+                Text_ShowASCII("No PP left for\nthis move!");
+                break;
+            }
+
             bui_clear_rect(0, 8, 10, 11);  /* erase PP info box before executing move */
             bui_place_player_sprite();      /* restore sprite tiles cleared by PP box */
             bui_draw_player_hud();          /* col 10 (HP label) was inside clear rect */
 
-            /* Set selected move (no PP → Struggle) */
-            if ((wBattleMon.pp[bui_cursor] & 0x3F) == 0) {
-                wPlayerSelectedMove  = MOVE_STRUGGLE;
-                wPlayerMoveListIndex = 0;
-            } else {
-                wPlayerSelectedMove  = move;
-                wPlayerMoveListIndex = (uint8_t)bui_cursor;
-            }
+            wPlayerSelectedMove  = move;
+            wPlayerMoveListIndex = (uint8_t)bui_cursor;
 
             /* Prepare turn: flinch clear, enemy move select, order */
             battle_result_t prep = Battle_TurnPrepare();
@@ -2533,7 +2680,13 @@ void BattleUI_Tick(void) {
         Battle_CheckNumAttacksLeft();
         bui_draw_enemy_hud();
         bui_draw_player_hud();
-        bui_state = BUI_DRAW_HUD;
+        /* Draw the main menu box immediately instead of deferring to BUI_DRAW_HUD.
+         * HUDs are already drawn above; skipping BUI_DRAW_HUD avoids a 1-frame
+         * blank in rows 12-17 between text close and the next menu draw. */
+        bui_cursor = 0;
+        bui_draw_main_menu(0);
+        hWY = SCREEN_HEIGHT_PX;
+        bui_state = BUI_MENU;
         break;
     }
 
@@ -2550,6 +2703,14 @@ void BattleUI_Tick(void) {
         /* If the previous text was a level-up, show the stats box first.
          * Mirrors experience.asm: PrintStatsBox(LEVEL_UP_STATS_BOX) after GrewLevelText. */
         if (s_pending_lvl_stats.valid) {
+            /* Clear move menu artifacts (PP box rows 8-11, move list rows 12-17)
+             * then restore the normal battle view before overlaying the stat box.
+             * Mirrors: DrawPlayerHUDAndHPBar + PrintEmptyString + SaveScreenTiles
+             * + PrintStatsBox in experience.asm. */
+            bui_clear_rect(0, 8, 19, 17);
+            bui_place_player_sprite();
+            bui_draw_player_hud();
+            bui_draw_box();   /* PrintEmptyString: empty text box at bottom */
             bui_draw_levelup_stats(&s_pending_lvl_stats);
             s_pending_lvl_stats.valid = 0;
             bui_state = BUI_LEVELUP_STATS;
@@ -2569,8 +2730,10 @@ void BattleUI_Tick(void) {
         } else if (s_exp_suffix[0] != '\0') {
             /* Trainer victory: music fires here, just before "PLAYER defeated TRAINER!" —
              * mirrors PlayBattleVictoryMusic order in core.asm:TrainerBattleVictory. */
-            if (bui_exp_dest == BUI_TRAINER_VICTORY_SLIDE)
-                Music_Play(MUSIC_DEFEATED_TRAINER);
+            if (bui_exp_dest == BUI_TRAINER_VICTORY_SLIDE) {
+                extern uint8_t wGymLeaderNo;
+                Music_Play(wGymLeaderNo ? MUSIC_DEFEATED_GYM_LEADER : MUSIC_DEFEATED_TRAINER);
+            }
             snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", s_exp_suffix);
             s_exp_suffix[0] = '\0';
             Text_ShowASCII(s_msg_buf);
@@ -2858,17 +3021,34 @@ void BattleUI_Tick(void) {
         BagMenu_Tick();
         if (BagMenu_IsOpen()) break;  /* still open */
 
-        /* Bag closed — restore battle screen */
+        /* Bag closed — restore battle screen.
+         * Matches core.asm UseBagItem: ClearSprites → LoadScreenTilesFromBuffer1
+         * → DrawHUDsAndHPBars.  Pokeballs are NOT redrawn after item use. */
         bui_clear_rows(0, SCREEN_HEIGHT - 1);
         bui_draw_enemy_hud();
         bui_draw_player_hud();
         bui_load_sprites();
-        bui_draw_pokeballs();
+        bui_hide_pokeballs();
 
         uint8_t item = BagMenu_GetSelected();
 
         if (item == 0) {
             /* Cancelled — back to main menu, turn not consumed */
+            bui_set_enemy_oam_visible(1);
+            bui_cursor = 0;
+            bui_draw_main_menu(0);
+            bui_state = BUI_MENU;
+            break;
+        }
+
+        if (bui_is_ball(item) &&
+            wIsInBattle == 1 &&
+            wBattleType != 1 &&
+            wPartyCount >= PARTY_LENGTH &&
+            bui_current_box_is_full()) {
+            /* ASM ItemUseBall: reject before the turn is consumed if both the
+             * party and the current box are already full. */
+            Text_ShowASCII("The #MON BOX\nis full! Can't\nuse that item!");
             bui_set_enemy_oam_visible(1);
             bui_cursor = 0;
             bui_draw_main_menu(0);
@@ -2905,17 +3085,101 @@ void BattleUI_Tick(void) {
             bui_decode_poke_str(wPlayerName, pname, sizeof(pname));
             Inventory_DecodeASCII(item, iname, sizeof(iname));
             snprintf(s_msg_buf, sizeof(s_msg_buf), "%s used\n%s!", pname, iname);
+            Text_KeepTilesOnClose();
             Text_ShowASCII(s_msg_buf);
             /* After text dismissed: start throw animation */
             bui_ball_load_tiles();
             bui_ball_hide();  /* start hidden; BUI_BALL_THROW places on first frame */
             bui_state = BUI_BALL_THROW;
+        } else if (item_needs_target(item)) {
+            /* Medicine/revive: open party menu to pick a target slot first.
+             * Enemy move was already selected above — turn is committed. */
+            s_pending_item = item;
+            bui_state = BUI_ITEM_TARGET;
         } else {
-            /* Non-ball item: use it (battle_items.c) then enemy attacks */
-            /* TODO: Battle_UseItem(item); */
+            /* Non-target item: dispatch immediately, then enemy attacks. */
+            char pname[NAME_LENGTH + 1];
+            char iname[20];
+            bui_decode_poke_str(wPlayerName, pname, sizeof(pname));
+            Inventory_DecodeASCII(item, iname, sizeof(iname));
+
+            item_use_result_t use_result = Battle_UseItem(item, (uint8_t)wPlayerMonNumber);
+
+            if (item == ITEM_POKE_FLUTE) {
+                /* Mirrors ItemUsePokeFlute in-battle text (item_effects.asm:1671+) */
+                if (use_result == ITEM_USE_OK) {
+                    snprintf(s_msg_buf, sizeof(s_msg_buf),
+                        "%s played the\nPOKE FLUTE.\fAll sleeping\nPOKEMON woke up.", pname);
+                } else {
+                    snprintf(s_msg_buf, sizeof(s_msg_buf),
+                        "Played the\nPOKE FLUTE.\n\nNow, that's a\ncatchy tune!");
+                }
+                Text_ShowASCII(s_msg_buf);
+            } else if (use_result == ITEM_USE_CANNOT_USE) {
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Can't use that\nin battle!");
+                Text_ShowASCII(s_msg_buf);
+            } else {
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s used\n%s!", pname, iname);
+                Text_ShowASCII(s_msg_buf);
+                if (use_result == ITEM_USE_OK && !Inventory_IsKeyItem(item))
+                    Inventory_Remove(item, 1);
+            }
+
             bui_set_enemy_oam_visible(1);
             bui_state = BUI_SWITCH_ENEMY_TURN;
         }
+        break;
+    }
+
+    /* ---- Item targeting: choose party slot for medicine / revive -------- *
+     * Entered from BUI_BAG_BATTLE after a targetable item is confirmed.    *
+     * Enemy has already selected their move; turn is committed.            *
+     * Cancel (slot < 0) still advances to enemy turn.                      */
+    case BUI_ITEM_TARGET: {
+        if (!PartyMenu_IsOpen()) {
+            PartyMenu_Open(PARTY_MENU_TMHM);  /* A=select, B=cancel */
+            break;
+        }
+        PartyMenu_Tick();
+        if (PartyMenu_IsOpen()) break;
+
+        int slot = PartyMenu_GetSelected();
+
+        /* Restore battle screen before showing any result text.
+         * Matches UseBagItem: ClearSprites → LoadScreenTilesFromBuffer1
+         * → DrawHUDsAndHPBars.  Pokeballs are NOT redrawn after item use. */
+        bui_clear_rows(0, SCREEN_HEIGHT - 1);
+        bui_draw_enemy_hud();
+        bui_draw_player_hud();
+        bui_load_sprites();
+        bui_hide_pokeballs();
+        bui_set_enemy_oam_visible(1);
+
+        if (slot < 0) {
+            /* Cancelled — enemy still takes their turn (turn was committed) */
+            bui_state = BUI_SWITCH_ENEMY_TURN;
+            break;
+        }
+
+        char pname[NAME_LENGTH + 1];
+        char iname[20];
+        bui_decode_poke_str(wPlayerName, pname, sizeof(pname));
+        Inventory_DecodeASCII(s_pending_item, iname, sizeof(iname));
+
+        item_use_result_t use_result = Battle_UseItem(s_pending_item, (uint8_t)slot);
+
+        if (use_result == ITEM_USE_FAILED || use_result == ITEM_USE_CANNOT_USE) {
+            Text_ShowASCII("It won't have\nany effect.");
+        } else {
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s used\n%s!", pname, iname);
+            Text_ShowASCII(s_msg_buf);
+            if (use_result == ITEM_USE_OK && !Inventory_IsKeyItem(s_pending_item))
+                Inventory_Remove(s_pending_item, 1);
+            /* Refresh HUD — HP or status may have changed */
+            bui_draw_player_hud();
+        }
+
+        bui_state = BUI_SWITCH_ENEMY_TURN;
         break;
     }
 
@@ -2934,7 +3198,7 @@ void BattleUI_Tick(void) {
         static const uint8_t kArcX[11] = {40,48,56,64,72,80,88,96,104,112,120};
 
         if (s_throw_frame == 0)
-            Audio_PlaySFX_BallPoof();  /* SFX_BALL_TOSS at start of first waypoint */
+            Audio_PlaySFX_BallToss();  /* SFX_BALL_TOSS at start of first waypoint */
 
         int waypoint = s_throw_frame / THROW_FPW;  /* which of the 11 waypoints */
 
@@ -2954,9 +3218,6 @@ void BattleUI_Tick(void) {
             break;
         }
 
-        /* POOF_ANIM: SFX fires as ball hits enemy position */
-        Audio_PlaySFX_BallPoof();
-
         /* Determine shake count from s_catch_result (set in BUI_BAG_BATTLE) */
         switch (s_catch_result) {
         case CATCH_RESULT_SUCCESS:  s_shake_total = 3; break;
@@ -2968,8 +3229,10 @@ void BattleUI_Tick(void) {
         s_shake_frame = 0;
         s_poof_frame  = 0;
 
-        /* Ball stays at arc endpoint (BASECOORD_34, Y=50 X=120) during poof.
-         * The poof cloud OAM is pre-cleared; BUI_BALL_POOF will draw it. */
+        /* The original sequence transitions into the poof/open burst and the
+         * ball itself drops out briefly before the closed ball reappears for
+         * the shake. Keep the cloud OAM clear here; BUI_BALL_POOF owns the
+         * visible effect. */
         for (int i = 0; i < POOF_OAM_COUNT; i++)
             wShadowOAM[POOF_OAM_BASE + i].y = 0;
 
@@ -2994,13 +3257,20 @@ void BattleUI_Tick(void) {
      * Ball stays at BASECOORD_34 (arc endpoint) during poof, then moves   *
      * to BASECOORD_21 for shake when poof completes.                       */
     case BUI_BALL_POOF: {
-        /* First frame: hide enemy so poof cloud is visible */
+        /* First frame: hide both the enemy and the ball so the poof/open
+         * effect stands alone before the closed ball returns for shaking. */
         if (s_poof_frame == 0) {
             /* For trainer-block this state is never entered. For all wild
              * outcomes (including 0-shakes) we hide the enemy during poof
              * and restore below when needed. */
             bui_set_enemy_oam_visible(0);
+            bui_ball_hide();
         }
+
+        /* DoPoofSpecialEffects fires at wSubAnimCounter==5, not immediately
+         * on impact, so the ball/open beat is visible before the burst SFX. */
+        if (s_poof_frame == 4)
+            Audio_PlaySFX_BallPoof();
 
         int entry    = s_poof_frame / 4;
         int subframe = s_poof_frame % 4;
@@ -3047,16 +3317,18 @@ void BattleUI_Tick(void) {
      * Success: after 3 shakes → BUI_CAUGHT.                              */
     case BUI_BALL_SHAKE: {
         if (s_shake_total == 0 || s_shake_frame >= s_shake_total * SHAKE_CYCLE) {
-            bui_ball_hide();
-
             if (s_catch_result == CATCH_RESULT_SUCCESS) {
                 /* ItemUseBallText05 "All right! X was caught!" (item_effects.asm:609) */
                 const char *ename = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                Audio_PlaySFX_BallPoof();
+                /* The original keeps the closed ball on-screen in a slight
+                 * right-lean pose while the caught text appears. */
+                bui_ball_set_oam(BALL_SHAKE_OAM_Y, BALL_SHAKE_OAM_X, 2);
+                Audio_PlaySFX_CaughtMon();
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "All right!\n%s was caught!", ename);
                 Text_ShowASCII(s_msg_buf);
                 bui_state = BUI_CAUGHT;
             } else {
+                bui_ball_hide();
                 /* SHOWPIC: restore enemy if hidden (1–3 shake fail) */
                 if (s_shake_total > 0)
                     bui_set_enemy_oam_visible(1);
@@ -3090,7 +3362,7 @@ void BattleUI_Tick(void) {
         /* DoBallShakeSpecialEffects: at start of each shake play SFX_TINK + 40f pause.
          * In our non-blocking model the pause is 40 frames of stationary ball. */
         if (phase == 0)
-            Audio_PlaySFX_BallPoof();  /* SFX_TINK */
+            Audio_PlaySFX_Tink();
 
         if (phase < SHAKE_DELAY) {
             /* 40-frame pause: ball neutral at BASECOORD_21 */
@@ -3110,19 +3382,33 @@ void BattleUI_Tick(void) {
         break;
     }
 
-    /* ---- Add caught mon to party, then end battle --------------------- *
-     * Mirrors AddPartyMon / SendNewMonToBox (item_effects.asm:548-566).   *
-     * Pokédex entry: always show "New #DEX data" (no dex tracking yet).  */
+    /* ---- Add caught mon to party, then mirror item_effects.asm ------- *
+     * Success flow in the original:
+     *   caught text -> set owned bit -> if new, show "New #DEX data..."
+     *   -> ShowPokedexData -> finish add/send -> end battle. */
     case BUI_CAUGHT: {
-        uint8_t dex   = gSpeciesToDex[wEnemyMon.species];
-        const char *ename = Pokemon_GetName(dex);
+        const char *ename;
+
+        s_caught_species = wEnemyMon.species;
+        s_caught_dex = gSpeciesToDex[s_caught_species];
+        s_caught_new_entry = !bui_pokedex_owned_num(s_caught_dex);
+        s_caught_sent_to_box = 0;
+        s_caught_dex_started = 0;
+        ename = Pokemon_GetName(s_caught_dex);
+
+        /* The battle UI handles wild ball catches directly, bypassing
+         * Battle_UseItem's Pokédex update path. Mark the species owned here
+         * once the catch is confirmed, whether it goes to party or PC. */
+        Pokedex_SetOwned(s_caught_species);
 
         if (wPartyCount < PARTY_LENGTH) {
             /* AddPartyMon — copy wEnemyMon into wPartyMons[wPartyCount] */
-            party_mon_t *p = &wPartyMons[wPartyCount];
+            uint8_t party_slot = wPartyCount;
+            party_mon_t *p = &wPartyMons[party_slot];
             memset(p, 0, sizeof(*p));
-            p->base.species    = wEnemyMon.species;
+            p->base.species    = s_caught_species;
             p->base.hp         = wEnemyMon.hp;    /* keep current (wounded) HP */
+            p->base.box_level  = wEnemyMon.level; /* critical for PC storage integrity */
             p->base.status     = wEnemyMon.status; /* keep status */
             p->base.type1      = wEnemyMon.type1;
             p->base.type2      = wEnemyMon.type2;
@@ -3130,9 +3416,13 @@ void BattleUI_Tick(void) {
             memcpy(p->base.moves, wEnemyMon.moves, 4);
             memcpy(p->base.pp,    wEnemyMon.pp,    4);
             p->base.dvs        = wEnemyMon.dvs;
+            p->base.ot_id      = wPlayerID;
             /* Experience: base exp for caught level */
-            uint32_t xp = CalcExpForLevel(
-                gBaseStats[wEnemyMon.species].growth_rate, wEnemyMon.level);
+            uint8_t caught_dex = gSpeciesToDex[s_caught_species];
+            uint8_t growth = (caught_dex > 0 && caught_dex <= NUM_POKEMON)
+                           ? gBaseStats[caught_dex].growth_rate
+                           : GROWTH_MEDIUM_FAST;
+            uint32_t xp = CalcExpForLevel(growth, wEnemyMon.level);
             p->base.exp[0] = (uint8_t)((xp >> 16) & 0xFF);
             p->base.exp[1] = (uint8_t)((xp >>  8) & 0xFF);
             p->base.exp[2] = (uint8_t)( xp         & 0xFF);
@@ -3142,26 +3432,74 @@ void BattleUI_Tick(void) {
             p->def     = wEnemyMon.def;
             p->spd     = wEnemyMon.spd;
             p->spc     = wEnemyMon.spc;
+            memcpy(wPartyMonOT[party_slot], wPlayerName, NAME_LENGTH);
+            Pokemon_EncodeNameString(ename ? ename : "", wPartyMonNicks[party_slot]);
             /* Update party species list (0xFF-terminated) */
-            wPartySpecies[wPartyCount]     = wEnemyMon.species;
-            wPartySpecies[wPartyCount + 1] = 0xFF;
+            wPartySpecies[party_slot]     = s_caught_species;
+            wPartySpecies[party_slot + 1] = 0xFF;
             wPartyCount++;
-            /* "New #DEX data will be added for X!" — item_effects.asm:541-546 */
-            snprintf(s_msg_buf, sizeof(s_msg_buf),
-                     "New #DEX data\nwill be added\nfor %s!", ename);
-            Text_ShowASCII(s_msg_buf);
         } else {
-            /* Party full: SendNewMonToBox — transferred to PC.
-             * ItemUseBallText08 "X was transferred to someone's PC!" */
-            snprintf(s_msg_buf, sizeof(s_msg_buf),
-                     "%s was\ntransferred to\nsomeone's PC!", ename);
-            Text_ShowASCII(s_msg_buf);
+            s_caught_sent_to_box = 1;
+            if (!Pokemon_SendBattleMonToBox(&wEnemyMon)) {
+                /* Should be unreachable because ItemUseBall rejects a full
+                 * current box before the throw, but fail closed if state drifted. */
+                bui_state = BUI_END;
+                break;
+            }
         }
 
         wBattleResult = BATTLE_OUTCOME_CAUGHT;
-        bui_state = BUI_END;
+        if (s_caught_new_entry) {
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "New #DEX data\nwill be added\nfor %s!", ename);
+            Text_ShowASCII(s_msg_buf);
+            bui_state = BUI_CAUGHT_DEX_WAIT;
+        } else if (s_caught_sent_to_box) {
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "%s was\ntransferred to\nsomeone's PC!", ename);
+            Text_ShowASCII(s_msg_buf);
+            bui_state = BUI_CAUGHT_BOX_TEXT;
+        } else {
+            bui_state = BUI_END;
+        }
         break;
     }
+
+    case BUI_CAUGHT_DEX_WAIT:
+        if (!s_caught_dex_started) {
+            Pokedex_ShowData(s_caught_dex);
+            s_caught_dex_started = 1;
+            break;
+        }
+        if (Pokedex_IsShowingData()) {
+            Pokedex_ShowDataTick();
+            break;
+        }
+        /* Catch flow returns here outside the normal start-menu Pokedex path,
+         * so explicitly reset any lingering text/window state before ending
+         * the battle or showing the PC transfer text. */
+        if (Text_IsOpen())
+            Text_Close();
+        hWY = 144;
+        bui_restore_catch_screen_after_dex();
+        if (s_caught_sent_to_box) {
+            const char *ename = Pokemon_GetName(s_caught_dex);
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     CheckEvent(EVENT_MET_BILL)
+                        ? "%s was\ntransferred to\nBILL's PC!"
+                        : "%s was\ntransferred to\nsomeone's PC!",
+                     ename);
+            Text_ShowASCII(s_msg_buf);
+            bui_state = BUI_CAUGHT_BOX_TEXT;
+        } else {
+            bui_state = BUI_END;
+        }
+        break;
+
+    case BUI_CAUGHT_BOX_TEXT:
+        if (Text_IsOpen()) break;
+        bui_state = BUI_END;
+        break;
 
     /* ---- Voluntary switch: enemy executes their pre-selected move -- *
      * Mirrors the second-move execution (player switched = "first     *
@@ -3257,9 +3595,44 @@ void BattleUI_Tick(void) {
         break;
     }
 
-    /* ---- Defeat quote dismissed: enter WaitForSoundToFinish ---------- */
+    /* ---- Defeat quote (pages 1-2) dismissed ----------------------------
+     * If badge recv text is queued: play key-item jingle AND show page 3
+     * simultaneously — mirrors sound_level_up firing right as text_end
+     * closes _PewterGymBrockReceivedBoulderBadgeText in PewterGym.asm. */
     case BUI_TRAINER_VICTORY_TEXT:
+        if (s_badge_recv_text) {
+            Audio_PlaySFX_GetKeyItem();
+            Text_ShowASCII(s_badge_recv_text);
+            s_badge_recv_text = NULL;
+            bui_state = BUI_GYM_BADGE_JINGLE;
+        } else {
+            bui_state = BUI_WAIT_SOUND;
+        }
+        break;
+
+    /* ---- "[PLAYER] received BADGE" text dismissed — show badge info --- */
+    case BUI_GYM_BADGE_JINGLE:
+        if (s_badge_info_text) {
+            Text_ShowASCII(s_badge_info_text);
+            s_badge_info_text = NULL;
+        }
         bui_state = BUI_WAIT_SOUND;
+        break;
+
+    /* ---- Wait for cry to finish before continuing -------------------- *
+     * Mirrors PlayCry in the original battle flow, which blocks in
+     * WaitForSoundToFinish before returning to the caller. */
+    case BUI_WAIT_CRY:
+        if (!Audio_IsCryPlaying()) {
+            if (s_wait_cry_text[0]) {
+                /* Text_ShowASCII stores a pointer; copy into shared message
+                 * buffer before clearing s_wait_cry_text. */
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", s_wait_cry_text);
+                Text_ShowASCII(s_msg_buf);
+                s_wait_cry_text[0] = '\0';
+            }
+            bui_state = s_wait_cry_next_state;
+        }
         break;
 
     /* ---- WaitForSoundToFinish: poll SFX channels, then money text ---- *
@@ -3270,7 +3643,15 @@ void BattleUI_Tick(void) {
             if (s_trainer_money_text[0])
                 Text_ShowASCII(s_trainer_money_text);
             s_victory_timer = 0;
-            bui_state = BUI_FADE_WHITE;
+            /* ASM EvolutionAfterBattle path does not insert an extra whiteout
+             * before "What? X is evolving!". */
+            {
+                uint8_t evo_slot, evo_new;
+                if (Battle_CheckNextEvolution(&evo_slot, &evo_new))
+                    bui_state = BUI_END;
+                else
+                    bui_state = BUI_FADE_WHITE;
+            }
         }
         break;
 
@@ -3286,13 +3667,204 @@ void BattleUI_Tick(void) {
             /* Clear battle tilemap while palette is still white so no battle UI
              * bleeds through.  Leave palette white — game.c fades in from white. */
             bui_clear_rows(0, SCREEN_HEIGHT - 1);
+            s_evo_screen_white = 1;  /* signal to BUI_EVOLUTION: already white+clear */
             bui_state = BUI_END;
         }
         break;
     }
 
-    /* ---- Battle over: sync HP, mark inactive ---------------------- */
-    case BUI_END:
+    /* ---- Post-battle evolution screen --------------------------------- *
+     * Mirrors evos_moves.asm + engine/movie/evolution.asm (EvolveMon).    *
+     * Phase 0: print "What? X is evolving!" and hold                       *
+     * Phase 1: clear scene + sprites (textbox remains)                    *
+     * Phase 2: hold on cleared scene, then show old sprite + old cry      *
+     * Phase 3: old sprite + old cry; wait cry then start Safari music     *
+     * Phase 4: 80-frame countdown before flicker                          *
+     * Phase 5: exact ASM anim loop (b=1..8, c=16..2)                      *
+     * Phase 6: show final sprite + cry + result text                      *
+     * Phase 7: apply/cancel, chain next evo or return                     */
+    case BUI_EVOLUTION: {
+/* Helper macro: load species front sprite into BG tilemap at hlcoord(7,2),
+ * matching Evolution_LoadPic in ASM. */
+#define EVO_SPR_COL 7  /* ASM: Evolution_LoadPic uses hlcoord 7,2 */
+#define EVO_SPR_ROW 2
+#define EVO_PIC_TILE_BASE PLAYER_SPR_BG_BASE
+#define EVO_LOAD_SPRITE(species) do { \
+    uint8_t _dex = gSpeciesToDex[(species)]; \
+    if (_dex > 0 && _dex <= 151) { \
+        for (int _ty = 0; _ty < 7; _ty++) \
+            for (int _tx = 0; _tx < 7; _tx++) { \
+                int _src = _ty * 7 + (6 - _tx); \
+                uint8_t _tile[16]; \
+                for (int _row = 0; _row < 8; _row++) { \
+                    _tile[_row * 2 + 0] = bui_reverse_bits(gPokemonFrontSprite[_dex][_src][_row * 2 + 0]); \
+                    _tile[_row * 2 + 1] = bui_reverse_bits(gPokemonFrontSprite[_dex][_src][_row * 2 + 1]); \
+                } \
+                uint8_t _tid = (uint8_t)(EVO_PIC_TILE_BASE + _ty * 7 + _tx); \
+                Display_LoadTile(_tid, _tile); \
+                bui_set_tile(EVO_SPR_COL + _tx, EVO_SPR_ROW + _ty, _tid); \
+            } \
+    } \
+} while(0)
+
+        switch (s_evo_phase) {
+
+        case 0: {
+            /* Entry text first; once text flow is done, transition immediately
+             * into the clear->sprite sequence. */
+            wDoNotWaitForButtonPress = 1;
+            Text_InstantNext();
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "What? %s is\nevolving!",
+                     Pokemon_GetName(gSpeciesToDex[s_evo_old_species]));
+            Text_ShowASCII(s_msg_buf);
+            /* Let the opening text breathe for ~1 second. */
+            s_evo_timer = 60;
+            s_evo_phase = 1;
+            break;
+        }
+
+        case 1:
+            if (--s_evo_timer > 0) break;
+            /* ClearSceneArea 12x20 + ClearSprites before EvolveMon. */
+            bui_clear_rows(0, 11);
+            /* Keep textbox rows intact; wipe only the battle scene area to white. */
+            {
+                static const uint8_t kWhiteTile[16] = {0};
+                Display_LoadTile(0xFF, kWhiteTile);
+                bui_fill_rows_tile_both(0, 11, 0xFF);
+            }
+            for (int i = 0; i < MAX_SPRITES; i++) wShadowOAM[i].y = 0; /* ClearSprites */
+            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            /* EvolveMon prelude: stop music, play SFX_TINK, then Delay3. */
+            Music_Stop();
+            Audio_PlaySFX_Tink();
+            /* Hold the cleared scene for ~1 second before sprite appears. */
+            s_evo_timer = 60;
+            s_evo_phase = 2;
+            break;
+
+        case 2:
+            if (--s_evo_timer > 0) break;
+            EVO_LOAD_SPRITE(s_evo_old_species);
+            Audio_PlayCry(s_evo_old_species);
+            s_evo_timer = 120;  /* fallback: max wait 2 sec for cry */
+            s_evo_phase = 3;
+            break;
+
+        case 3:
+            /* Wait for old cry to finish, then start evolution music and
+             * apply ASM's ~80-frame lead-in before flicker starts. */
+            if (Audio_IsSFXPlaying() && --s_evo_timer > 0) break;
+            Music_Play(MUSIC_SAFARI_ZONE);
+            s_evo_timer = 80;
+            s_evo_phase = 4;
+            break;
+
+        case 4:
+            /* 80-frame countdown, then start flicker. */
+            if (--s_evo_timer > 0) break;
+            /* ASM calls EvolutionSetWholeScreenPalette(c=1) here, but that routes
+             * through RunPaletteCommand (SGB-only). On DMG/C this is effectively
+             * a no-op, so do not force a full black palette in the port. */
+            s_evo_blink = 0;
+            s_evo_wave  = 1;
+            s_evo_wave_units = 0;  /* 0 = pre-wave cancel-check window */
+            s_evo_timer = 16;      /* ASM c starts at $10 (16) */
+            s_evo_phase = 5;
+            break;
+
+        case 5: {
+            /* Exact EvolveMon .animLoop cadence:
+             *   1) Evolution_CheckForCancel(c): DelayFrame+poll B for c frames.
+             *   2) Evolution_BackAndForthAnim(b): b units, each unit is
+             *      new(Delay3) then old(Delay3).
+             *   3) b++, c-=2, repeat until c==0 (8 waves total). */
+            if (s_evo_wave_units == 0) {
+                /* Cancel-check window (only here, like ASM). */
+                if (hJoyPressed & PAD_B) {
+                    s_evo_cancelled = 1;
+                    s_evo_phase     = 6;
+                    break;
+                }
+                if (--s_evo_timer > 0) break;
+                s_evo_wave_units = s_evo_wave * 2; /* b units -> 2 toggles each */
+                s_evo_timer = 3;                   /* Evolution_ChangeMonPic Delay3 */
+                s_evo_blink = 0;                   /* start from old pic */
+                break;
+            }
+
+            if (--s_evo_timer > 0) break;
+            s_evo_timer = 3;
+            s_evo_blink ^= 1;
+            EVO_LOAD_SPRITE(s_evo_blink ? s_evo_new_species : s_evo_old_species);
+            if (--s_evo_wave_units <= 0) {
+                s_evo_wave++;
+                if (s_evo_wave > 8) {
+                    s_evo_phase = 6;
+                    break;
+                }
+                s_evo_timer = 18 - (2 * s_evo_wave); /* ASM c progression: 16..2 */
+                if (s_evo_timer < 1) s_evo_timer = 1;
+                s_evo_wave_units = 0; /* enter next cancel-check window */
+            }
+            break;
+        }
+
+        case 6: {
+            /* Show final sprite, play cry, show result text.
+             * Mirrors EvolveMon lines 63-74: Evolution_ChangeMonPic + PlayCry. */
+            uint8_t final_species = s_evo_cancelled ? s_evo_old_species : s_evo_new_species;
+            EVO_LOAD_SPRITE(final_species);
+            Music_Stop(); /* SFX_STOP_ALL_MUSIC before final cry */
+            Audio_PlayCry(final_species);
+            /* ASM immediately restores whole-screen palette (c=0) after final cry call. */
+            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            if (!s_evo_cancelled) {
+                snprintf(s_msg_buf, sizeof(s_msg_buf),
+                         "%s evolved\ninto %s!",
+                         Pokemon_GetName(gSpeciesToDex[s_evo_old_species]),
+                         Pokemon_GetName(gSpeciesToDex[s_evo_new_species]));
+            } else {
+                snprintf(s_msg_buf, sizeof(s_msg_buf),
+                         "%s\nstopped evolving.",
+                         Pokemon_GetName(gSpeciesToDex[s_evo_old_species]));
+            }
+            Text_ShowASCII(s_msg_buf);
+            s_evo_phase = 7;
+            break;
+        }
+
+        case 7: {
+            /* Tick after result text dismissed: commit or cancel, then chain. */
+            if (!s_evo_cancelled)
+                Battle_ApplyEvolution(s_evo_slot, s_evo_new_species);
+            else
+                Battle_CancelEvolution(s_evo_slot);
+
+            uint8_t next_slot, next_species;
+            if (Battle_CheckNextEvolution(&next_slot, &next_species)) {
+                s_evo_slot         = next_slot;
+                s_evo_old_species  = wPartyMons[next_slot].base.species;
+                s_evo_new_species  = next_species;
+                s_evo_phase        = 0;
+                s_evo_cancelled    = 0;
+                s_evo_timer        = 0;
+                s_evo_screen_white = 0;
+            } else {
+                Music_Play(Music_GetMapID(wCurMap)); /* EvolutionAfterBattle -> PlayDefaultMusic */
+                bui_state = BUI_INACTIVE;
+            }
+            break;
+        }
+
+        } /* switch s_evo_phase */
+#undef EVO_LOAD_SPRITE
+        break;
+    }
+
+    /* ---- Battle over: sync HP, check evolutions, mark inactive ------- */
+    case BUI_END: {
         Display_SetShakeOffset(0, 0);
         /* Don't restore enemy sprite if the mon was caught (it stays hidden) */
         if (wBattleResult != BATTLE_OUTCOME_CAUGHT)
@@ -3305,9 +3877,24 @@ void BattleUI_Tick(void) {
         wEscapedFromBattle   = 0;
         wPlayerSelectedMove  = 0;
         wEnemySelectedMove   = 0;
-        /* HUD tiles ($62–$78) use dedicated slots — no restore needed */
-        Battle_EvolutionAfterBattle();
-        bui_state = BUI_INACTIVE;
+        /* Check for pending evolutions — if any, drive the animated screen;
+         * otherwise fall through to BUI_INACTIVE immediately. */
+        {
+            uint8_t evo_slot, evo_new;
+            if (Battle_CheckNextEvolution(&evo_slot, &evo_new)) {
+                s_evo_slot         = evo_slot;
+                s_evo_old_species  = wPartyMons[evo_slot].base.species;
+                s_evo_new_species  = evo_new;
+                s_evo_phase        = 0;
+                s_evo_cancelled    = 0;
+                s_evo_timer        = 0;
+                s_evo_screen_white = 0;
+                bui_state = BUI_EVOLUTION;
+            } else {
+                bui_state = BUI_INACTIVE;
+            }
+        }
         break;
+    }
     }
 }

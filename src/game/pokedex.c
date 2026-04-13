@@ -5,10 +5,8 @@
  * Screen is 20 cols × 18 rows.
  *
  * LIST SCREEN
- *   ┌──────────────────┐
- *   │> 001 BULBASAUR   │  ← 7 entries (rows 1,3,5,7,9,11,13)
- *   │  SEEN:012 OWN:03 │  row 15
- *   └──────────────────┘
+ *   CONTENTS + 7 entries on the left, SEEN/OWN and DATA/CRY/AREA/QUIT
+ *   side menu on the right, matching engine/menus/pokedex.asm.
  *
  * DETAIL SCREEN
  *   ┌──────────────────┐
@@ -22,12 +20,14 @@
 #include "pokedex.h"
 #include "overworld.h"
 #include "npc.h"
+#include "player.h"
 #include "text.h"
 #include "pokemon.h"
 #include "constants.h"
 #include "../data/font_data.h"
 #include "../data/base_stats.h"
 #include "../data/dex_data.h"
+#include "../data/pokedex_tiles.h"
 #include "../data/pokemon_sprites.h"
 #include "../platform/hardware.h"
 #include "../platform/display.h"
@@ -55,7 +55,7 @@ static int ascii_tile(unsigned char c) {
     if (c == '/')  return Font_CharToTile(0xF3);
     if (c == ':')  return Font_CharToTile(0x9C);
     if (c == '"')  return Font_CharToTile(0xE0); /* approximate */
-    if (c == '>')  return Font_CharToTile(0xEC); /* ▶ arrow */
+    if (c == '>')  return Font_CharToTile(0xED); /* ▶ filled cursor */
     if (c == '#')  return Font_CharToTile(0xEB); /* № */
     return BLANK_TILE_SLOT;
 }
@@ -74,44 +74,6 @@ static void dex_num3(int col, int row, int n) {
     char buf[4];
     snprintf(buf, sizeof(buf), "%03d", n);
     dex_str(col, row, buf);
-}
-
-static void dex_box(int L, int T, int R, int B) {
-    dex_put(L, T, (uint8_t)Font_CharToTile(0x79)); /* ┌ */
-    dex_put(R, T, (uint8_t)Font_CharToTile(0x7B)); /* ┐ */
-    dex_put(L, B, (uint8_t)Font_CharToTile(0x7D)); /* └ */
-    dex_put(R, B, (uint8_t)Font_CharToTile(0x7E)); /* ┘ */
-    for (int c = L+1; c < R; c++) {
-        dex_put(c, T, (uint8_t)Font_CharToTile(0x7A)); /* ─ */
-        dex_put(c, B, (uint8_t)Font_CharToTile(0x7A));
-    }
-    for (int r = T+1; r < B; r++) {
-        dex_put(L, r, (uint8_t)Font_CharToTile(0x7C)); /* │ */
-        dex_put(R, r, (uint8_t)Font_CharToTile(0x7C));
-        dex_fill(L+1, r, R-L-1, (uint8_t)BLANK_TILE_SLOT);
-    }
-}
-
-/* ---- Type name lookup ------------------------------------------------ */
-static const char *type_name(uint8_t t) {
-    switch (t) {
-        case 0x00: return "NORMAL";
-        case 0x01: return "FIGHTNG";
-        case 0x02: return "FLYING";
-        case 0x03: return "POISON";
-        case 0x04: return "GROUND";
-        case 0x05: return "ROCK";
-        case 0x07: return "BUG";
-        case 0x08: return "GHOST";
-        case 0x14: return "FIRE";
-        case 0x15: return "WATER";
-        case 0x16: return "GRASS";
-        case 0x17: return "ELECTRC";
-        case 0x18: return "PSYCHIC";
-        case 0x19: return "ICE";
-        case 0x1A: return "DRAGON";
-        default:   return "?????";
-    }
 }
 
 /* ---- Pokédex seen/owned bit helpers ---------------------------------- */
@@ -134,7 +96,7 @@ static int count_bits(const uint8_t *arr, int len) {
 
 /* ---- State ----------------------------------------------------------- */
 #define DEX_SCREEN_LIST   0
-#define DEX_SCREEN_DETAIL 1
+#define DEX_SCREEN_SIDE   1
 #define DEX_VISIBLE       7     /* entries shown at once */
 #define DEX_MAX          151
 
@@ -142,128 +104,101 @@ static int gDexOpen   = 0;
 static int gDexScreen = DEX_SCREEN_LIST;
 static int gDexCursor = 1;  /* current dex number (1-151) */
 static int gDexScroll = 1;  /* top of visible window (1-151) */
+static int gDexSideCursor = 0; /* 0=DATA,1=CRY,2=AREA,3=QUIT */
+
+enum {
+    DEX_SIDE_DATA = 0,
+    DEX_SIDE_CRY  = 1,
+    DEX_SIDE_AREA = 2,
+    DEX_SIDE_QUIT = 3,
+};
+
+static void draw_list_cursor(void) {
+    for (int i = 0; i < DEX_VISIBLE; i++) {
+        int row = 3 + i * 2;
+        int dex_num = gDexScroll + i;
+        dex_put(0, row, (uint8_t)ascii_tile((gDexScreen == DEX_SCREEN_LIST && dex_num == gDexCursor) ? '>' : ' '));
+    }
+}
+
+static void draw_side_cursor(void) {
+    for (int i = 0; i < 4; i++) {
+        int row = 10 + i * 2;
+        dex_put(15, row, (uint8_t)ascii_tile((gDexScreen == DEX_SCREEN_SIDE && gDexSideCursor == i) ? '>' : ' '));
+    }
+}
 
 /* ---- List screen drawing -------------------------------------------- */
 static void draw_list(void) {
-    dex_box(0, 0, 19, 17);
+    extern uint8_t gScrollTileMap[];
+    memset(gScrollTileMap, BLANK_TILE_SLOT, SCROLL_MAP_W * (SCREEN_HEIGHT + 4));
+
+    /* Right divider and side box use the dedicated Pokédex tiles from ASM. */
+    dex_put(14, 0, 0x71);
+    for (int r = 1; r <= 8; r++)
+        dex_put(14, r, (uint8_t)(0x71 ^ ((r + 1) & 1)));
+    for (int r = 8; r <= 17; r++)
+        dex_put(14, r, (uint8_t)(0x71 ^ ((r - 9) & 1)));
+
+    for (int c = 15; c <= 19; c++)
+        dex_put(c, 8, (uint8_t)Font_CharToTile(0x7A));
+    dex_put(14, 8, 0x70);
 
     /* 7 visible entries */
     for (int i = 0; i < DEX_VISIBLE; i++) {
         int dex_num = gDexScroll + i;
-        int row     = 1 + i * 2;
+        int num_row  = 2 + i * 2;
+        int name_row = 3 + i * 2;
         if (dex_num > DEX_MAX) {
-            dex_fill(1, row, 18, (uint8_t)BLANK_TILE_SLOT);
+            dex_fill(1, num_row, 13, (uint8_t)BLANK_TILE_SLOT);
+            dex_fill(1, name_row, 13, (uint8_t)BLANK_TILE_SLOT);
             continue;
         }
 
-        /* cursor arrow */
-        dex_put(1, row, (uint8_t)ascii_tile(dex_num == gDexCursor ? '>' : ' '));
-
-        /* pokéball indicator: ● = owned, · = seen, space = unseen */
+        /* ASM list behavior: only owned mons get the Pokeball marker, and it
+         * sits on the name row rather than beside the number. */
         if (dex_owned(dex_num))
-            dex_put(2, row, (uint8_t)Font_CharToTile(0xA5)); /* filled circle */
-        else if (dex_seen(dex_num))
-            dex_put(2, row, (uint8_t)Font_CharToTile(0xAC)); /* open circle */
+            dex_put(4, name_row, 0x72);
         else
-            dex_put(2, row, (uint8_t)BLANK_TILE_SLOT);
+            dex_put(4, name_row, (uint8_t)BLANK_TILE_SLOT);
 
         /* dex number: №001 */
-        dex_put(3, row, (uint8_t)ascii_tile('#'));  /* № */
-        dex_num3(4, row, dex_num);
+        dex_num3(1, num_row, dex_num);
 
         /* name or dashes */
         if (dex_seen(dex_num) || dex_owned(dex_num)) {
             const char *name = Pokemon_GetName(dex_num);
-            dex_fill(8, row, 11, (uint8_t)BLANK_TILE_SLOT);
-            dex_str(8, row, name ? name : "?");
+            int name_col = dex_owned(dex_num) ? 5 : 4;
+            dex_fill(name_col, name_row, 10 - (name_col - 4), (uint8_t)BLANK_TILE_SLOT);
+            dex_str(name_col, name_row, name ? name : "?");
         } else {
-            for (int j = 8; j < 18; j++)
-                dex_put(j, row, (uint8_t)Font_CharToTile(0xE3)); /* --- */
+            for (int j = 4; j < 14; j++)
+                dex_put(j, name_row, (uint8_t)Font_CharToTile(0xE3)); /* --- */
         }
     }
+
+    dex_str(1, 1, "CONTENTS");
 
     /* SEEN / OWN counts */
     int seen_cnt = count_bits(wPokedexSeen, 19);
     int own_cnt  = count_bits(wPokedexOwned, 19);
-    char buf[20];
-    dex_fill(1, 15, 18, (uint8_t)BLANK_TILE_SLOT);
-    snprintf(buf, sizeof(buf), "SEEN:%3d OWN:%3d", seen_cnt, own_cnt);
-    dex_str(1, 15, buf);
-}
+    char buf[5];
+    dex_str(16, 2, "SEEN");
+    dex_fill(16, 3, 3, (uint8_t)BLANK_TILE_SLOT);
+    snprintf(buf, sizeof(buf), "%3d", seen_cnt);
+    dex_str(16, 3, buf);
+    dex_str(16, 5, "OWN");
+    dex_fill(16, 6, 3, (uint8_t)BLANK_TILE_SLOT);
+    snprintf(buf, sizeof(buf), "%3d", own_cnt);
+    dex_str(16, 6, buf);
 
-/* ---- Detail screen drawing ------------------------------------------ */
-static void draw_detail(int dex_num) {
-    dex_box(0, 0, 19, 17);
+    dex_str(16, 10, "DATA");
+    dex_str(16, 12, "CRY");
+    dex_str(16, 14, "AREA");
+    dex_str(16, 16, "QUIT");
 
-    const dex_entry_t *e = (dex_num >= 1 && dex_num <= 151) ? &gDexEntries[dex_num] : NULL;
-    const base_stats_t *b = NULL;
-    /* Find base_stats by dex_id */
-    for (int s = 1; s <= 151; s++) {
-        if (gBaseStats[s].dex_id == (uint8_t)dex_num) { b = &gBaseStats[s]; break; }
-    }
-
-    /* Line 1: №001 BULBASAUR */
-    char buf[22];
-    const char *name = Pokemon_GetName(dex_num);
-    snprintf(buf, sizeof(buf), "#%03d %s", dex_num, name ? name : "?");
-    dex_str(1, 1, buf);
-
-    if (!e || !dex_seen(dex_num)) {
-        dex_str(1, 3, "???");
-        dex_str(1, 5, "Not seen yet.");
-        dex_str(1, 15, "A:back");
-        return;
-    }
-
-    /* Line 2: SEED POKEMON */
-    if (e->category) {
-        snprintf(buf, sizeof(buf), "%s POKEMON", e->category);
-        dex_str(1, 3, buf);
-    }
-
-    /* Line 3: TYPE: GRASS/POISON */
-    if (b) {
-        const char *t1 = type_name(b->type1);
-        const char *t2 = type_name(b->type2);
-        if (b->type1 == b->type2)
-            snprintf(buf, sizeof(buf), "TYPE: %s", t1);
-        else
-            snprintf(buf, sizeof(buf), "TYPE: %s/%s", t1, t2);
-        dex_str(1, 5, buf);
-    }
-
-    /* Line 4: HT 2'04"  WT 1.5lb (only if owned) */
-    if (dex_owned(dex_num)) {
-        int lb_whole = e->weight / 10;
-        int lb_frac  = e->weight % 10;
-        snprintf(buf, sizeof(buf), "HT %d'%02d\"  WT %d.%dlb",
-                 e->height_ft, e->height_in, lb_whole, lb_frac);
-        dex_str(1, 7, buf);
-
-        /* Description text (first page only, up to row 13) */
-        if (e->description) {
-            const char *d = e->description;
-            int row = 9;
-            int col = 1;
-            for (; *d && row <= 13; d++) {
-                if (*d == '\\' && *(d+1) == 'f') {
-                    d++; row += 2; col = 1; /* page break */
-                } else if (*d == ' ' && col > 1) {
-                    /* word-wrap at col 18 */
-                    dex_put(col, row, (uint8_t)BLANK_TILE_SLOT);
-                    col++;
-                    if (col > 18) { col = 1; row += 2; }
-                } else {
-                    if (col > 18) { col = 1; row += 2; }
-                    if (row > 13) break;
-                    dex_put(col, row, (uint8_t)ascii_tile((unsigned char)*d));
-                    col++;
-                }
-            }
-        }
-    }
-
-    dex_str(1, 15, "A/B: back");
+    draw_list_cursor();
+    draw_side_cursor();
 }
 
 /* ---- Clamp scroll ---------------------------------------------------- */
@@ -280,12 +215,15 @@ static void clamp_scroll(void) {
 void Pokedex_Open(void) {
     gDexOpen   = 1;
     gDexScreen = DEX_SCREEN_LIST;
+    gDexSideCursor = 0;
     if (gDexCursor < 1)    gDexCursor = 1;
     if (gDexCursor > 151)  gDexCursor = 1;
     clamp_scroll();
 
     /* Hide all sprites (same as Menu_Open) */
     for (int i = 0; i < MAX_SPRITES; i++) wShadowOAM[i].y = 0;
+    hWY = 144;
+    PokedexTiles_Load();
     draw_list();
 }
 
@@ -295,6 +233,17 @@ void Pokedex_Tick(void) {
     if (!gDexOpen) return;
 
     extern uint8_t hJoyPressed;
+
+    if (Pokedex_IsShowingData()) {
+        Pokedex_ShowDataTick();
+        if (!Pokedex_IsShowingData()) {
+            gDexScreen = DEX_SCREEN_LIST;
+            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            PokedexTiles_Load();
+            draw_list();
+        }
+        return;
+    }
 
     if (gDexScreen == DEX_SCREEN_LIST) {
         if (hJoyPressed & PAD_UP) {
@@ -310,22 +259,69 @@ void Pokedex_Tick(void) {
             return;
         }
         if (hJoyPressed & PAD_A) {
-            /* Open detail for selected entry */
-            gDexScreen = DEX_SCREEN_DETAIL;
-            draw_detail(gDexCursor);
+            if (!dex_seen(gDexCursor))
+                return;
+            gDexSideCursor = DEX_SIDE_DATA;
+            gDexScreen = DEX_SCREEN_SIDE;
+            draw_list();
             return;
         }
         if (hJoyPressed & (PAD_B | PAD_START)) {
             gDexOpen = 0;
+            Display_LoadMapPalette();
+            Map_ReloadGfx();
+            Font_Load();
+            NPC_ReloadTiles();
             Map_BuildScrollView();
-            NPC_BuildView(0, 0);
+            NPC_BuildView(gScrollPxX, gScrollPxY);
             return;
         }
-    } else {
-        /* Detail screen: any A or B returns to list */
-        if (hJoyPressed & (PAD_A | PAD_B)) {
+    }
+
+    if (gDexScreen == DEX_SCREEN_SIDE) {
+        if (hJoyPressed & PAD_UP) {
+            if (gDexSideCursor > 0) gDexSideCursor--;
+            draw_list();
+            return;
+        }
+        if (hJoyPressed & PAD_DOWN) {
+            if (gDexSideCursor < DEX_SIDE_QUIT) gDexSideCursor++;
+            draw_list();
+            return;
+        }
+        if (hJoyPressed & PAD_B) {
             gDexScreen = DEX_SCREEN_LIST;
             draw_list();
+            return;
+        }
+        if (hJoyPressed & PAD_A) {
+            switch (gDexSideCursor) {
+            case DEX_SIDE_DATA:
+                Pokedex_ShowData(gDexCursor);
+                return;
+            case DEX_SIDE_CRY:
+                Audio_PlayCry(gDexToSpecies[gDexCursor]);
+                return;
+            case DEX_SIDE_AREA:
+                gDexScreen = DEX_SCREEN_LIST;
+                draw_list();
+                return;
+            case DEX_SIDE_QUIT:
+                gDexScreen = DEX_SCREEN_LIST;
+                draw_list();
+                return;
+            default:
+                return;
+            }
+        }
+        if (hJoyPressed & PAD_START) {
+            gDexOpen = 0;
+            Display_LoadMapPalette();
+            Map_ReloadGfx();
+            Font_Load();
+            NPC_ReloadTiles();
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
             return;
         }
     }
@@ -333,16 +329,16 @@ void Pokedex_Tick(void) {
 
 /* ---- Seen/Owned flags ------------------------------------------------ */
 void Pokedex_SetSeen(int species) {
-    if (species < 1 || species > 151) return;
-    int dex_num = (int)gBaseStats[species].dex_id;
+    if (species < 1 || species > 255) return;
+    int dex_num = (int)gSpeciesToDex[species];
     if (dex_num < 1 || dex_num > 151) return;
     int bit = dex_num - 1;
     wPokedexSeen[bit >> 3] |= (uint8_t)(1u << (bit & 7));
 }
 
 void Pokedex_SetOwned(int species) {
-    if (species < 1 || species > 151) return;
-    int dex_num = (int)gBaseStats[species].dex_id;
+    if (species < 1 || species > 255) return;
+    int dex_num = (int)gSpeciesToDex[species];
     if (dex_num < 1 || dex_num > 151) return;
     int bit = dex_num - 1;
     wPokedexOwned[bit >> 3] |= (uint8_t)(1u << (bit & 7));
@@ -362,15 +358,15 @@ void Pokedex_SetOwned(int species) {
  *   (2,8):     "No.XXX"
  *   (9,8):     "WT  XXX.Xlb"
  *   Row 9:     horizontal divider
- *   (1,11):    description text (slowtext, 1 char per frame)
+ *   (1,11):    description text (ASM TextCommandProcessor-style pacing)
  *   Row 17:    border bottom
  * ====================================================================== */
 
-/* ShowData sprite constants — reuse tile slots 0-48, OAM 0-48 */
-#define SD_SPR_TILE_BASE  0
-#define SD_SPR_OAM_BASE   0
-#define SD_SPR_PX_X       8    /* col 1 * 8px */
-#define SD_SPR_PX_Y       8    /* row 1 * 8px */
+/* ShowData picture constants — mirror the ASM's tilemap picture path.
+ * Reserve 49 BG tile slots for the 7x7 front sprite stamped at (1,1). */
+#define SD_PIC_TILE_BASE  32
+#define SD_PIC_COL        1
+#define SD_PIC_ROW        1
 
 /* ShowData state */
 static int         gShowDataActive = 0;
@@ -379,70 +375,211 @@ static const char *gShowDataDesc   = NULL;   /* current position in description 
 static int         gShowDataCol    = 1;
 static int         gShowDataRow    = 11;
 static int         gShowDataDone   = 0;      /* description finished, waiting for button */
-static int         gShowDataTimer  = 0;      /* letter delay counter */
+static int         gShowDataWaitCry = 0;     /* ASM PlayCry blocks before text */
+static int         gShowDataPageWait = 0;    /* waiting on a <PAGE>-style advance */
+static int         gShowDataDelay = 0;       /* ASM Delay3 before sprite load */
+static int         gShowDataOwned = 0;
+static int         gShowDataPicActive = 0;   /* picture tiles are still streaming in */
+static int         gShowDataPicTile = 0;     /* next 7x7 picture tile to upload */
+static int         gShowDataOpenWhite = 0;   /* entering data page through whiteout */
+static int         gShowDataCloseWhite = 0;  /* leaving data page through whiteout */
+static int         gShowDataWhiteTimer = 0;
 
-static void sd_load_sprite(int dex_num) {
-    if (dex_num < 1 || dex_num > 151) return;
-    /* Load tiles */
-    for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
-        Display_LoadSpriteTile((uint8_t)(SD_SPR_TILE_BASE + i),
-                               gPokemonFrontSprite[dex_num][i]);
-    /* Set up OAM — horizontally flipped (LoadFlippedFrontSpriteByMonIndex) */
-    for (int ty = 0; ty < 7; ty++) {
-        for (int tx = 0; tx < 7; tx++) {
-            int idx = SD_SPR_OAM_BASE + ty * 7 + tx;
-            wShadowOAM[idx].y    = (uint8_t)(SD_SPR_PX_Y + ty * 8 + OAM_Y_OFS);
-            wShadowOAM[idx].x    = (uint8_t)(SD_SPR_PX_X + tx * 8 + OAM_X_OFS);
-            wShadowOAM[idx].tile = (uint8_t)(SD_SPR_TILE_BASE + ty * 7 + (6 - tx));
-            wShadowOAM[idx].flags = OAM_FLAG_FLIP_X;
+static int sd_put_desc_token(uint8_t ch) {
+    if (gShowDataCol > 18 || gShowDataRow > 15)
+        return 0;
+    dex_put(gShowDataCol, gShowDataRow, ch);
+    gShowDataCol++;
+    return 1;
+}
+
+static int sd_put_desc_char(unsigned char c) {
+    return sd_put_desc_token((uint8_t)ascii_tile(c));
+}
+
+static int sd_step_desc(void) {
+    if (!gShowDataDesc || !*gShowDataDesc) {
+        gShowDataDone = 1;
+        return 0;
+    }
+
+    if (*gShowDataDesc == '\\' && gShowDataDesc[1] == 'f') {
+        gShowDataDesc += 2;
+        gShowDataPageWait = 1;
+        return 0;
+    }
+
+    if (*gShowDataDesc == '\\' && gShowDataDesc[1] == 'n') {
+        gShowDataDesc += 2;
+        gShowDataRow += 2;
+        gShowDataCol = 1;
+        return 0;
+    }
+
+    if (*gShowDataDesc == '#') {
+        gShowDataDesc++;
+        sd_put_desc_token((uint8_t)Font_CharToTile(0x8F)); /* P */
+        sd_put_desc_token((uint8_t)Font_CharToTile(0x8E)); /* O */
+        sd_put_desc_token((uint8_t)Font_CharToTile(0x8A)); /* K */
+        sd_put_desc_token((uint8_t)Font_CharToTile(0xBA)); /* é */
+        return 1;
+    }
+
+    if (sd_put_desc_char((unsigned char)*gShowDataDesc))
+        gShowDataDesc++;
+    else
+        gShowDataDone = 1;
+    return 1;
+}
+
+static void sd_render_page(void) {
+    while (!gShowDataDone && !gShowDataPageWait && gShowDataDesc && *gShowDataDesc) {
+        sd_step_desc();
+    }
+    if (!gShowDataPageWait && gShowDataDesc && *gShowDataDesc == '\0')
+        gShowDataDone = 1;
+}
+
+static void sd_draw_page_prompt(void) {
+    dex_put(18, 16, (uint8_t)Font_CharToTile(0xEE));
+}
+
+static void sd_clear_page_prompt(void) {
+    dex_put(18, 16, (uint8_t)BLANK_TILE_SLOT);
+}
+
+static void sd_clear_desc_area(void) {
+    for (int r = 10; r <= 16; r++) {
+        for (int c = 1; c <= 18; c++) {
+            dex_put(c, r, (uint8_t)BLANK_TILE_SLOT);
         }
     }
 }
 
+static void sd_clear_screen(void) {
+    extern uint8_t gScrollTileMap[];
+    memset(gScrollTileMap, BLANK_TILE_SLOT,
+           SCROLL_MAP_W * (SCREEN_HEIGHT + 4));
+}
+
+static void sd_fill_owned_details(int dex_num) {
+    const dex_entry_t *e = (dex_num >= 1 && dex_num <= 151) ? &gDexEntries[dex_num] : NULL;
+    if (!e || !dex_owned(dex_num))
+        return;
+
+    int lb_whole = e->weight / 10;
+    int lb_frac  = e->weight % 10;
+    char ht_digits[3];
+    char in_digits[3];
+    char wt_whole[5];
+
+    snprintf(ht_digits, sizeof(ht_digits), "%2d", e->height_ft);
+    snprintf(in_digits, sizeof(in_digits), "%02d", e->height_in);
+    dex_str(12, 6, ht_digits);
+    dex_str(15, 6, in_digits);
+
+    snprintf(wt_whole, sizeof(wt_whole), "%4d", lb_whole);
+    dex_str(11, 8, wt_whole);
+    dex_put(15, 8, (uint8_t)ascii_tile('.'));
+    dex_put(16, 8, (uint8_t)ascii_tile((unsigned char)('0' + lb_frac)));
+}
+
+static uint8_t sd_reverse_bits(uint8_t v) {
+    v = (uint8_t)(((v & 0xF0u) >> 4) | ((v & 0x0Fu) << 4));
+    v = (uint8_t)(((v & 0xCCu) >> 2) | ((v & 0x33u) << 2));
+    v = (uint8_t)(((v & 0xAAu) >> 1) | ((v & 0x55u) << 1));
+    return v;
+}
+
+static void sd_prime_sprite_slots(void) {
+    static const uint8_t kBlankTile[TILE_SIZE] = {0};
+
+    for (int ty = 0; ty < 7; ty++) {
+        for (int tx = 0; tx < 7; tx++) {
+            uint8_t tile_id = (uint8_t)(SD_PIC_TILE_BASE + ty * 7 + tx);
+            Display_LoadTile(tile_id, kBlankTile);
+            dex_put(SD_PIC_COL + tx, SD_PIC_ROW + ty, tile_id);
+        }
+    }
+}
+
+static void sd_begin_sprite_load(void) {
+    gShowDataPicActive = 1;
+    gShowDataPicTile = 0;
+}
+
+static int sd_step_sprite_load(int dex_num) {
+    if (dex_num < 1 || dex_num > 151)
+        return 0;
+
+    /* The original path goes through CopyVideoData, which transfers 8 2bpp
+     * tiles per frame. Mirror that here so the picture becomes visible over
+     * several frames instead of appearing all at once. */
+    for (int i = 0; i < 8 && gShowDataPicTile < 49; i++, gShowDataPicTile++) {
+        int ty = gShowDataPicTile / 7;
+        int tx = gShowDataPicTile % 7;
+        int src = ty * 7 + (6 - tx);
+        uint8_t flipped[TILE_SIZE];
+
+        for (int row = 0; row < 8; row++) {
+            flipped[row * 2 + 0] = sd_reverse_bits(gPokemonFrontSprite[dex_num][src][row * 2 + 0]);
+            flipped[row * 2 + 1] = sd_reverse_bits(gPokemonFrontSprite[dex_num][src][row * 2 + 1]);
+        }
+        Display_LoadTile((uint8_t)(SD_PIC_TILE_BASE + ty * 7 + tx), flipped);
+    }
+
+    if (gShowDataPicTile >= 49) {
+        gShowDataPicActive = 0;
+        return 0;
+    }
+    return 1;
+}
+
 static void sd_clear_sprite(void) {
-    for (int i = SD_SPR_OAM_BASE; i < SD_SPR_OAM_BASE + 49; i++) {
-        wShadowOAM[i].y = 0;
-        wShadowOAM[i].x = 0;
-        wShadowOAM[i].tile = 0;
-        wShadowOAM[i].flags = 0;
+    for (int ty = 0; ty < 7; ty++) {
+        for (int tx = 0; tx < 7; tx++) {
+            dex_put(SD_PIC_COL + tx, SD_PIC_ROW + ty, (uint8_t)BLANK_TILE_SLOT);
+        }
     }
 }
 
 static void sd_draw_screen(int dex_num) {
     extern uint8_t gScrollTileMap[];
     const dex_entry_t *e = (dex_num >= 1 && dex_num <= 151) ? &gDexEntries[dex_num] : NULL;
+    static const uint8_t kDexDivider[20] = {
+        0x68, 0x69, 0x6B, 0x69, 0x6B, 0x69, 0x6B, 0x69, 0x6B, 0x6B,
+        0x6B, 0x6B, 0x69, 0x6B, 0x69, 0x6B, 0x69, 0x6B, 0x69, 0x6A
+    };
 
     /* Clear entire scroll tile map */
     memset(gScrollTileMap, BLANK_TILE_SLOT,
            SCROLL_MAP_W * (SCREEN_HEIGHT + 4));
 
-    /* Border — using standard box tiles ($79-$7E) */
-    dex_put(0,  0,  (uint8_t)Font_CharToTile(0x79)); /* top-left */
-    dex_put(19, 0,  (uint8_t)Font_CharToTile(0x7B)); /* top-right */
-    dex_put(0,  17, (uint8_t)Font_CharToTile(0x7D)); /* bottom-left */
-    dex_put(19, 17, (uint8_t)Font_CharToTile(0x7E)); /* bottom-right */
+    /* Pokedex frame tiles from engine/menus/pokedex.asm. */
+    dex_put(0,  0,  0x63);
+    dex_put(19, 0,  0x65);
+    dex_put(0,  17, 0x6C);
+    dex_put(19, 17, 0x6E);
     for (int c = 1; c < 19; c++) {
-        dex_put(c, 0,  (uint8_t)Font_CharToTile(0x7A)); /* top edge */
-        dex_put(c, 17, (uint8_t)Font_CharToTile(0x7A)); /* bottom edge */
+        dex_put(c, 0,  0x64);
+        dex_put(c, 17, 0x6F);
     }
     for (int r = 1; r < 17; r++) {
-        dex_put(0,  r, (uint8_t)Font_CharToTile(0x7C)); /* left edge */
-        dex_put(19, r, (uint8_t)Font_CharToTile(0x7C)); /* right edge */
+        dex_put(0,  r, 0x66);
+        dex_put(19, r, 0x67);
     }
 
     /* Horizontal divider at row 9 */
     for (int c = 0; c < 20; c++)
-        dex_put(c, 9, (uint8_t)Font_CharToTile(0x7A));
+        dex_put(c, 9, kDexDivider[c]);
 
     /* Pokemon name at (9,2) */
     const char *name = Pokemon_GetName((uint8_t)dex_num);
     if (name) dex_str(9, 2, name);
 
-    /* Species category at (9,4) — e.g. "LIZARD #MON" */
+    /* Species category at (9,4) — the raw category string only. */
     if (e && e->category) {
-        char cat_buf[20];
-        snprintf(cat_buf, sizeof(cat_buf), "%s #MON", e->category);
-        dex_str(9, 4, cat_buf);
+        dex_str(9, 4, e->category);
     }
 
     /* No.XXX at (2,8) */
@@ -453,20 +590,16 @@ static void sd_draw_screen(int dex_num) {
         dex_str(2, 8, num_buf);
     }
 
-    /* Height & Weight (only if owned) */
-    if (dex_owned(dex_num) && e) {
-        /* HT at (9,6): "HT  X'YY" */
-        char ht_buf[12];
-        snprintf(ht_buf, sizeof(ht_buf), "HT  %d'%02d\"", e->height_ft, e->height_in);
-        dex_str(9, 6, ht_buf);
+    /* Height / Weight template matches HeightWeightText in the ASM.
+     * Prime/double-prime glyphs come from the Pokédex tile sheet at $60/$61. */
+    dex_str(9, 6, "HT  ?");
+    dex_put(14, 6, 0x60);
+    dex_put(15, 6, (uint8_t)ascii_tile('?'));
+    dex_put(16, 6, (uint8_t)ascii_tile('?'));
+    dex_put(17, 6, 0x61);
+    dex_str(9, 8, "WT   ???lb");
 
-        /* WT at (9,8): "WT  XXX.Xlb" */
-        char wt_buf[14];
-        int lb_whole = e->weight / 10;
-        int lb_frac  = e->weight % 10;
-        snprintf(wt_buf, sizeof(wt_buf), "WT %4d.%dlb", lb_whole, lb_frac);
-        dex_str(9, 8, wt_buf);
-    }
+    (void)e;
 }
 
 void Pokedex_ShowData(int dex_num) {
@@ -477,7 +610,15 @@ void Pokedex_ShowData(int dex_num) {
     gShowDataActive = 1;
     gShowDataDex    = dex_num;
     gShowDataDone   = 0;
-    gShowDataTimer  = 0;
+    gShowDataWaitCry = 1;
+    gShowDataPageWait = 0;
+    gShowDataDelay = 6;
+    gShowDataOwned = dex_owned(dex_num);
+    gShowDataPicActive = 0;
+    gShowDataPicTile = 0;
+    gShowDataOpenWhite = 1;
+    gShowDataCloseWhite = 0;
+    gShowDataWhiteTimer = 8;
 
     /* Set up description pointer (only if owned) */
     if (dex_owned(dex_num) && e->description) {
@@ -491,81 +632,81 @@ void Pokedex_ShowData(int dex_num) {
 
     /* Hide all overworld sprites */
     for (int i = 0; i < MAX_SPRITES; i++) wShadowOAM[i].y = 0;
+    sd_clear_sprite();
 
     /* Disable window layer (text box) */
     hWY = 144;
-
-    /* Draw the screen layout */
-    sd_draw_screen(dex_num);
-
-    /* Load and display front sprite (flipped) */
-    sd_load_sprite(dex_num);
-
-    /* Play cry — Audio_PlayCry takes species ID, not dex number */
-    Audio_PlayCry(gDexToSpecies[dex_num]);
+    sd_clear_screen();
+    Display_SetPalette(0x00, 0x00, 0x00);
 }
 
 void Pokedex_ShowDataTick(void) {
     if (!gShowDataActive) return;
 
-    if (!gShowDataDone) {
-        /* Slowtext: render one character per frame.
-         * Description area: rows 11-16, cols 1-18 (inside border). */
-        if (gShowDataDesc && *gShowDataDesc) {
-            char c = *gShowDataDesc++;
+    if (gShowDataOpenWhite) {
+        if (--gShowDataWhiteTimer > 0)
+            return;
+        gShowDataOpenWhite = 0;
+        PokedexTiles_Load();
+        sd_draw_screen(gShowDataDex);
+        sd_prime_sprite_slots();
+        Display_SetPalette(0xE4, 0xD0, 0xE0);
+        return;
+    }
 
-            if (c == '\\' && *gShowDataDesc == 'f') {
-                /* \f = line break in dex description (matches NEXT/LINE) */
-                gShowDataDesc++;
-                gShowDataRow++;
-                gShowDataCol = 1;
-            } else if (c == '\n') {
-                gShowDataRow++;
-                gShowDataCol = 1;
-            } else if (c == ' ') {
-                /* Word-wrap look-ahead: if the next word won't fit on this
-                 * line, wrap now instead of placing the space. */
-                int next_word_len = 0;
-                const char *p = gShowDataDesc;
-                while (*p && *p != ' ' && *p != '\\' && *p != '\n')
-                    { next_word_len++; p++; }
-                if (gShowDataCol + next_word_len >= 18) {
-                    /* Wrap — skip the space, start next line */
-                    gShowDataRow++;
-                    gShowDataCol = 1;
-                } else if (gShowDataCol >= 18) {
-                    gShowDataRow++;
-                    gShowDataCol = 1;
-                } else {
-                    if (gShowDataRow <= 16)
-                        dex_put(gShowDataCol, gShowDataRow, (uint8_t)BLANK_TILE_SLOT);
-                    gShowDataCol++;
-                }
-            } else {
-                if (gShowDataCol >= 18) {
-                    gShowDataRow++;
-                    gShowDataCol = 1;
-                }
-                if (gShowDataRow <= 16) {
-                    dex_put(gShowDataCol, gShowDataRow,
-                            (uint8_t)ascii_tile((unsigned char)c));
-                }
-                gShowDataCol++;
-            }
+    if (gShowDataCloseWhite) {
+        if (--gShowDataWhiteTimer > 0)
+            return;
+        gShowDataCloseWhite = 0;
+        gShowDataActive = 0;
+        return;
+    }
 
-            /* Stop if we've gone past the displayable area */
-            if (gShowDataRow > 16) gShowDataDone = 1;
-        } else {
-            gShowDataDone = 1;
+    if (gShowDataDelay > 0) {
+        gShowDataDelay--;
+        if (gShowDataDelay == 0) {
+            sd_begin_sprite_load();
+        }
+        return;
+    }
+
+    if (gShowDataPicActive) {
+        if (!sd_step_sprite_load(gShowDataDex)) {
+            Audio_PlayCry(gDexToSpecies[gShowDataDex]);
+        }
+        return;
+    }
+
+    if (gShowDataWaitCry) {
+        if (Audio_IsCryPlaying())
+            return;
+        gShowDataWaitCry = 0;
+        if (gShowDataOwned) {
+            sd_fill_owned_details(gShowDataDex);
+            sd_render_page();
         }
     }
 
+    if (gShowDataPageWait) {
+        sd_draw_page_prompt();
+        if (!(hJoyPressed & (PAD_A | PAD_B)))
+            return;
+        sd_clear_page_prompt();
+        sd_clear_desc_area();
+        gShowDataPageWait = 0;
+        gShowDataRow = 11;
+        gShowDataCol = 1;
+        sd_render_page();
+        return;
+    }
+
     if (gShowDataDone) {
-        /* Wait for A or B press */
         if (hJoyPressed & (PAD_A | PAD_B)) {
-            /* Clean up and exit */
             sd_clear_sprite();
-            gShowDataActive = 0;
+            sd_clear_screen();
+            Display_SetPalette(0x00, 0x00, 0x00);
+            gShowDataCloseWhite = 1;
+            gShowDataWhiteTimer = 8;
         }
     }
 }

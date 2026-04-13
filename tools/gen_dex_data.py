@@ -88,7 +88,8 @@ def load_dex_text():
     texts = {}  # label (e.g. "Bulbasaur") → str
 
     label_pat = re.compile(r'^_(\w+)DexEntry::')
-    text_pat  = re.compile(r'(?:text|next)\s+"([^"]*)"')
+    text_pat  = re.compile(r'text\s+"([^"]*)"')
+    next_pat  = re.compile(r'next\s+"([^"]*)"')
     page_pat  = re.compile(r'page\s+"([^"]*)"')
     end_pat   = re.compile(r'\bdex\b')
 
@@ -98,7 +99,7 @@ def load_dex_text():
 
     def flush(label, pages, cur_pg):
         if cur_pg:
-            pages.append(" ".join(cur_pg))
+            pages.append("\\n".join(cur_pg))
         if label:
             texts[label] = "\\f".join(pages)
 
@@ -121,13 +122,20 @@ def load_dex_text():
 
             m = text_pat.search(s)
             if m:
+                cur_pg = [m.group(1)]
+                continue
+
+            m = next_pat.search(s)
+            if m:
+                if not cur_pg:
+                    cur_pg = [""]
                 cur_pg.append(m.group(1))
                 continue
 
             m = page_pat.search(s)
             if m:
                 if cur_pg:
-                    pages.append(" ".join(cur_pg))
+                    pages.append("\\n".join(cur_pg))
                 cur_pg = [m.group(1)]
                 continue
 

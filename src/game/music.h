@@ -38,6 +38,9 @@
 #define MUSIC_MEET_MALE_TRAINER    33
 #define MUSIC_MEET_FEMALE_TRAINER  34
 #define MUSIC_MUSEUM_GUY          35
+#define MUSIC_MEET_EVIL_TRAINER   36
+#define MUSIC_SURFING             37
+#define MUSIC_MEET_PROF_OAK       38  /* Oak appears / Professor Oak theme */
 
 /* Play a music track (stops any current music first).
  * music_id: one of MUSIC_* above; MUSIC_NONE stops playback. */

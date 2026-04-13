@@ -93,9 +93,18 @@ set(SOURCES
     src/game/viridian_mart_scripts.c
     src/game/mtmoon_scripts.c
     src/game/cerulean_scripts.c
+    src/game/route22_scripts.c
     src/game/route24_scripts.c
     src/game/bills_house_scripts.c
+    src/game/pc_menu.c
+    src/game/route2gate_scripts.c
     src/game/ss_anne_scripts.c
+    src/game/vermilion_gym_scripts.c
+    src/game/yesno.c
+    src/game/tmhm.c
+    src/game/field_moves.c
+    src/game/pokeflute.c
+    src/data/tmhm_data.c
     src/data/dex_data.c
     src/game/debug_overlay.c
     src/game/debug_cli.c
@@ -105,6 +114,7 @@ set(SOURCES
     src/data/sprite_data.c
     src/data/party_icon_data.c
     src/data/font_data.c
+    src/data/pokedex_tiles.c
     src/data/player_sprite.c
     src/data/pokemon_sprites.c
     src/data/cry_data.c
@@ -157,6 +167,9 @@ set(TEST_GAME_SOURCES
     src/game/npc.c
     src/game/text.c
     src/game/inventory.c
+    src/game/party_menu.c
+    src/game/summary_screen.c
+    src/data/party_icon_data.c
     src/game/pokecenter.c
     src/game/pokemart.c
     src/data/base_stats.c
@@ -169,6 +182,7 @@ set(TEST_GAME_SOURCES
     src/data/connection_data.c
     src/data/sprite_data.c
     src/data/font_data.c
+    src/data/pokedex_tiles.c
     src/data/player_sprite.c
     src/data/pokemon_sprites.c
     src/game/battle/battle_damage.c
@@ -189,9 +203,18 @@ set(TEST_GAME_SOURCES
     src/game/viridian_mart_scripts.c
     src/game/mtmoon_scripts.c
     src/game/cerulean_scripts.c
+    src/game/route22_scripts.c
     src/game/route24_scripts.c
     src/game/bills_house_scripts.c
+    src/game/pc_menu.c
+    src/game/route2gate_scripts.c
     src/game/ss_anne_scripts.c
+    src/game/vermilion_gym_scripts.c
+    src/game/yesno.c
+    src/game/tmhm.c
+    src/game/field_moves.c
+    src/game/pokeflute.c
+    src/data/tmhm_data.c
     src/game/pokedex.c
     src/game/pallet_scripts.c
     src/game/pokemon.c
@@ -218,6 +241,7 @@ set(TEST_SOURCES
     tests/test_battle_switch.c
     tests/test_battle_trainer.c
     tests/test_battle_init.c
+    tests/test_pokemon_storage.c
 )
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})
 target_include_directories(pokered_tests PRIVATE src tests)

@@ -41,11 +41,13 @@
 #include "trainer_sight.h"
 #include "party_menu.h"
 #include "pokecenter.h"
+#include "pc_menu.h"
 #include "pokemart.h"
 #include "music.h"
 #include "../platform/audio.h"
 #include "debug_cli.h"
 #include "gate_scripts.h"
+#include "vermilion_gym_scripts.h"
 #include "pokedex.h"
 #include "main_menu.h"
 #include "intro.h"
@@ -55,9 +57,14 @@
 #include "viridian_mart_scripts.h"
 #include "mtmoon_scripts.h"
 #include "cerulean_scripts.h"
+#include "route22_scripts.h"
 #include "route24_scripts.h"
 #include "bills_house_scripts.h"
+#include "route2gate_scripts.h"
 #include "ss_anne_scripts.h"
+#include "tmhm.h"
+#include "field_moves.h"
+#include "pokeflute.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,12 +97,16 @@ static void fire_map_onload_callbacks(void) {
     OaksLabScripts_OnMapLoad();
     ViridianMartScripts_OnMapLoad();
     MtMoon_OnMapLoad();
+    Route22Scripts_OnMapLoad();
     CeruleanScripts_OnMapLoad();
     Route24Scripts_OnMapLoad();
     BillsHouseScripts_OnMapLoad();
+    Route2GateScripts_OnMapLoad();
     SSAnneScripts_OnMapLoad();
+    VermilionGymScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
+    PokeFlute_LoadMap();
 }
 
 static void enter_overworld(void) {
@@ -112,6 +123,7 @@ static void enter_overworld(void) {
 void GameInit(void) {
     extern void WRAMClear(void);
     WRAMClear();
+    wLastBlackoutMap = 0xFF;  /* default before any pokecenter heal (mirrors NewGameWarp) */
 
     int save_ok = (Save_Load() == 0);
     if (save_ok)
@@ -265,6 +277,8 @@ static void check_item_pickup(void) {
             } else {
                 snprintf(pickup_msg, sizeof(pickup_msg), "Found %s!", name);
             }
+            /* Play pickup jingle on successful overworld item collection. */
+            Audio_PlaySFX_GetItem1();
         } else {
             snprintf(pickup_msg, sizeof(pickup_msg), "No room for\nmore items!");
         }
@@ -360,6 +374,15 @@ static void check_hidden_event(void) {
             Text_ShowASCII(h->text);
         return;
     }
+}
+
+/* A-button interaction: check for cuttable tree in front of player.
+ * Mirrors UsedCut (engine/overworld/cut.asm): checks block ID at the facing
+ * tile, requires CASCADE badge + a party mon with Cut, then shows YesNo. */
+static void check_cut_tree(void) {
+    if (!(hJoyPressed & PAD_A)) return;
+    if (Player_IsMoving()) return;
+    FieldMove_TryCut();
 }
 
 /* A-button interaction: check sign at the tile in front of the player */
@@ -469,8 +492,33 @@ void GameTick(void) {
         return;
     }
 
+    if (TMHM_IsActive()) {
+        TMHM_Tick();
+        /* While the party-select menu is open inside the TMHM flow, let
+         * PartyMenu own the screen — do not rebuild/overwrite map tiles. */
+        if (!PartyMenu_IsOpen()) {
+            Map_BuildScrollView();
+            TMHM_PostRender();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
+        return;
+    }
+
+    if (FieldMove_IsActive()) {
+        FieldMove_Tick();
+        Map_BuildScrollView();
+        FieldMove_PostRender();
+        NPC_BuildView(gScrollPxX, gScrollPxY);
+        return;
+    }
+
     if (Pokedex_IsOpen()) {
         Pokedex_Tick();
+        return;
+    }
+
+    if (PCMenu_IsOpen()) {
+        PCMenu_Tick();
         return;
     }
 
@@ -481,10 +529,13 @@ void GameTick(void) {
     if (PartyMenu_IsOpen() && gScene != SCENE_BATTLE) {
         PartyMenu_Tick();
         if (!PartyMenu_IsOpen()) {
-            /* Party menu closed — restore overworld graphics */
-            Display_SetPalette(0xE4, 0xD0, 0xE0);
+            /* Party menu closed — restore overworld graphics.
+             * PartyIcons_LoadTiles() overwrote NPC sprite VRAM slots;
+             * NPC_ReloadTiles() restores GFX without resetting facing/pos. */
+            Display_LoadMapPalette();  /* respects gMapPalOffset (darkness) */
             Map_ReloadGfx();
             Font_Load();
+            NPC_ReloadTiles();
             Map_BuildScrollView();
             NPC_BuildView(gScrollPxX, gScrollPxY);
         }
@@ -541,24 +592,45 @@ void GameTick(void) {
 
             {
                 int was_gym_trainer    = GymScripts_ConsumeGymTrainer();
-                int was_cerulean_rival = CeruleanScripts_ConsumeRivalBattle();
-                int was_rocket_r24     = Route24Scripts_ConsumeRocketBattle();
+                int was_route22_rival  = Route22Scripts_ConsumeRivalBattle();
+                int was_cerulean_rival  = CeruleanScripts_ConsumeRivalBattle();
+                int was_cerulean_rocket = CeruleanScripts_ConsumeRocketBattle();
+                int was_rocket_r24      = Route24Scripts_ConsumeRocketBattle();
                 int was_ss_anne_rival  = SSAnneScripts_ConsumeRivalBattle();
+                printf("[battle end] result=%u engaged=(class=%u no=%u) gymleader=%u flags: gym=%d route22=%d cerulean_rival=%d cerulean_rocket=%d route24_rocket=%d ssanne=%d\n",
+                       (unsigned)saved_battle_result,
+                       (unsigned)gEngagedTrainerClass,
+                       (unsigned)gEngagedTrainerNo,
+                       (unsigned)wGymLeaderNo,
+                       was_gym_trainer,
+                       was_route22_rival,
+                       was_cerulean_rival,
+                       was_cerulean_rocket,
+                       was_rocket_r24,
+                       was_ss_anne_rival);
                 if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
                     if (wGymLeaderNo)
                         GymScripts_OnVictory();
                     else if (was_gym_trainer)
                         GymScripts_OnGymTrainerVictory();
+                    else if (was_route22_rival)
+                        Route22Scripts_OnVictory();
                     else if (was_cerulean_rival)
                         CeruleanScripts_OnVictory();
+                    else if (was_cerulean_rocket)
+                        CeruleanScripts_OnRocketVictory();
                     else if (was_rocket_r24)
                         Route24Scripts_OnVictory();
                     else if (was_ss_anne_rival)
                         SSAnneScripts_OnVictory();
                     else
                         Trainer_MarkCurrentDefeated();
+                } else if (was_route22_rival) {
+                    Route22Scripts_OnDefeat();
                 } else if (was_cerulean_rival) {
                     CeruleanScripts_OnDefeat();
+                } else if (was_cerulean_rocket) {
+                    CeruleanScripts_OnRocketDefeat();
                 } else if (was_rocket_r24) {
                     Route24Scripts_OnDefeat();
                 } else if (was_ss_anne_rival) {
@@ -566,16 +638,56 @@ void GameTick(void) {
                 }
             }
 
+            {
+                int was_snorlax = PokeFlute_ConsumeSnorlaxPostBattle();
+                if (was_snorlax) {
+                    if (saved_battle_result == BATTLE_OUTCOME_WILD_VICTORY)
+                        PokeFlute_OnSnorlaxVictory();
+                    else if (saved_battle_result == BATTLE_OUTCOME_CAUGHT)
+                        PokeFlute_OnSnorlaxCaught();
+                    /* BLACKOUT/RUN: no callback, normal handling applies */
+                }
+            }
+
             gScene = SCENE_OVERWORLD;
             gStepJustCompleted = 0;
             memset(wShadowOAM, 0, sizeof(wShadowOAM));
-            if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
-                /* Palette is already white from BUI_FADE_WHITE — fade in from white. */
-                gWarpPhase     = WARP_FADE_IN;
-                gWarpStep      = 0;
-                gWarpStepTimer = FADE_TICKS_PER_STEP;
+            if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY ||
+                saved_battle_result == BATTLE_OUTCOME_WILD_VICTORY    ||
+                saved_battle_result == BATTLE_OUTCOME_CAUGHT) {
+                if (wEvolutionOccurred) {
+                    /* BUI_EVOLUTION snapped the palette back to normal — no
+                     * fade-in needed; just load the map palette directly. */
+                    Display_LoadMapPalette();
+                } else {
+                    /* Palette is already white from BUI_FADE_WHITE — fade in from white. */
+                    gWarpPhase     = WARP_FADE_IN;
+                    gWarpStep      = 0;
+                    gWarpStepTimer = FADE_TICKS_PER_STEP;
+                }
+            } else if (saved_battle_result == BATTLE_OUTCOME_BLACKOUT) {
+                /* Mirrors HandleBlackOut: heal party, warp to last pokecenter / mom's house. */
+                for (int i = 0; i < wPartyCount; i++) {
+                    wPartyMons[i].base.hp     = wPartyMons[i].max_hp;
+                    wPartyMons[i].base.status = 0;
+                }
+                if (wLastBlackoutMap == 0xFF) {
+                    wCurMap = 0x25;  /* REDS_HOUSE_1F — default before any pokecenter visit */
+                    wXCoord = 3;
+                    wYCoord = 5;
+                } else {
+                    wCurMap = wLastBlackoutMap;  /* last pokecenter healed at */
+                    wXCoord = 3;
+                    wYCoord = 7;  /* standard pokecenter entrance spawn */
+                }
+                /* Load the destination map data (geometry, connections, tileset).
+                 * Map_ReloadGfx() below only restores tile GFX — it won't load a
+                 * different map. This must come before Map_ReloadGfx / NPC_Load. */
+                Map_Load(wCurMap);
+                Player_SetPos(wXCoord, wYCoord);
+                Display_LoadMapPalette();
             } else {
-                Display_SetPalette(0xE4, 0xD0, 0xE0);
+                Display_LoadMapPalette();
             }
             Map_ReloadGfx();
             Map_ResetScrollState();
@@ -639,8 +751,11 @@ void GameTick(void) {
                 Map_BuildScrollView();
                 NPC_BuildView(0, 0);
                 Player_SyncOAM();
-                Display_SetPalette(0xE4, 0xD0, 0xE0);  /* snap to normal */
-                Music_Play(Music_GetMapID(wCurMap));     /* start new map's music */
+                Display_LoadMapPalette();  /* snap to map palette (respects gMapPalOffset / darkness) */
+                /* Skip map music if a script is already playing something
+                 * (e.g. SS Anne departure starts MUSIC_SURFING in OnMapLoad). */
+                if (!SSAnneScripts_IsActive())
+                    Music_Play(Music_GetMapID(wCurMap));
                 gWarpPhase = WARP_NONE;
             }
         }
@@ -826,6 +941,39 @@ void GameTick(void) {
         }
     }
 
+    /* ---- Route 22 rival battle script ---------------------------------- */
+    {
+        Route22Scripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (Route22Scripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (Route22Scripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
     /* ---- Cerulean City rival battle script ----------------------------- */
     {
         CeruleanScripts_Tick();
@@ -899,6 +1047,20 @@ void GameTick(void) {
             NPC_Update();
             if (!Text_IsOpen()) {
                 Map_BuildScrollView();
+                BillsHouseScripts_PostRender();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Route 2 Gate Oak's aide HM05 FLASH event ---------------------- */
+    {
+        Route2GateScripts_Tick();
+        if (Route2GateScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
                 NPC_BuildView(gScrollPxX, gScrollPxY);
             }
             return;
@@ -921,7 +1083,7 @@ void GameTick(void) {
                 gEngagedTrainerClass = tr_class;
                 gEngagedTrainerNo    = tr_no;
                 memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
-                Music_Play(MUSIC_MEET_RIVAL);
+                Music_Play(MUSIC_TRAINER_BATTLE);
                 gPendingTrainerBattle = 1;
                 BattleTransition_Start(1, 0, player_level);
                 gScene = SCENE_BTRANS;
@@ -929,9 +1091,20 @@ void GameTick(void) {
             }
         }
         if (SSAnneScripts_IsActive()) {
+            /* During walk-out, drive the player update and fire warps normally. */
+            if (SSAnneScripts_IsWalkingOut()) {
+                Player_Update();
+                if (Warp_JustHappened()) {
+                    gWarpPhase     = WARP_FADE_OUT;
+                    gWarpStep      = 0;
+                    gWarpStepTimer = FADE_TICKS_PER_STEP;
+                    return;
+                }
+            }
             NPC_Update();
             if (!Text_IsOpen()) {
                 Map_BuildScrollView();
+                SSAnneScripts_PostBuildScrollView();
                 NPC_BuildView(gScrollPxX, gScrollPxY);
             }
             return;
@@ -971,6 +1144,7 @@ void GameTick(void) {
     if (Text_IsOpen()) return;
     check_sign_interact();
     if (Text_IsOpen()) return;
+    check_cut_tree();
 
     /* Door step-out: fire once on the first normal frame after arriving on a
      * door tile (mirrors PlayerStepOutFromDoor / BIT_STANDING_ON_DOOR). */
@@ -982,9 +1156,30 @@ void GameTick(void) {
      * begin_step's camera update is in sync with Map_BuildScrollView below,
      * preventing the scroll snap that occurs when text is open. */
     Gate_ViridianDoPush();
+    Gate_SaffronDoPush();
+    Gate_Route22DoPush();
+    VermilionScripts_DoPush();
     Gate_PewterTick();
 
+    if (PokeFlute_ConsumeSnorlaxBattle()) {
+        wCurPartySpecies = SPECIES_SNORLAX;
+        wCurEnemyLevel   = 30;
+        Music_Play(MUSIC_WILD_BATTLE);
+        int player_level = 5;
+        for (int i = 0; i < wPartyCount; i++) {
+            if (wPartyMons[i].base.hp > 0) {
+                player_level = wPartyMons[i].level;
+                break;
+            }
+        }
+        memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+        BattleTransition_Start(0, 30, player_level);
+        gScene = SCENE_BTRANS;
+        return;
+    }
+
     Player_Update();
+    SSAnneScripts_WarpCheck();
 
     /* If a warp just fired: begin GBFadeOutToBlack.
      * Map_BuildScrollView is deferred until fade-out completes (fully black),
@@ -1005,11 +1200,15 @@ void GameTick(void) {
         /* Position triggers that fire on step arrival (mirrors map scripts
          * that check wXCoord/wYCoord every frame in the original). */
         Gate_ViridianStepCheck();
+        Gate_Route22StepCheck();
+        Gate_SaffronStepCheck();
         Gate_PewterEastCheck();
         MtMoon_StepCheck();
+        Route22Scripts_StepCheck();
         CeruleanScripts_StepCheck();
         Route24Scripts_StepCheck();
         SSAnneScripts_StepCheck();
+        VermilionScripts_StepCheck();
         if (Text_IsOpen()) return;
         /* Trainer sight check has priority over wild encounters (mirrors
          * CheckFightingMapTrainers running before CheckForBattleAfterStep). */

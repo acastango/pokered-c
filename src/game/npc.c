@@ -110,6 +110,18 @@ static void apply_npc_oam_facing(int i) {
 
 /* ---- Public API -------------------------------------------------- */
 
+/* Reload sprite tile GFX for all active NPCs without touching facing/position.
+ * Call after any VRAM-overwriting operation (party menu, bag menu, etc.) that
+ * doesn't change map state — mirrors InitMapSprites in home/overworld.asm. */
+void NPC_ReloadTiles(void) {
+    for (int i = 0; i < npc_count; i++) {
+        if (!npc_hidden[i]) {
+            reload_npc_tiles(i);
+            apply_npc_oam_facing(i);
+        }
+    }
+}
+
 void NPC_Load(void) {
     for (int i = 0; i < MAX_NPCS * 4; i++) {
         wShadowOAM[NPC_OAM_BASE + i].y = 0;
@@ -187,6 +199,15 @@ void NPC_ShowSprite(int npc_slot_idx) {
 void NPC_HideAll(void) {
     for (int i = 0; i < MAX_NPCS; i++)
         NPC_HideSprite(i);
+}
+
+/* Zero all NPC OAM Y positions without touching npc_hidden flags.
+ * Use before opening a menu that overwrites NPC sprite VRAM slots.
+ * NPC_BuildView() restores correct positions on menu close, and
+ * npc_hidden is preserved so picked-up items stay hidden. */
+void NPC_HideOAM(void) {
+    for (int i = 0; i < MAX_NPCS * 4; i++)
+        wShadowOAM[NPC_OAM_BASE + i].y = 0;
 }
 
 void NPC_ShowAll(void) {

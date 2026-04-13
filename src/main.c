@@ -186,12 +186,18 @@ int main(int argc, char *argv[]) {
                     printf("[bug] Screenshot failed.\n");
                 }
             }
-            /* F3 = toggle collision overlay */
+            /* F3 = toggle block-ID overlay; Shift+F3 = toggle collision overlay */
             if (ev.type == SDL_KEYDOWN &&
                 ev.key.keysym.scancode == SDL_SCANCODE_F3) {
-                int on = !Debug_CollisionOverlayOn();
-                Debug_SetCollisionOverlay(on);
-                printf("[debug] Collision overlay %s\n", on ? "ON" : "OFF");
+                if (ev.key.keysym.mod & KMOD_SHIFT) {
+                    int on = !Debug_CollisionOverlayOn();
+                    Debug_SetCollisionOverlay(on);
+                    printf("[debug] Collision overlay %s\n", on ? "ON" : "OFF");
+                } else {
+                    int on = !Display_GetBlockIDOverlay();
+                    Display_SetBlockIDOverlay(on);
+                    printf("[debug] Block-ID overlay %s\n", on ? "ON" : "OFF");
+                }
             }
             /* F4 = toggle no-clip */
             if (ev.type == SDL_KEYDOWN &&

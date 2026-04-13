@@ -250,8 +250,8 @@ void PalletScripts_Tick(void) {
         /* ld a, PLAYER_DIR_DOWN / ld [wPlayerMovingDirection], a */
         gPlayerFacing = DIR_DOWN;
 
-        /* PlaySound(SFX_STOP_ALL_MUSIC) + PlayMusic(MUSIC_OAKS_LAB) */
-        Music_Play(MUSIC_OAKS_LAB);
+        /* PlaySound(SFX_STOP_ALL_MUSIC) + PlayMusic(MUSIC_MEET_PROF_OAK) */
+        Music_Play(MUSIC_MEET_PROF_OAK);
 
         /* ld a, PAD_SELECT | PAD_START | PAD_CTRL_PAD / ld [wJoyIgnore], a */
         gScriptedMovement = 1;

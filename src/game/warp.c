@@ -28,6 +28,7 @@
 #include "npc.h"
 #include "../platform/hardware.h"
 #include "../platform/audio.h"
+#include "../platform/display.h"
 #include "../data/event_data.h"
 #include "../data/map_data.h"
 #include "../game/constants.h"
@@ -378,6 +379,19 @@ void Warp_Execute(void) {
     uint8_t dest_idx = gPendingDestIdx;
 
     Map_Load(dest_map);   /* loads new tileset GFX into tile_gfx[] */
+
+    /* Mirrors wMapPalOffset logic in home/overworld.asm:
+     * - Enter ROCK_TUNNEL_1F from outside → darkness on (offset=6)
+     * - Return to outdoor map → darkness off (offset=0)
+     * - Other indoor-to-indoor transitions → preserve current offset
+     * ROCK_TUNNEL_B1F inherits darkness because it's not outdoor. */
+    if (dest_map == 0x52 /* ROCK_TUNNEL_1F */) {
+        gMapPalOffset = 6;
+    } else if (wCurMapTileset == TILESET_OVERWORLD ||
+               wCurMapTileset == TILESET_PLATEAU) {
+        gMapPalOffset = 0;
+    }
+    Display_LoadMapPalette();
     /* Suppress joypad for 8 overworld ticks (~16 VBlanks) after arrival.
      * Mirrors IgnoreInputForHalfSecond / wJoyIgnore set in EnterMap.
      * Prevents a held direction from immediately re-triggering the warp
@@ -414,6 +428,13 @@ void Warp_Execute(void) {
 
 void Warp_ForceTeleport(uint8_t map_id, int tile_x, int tile_y) {
     Map_Load(map_id);
+    /* Force teleport: set darkness for dark maps, clear otherwise.
+     * ROCK_TUNNEL_B1F also needs darkness — B1F inherits when warping normally
+     * (1F sets it, B1F is indoor so it's preserved), but a direct teleport
+     * must set it explicitly. */
+    gMapPalOffset = (map_id == 0x52 /* ROCK_TUNNEL_1F */ ||
+                     map_id == 0xE8 /* ROCK_TUNNEL_B1F */) ? 6 : 0;
+    Display_LoadMapPalette();
     int max_x = (int)wCurMapWidth  * 2 - 1;
     int max_y = (int)wCurMapHeight * 2 - 1;
     if (tile_x < 0) tile_x = (int)wCurMapWidth;

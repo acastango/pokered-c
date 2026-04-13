@@ -91,6 +91,7 @@ extern uint8_t  wCurMapTileset;
 /* ---- WRAM: Map state ------------------------------------- */
 extern uint8_t  wCurMap;
 extern uint8_t  wLastMap;
+extern uint8_t  wLastBlackoutMap;  /* 0xFF = default (mom's house); set on pokecenter heal */
 extern int16_t  wYCoord;   /* tile coord; signed to allow off-map scripted walks */
 extern int16_t  wXCoord;
 extern uint8_t  wYBlockCoord;
@@ -112,6 +113,7 @@ extern uint8_t wNumSigns;
 extern uint8_t wNumSprites;
 extern uint8_t wDestinationWarpID;
 extern uint8_t wMapBackgroundTile;
+extern uint8_t gMapPalOffset;      /* darkness: 6=dark cave, 0=normal (wMapPalOffset) */
 
 /* ---- WRAM: Player state ---------------------------------- */
 extern uint8_t wPlayerMovingDirection;
@@ -126,6 +128,12 @@ extern uint8_t    wPartyCount;
 extern party_mon_t wPartyMons[PARTY_LENGTH];
 extern uint8_t    wPartyMonOT[PARTY_LENGTH][NAME_LENGTH];
 extern uint8_t    wPartyMonNicks[PARTY_LENGTH][NAME_LENGTH];
+extern uint8_t    wCurrentBoxNum;
+extern uint8_t    wBoxCount[NUM_BOXES];
+extern uint8_t    wBoxSpecies[NUM_BOXES][BOX_CAPACITY + 1];
+extern box_mon_t  wBoxMons[NUM_BOXES][BOX_CAPACITY];
+extern uint8_t    wBoxMonOT[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
+extern uint8_t    wBoxMonNicks[NUM_BOXES][BOX_CAPACITY][NAME_LENGTH];
 
 extern uint8_t    wNumBagItems;
 extern uint8_t    wBagItems[BAG_ITEM_CAPACITY * 2 + 1]; /* item_id, qty pairs + 0xFF */
@@ -148,12 +156,27 @@ extern uint8_t wPokedexSeen[19];
 #define NUM_EVENTS          0xA00   /* 2560 flags — matches original pokered */
 #define EVENT_FLAGS_BYTES   ((NUM_EVENTS + 7) / 8)  /* 320 bytes */
 extern uint8_t wEventFlags[EVENT_FLAGS_BYTES];
+void Debug_LogEventFlagChange(uint16_t n, int new_value);
 
 /* Event flag accessors — mirrors FlagAction (engine/flag_action.asm).
  * These are the canonical public API; use these everywhere. */
 static inline int  CheckEvent(uint16_t n) { return (wEventFlags[n>>3] >> (n&7)) & 1; }
-static inline void SetEvent  (uint16_t n) { wEventFlags[n>>3] |=  (uint8_t)(1u << (n&7)); }
-static inline void ClearEvent(uint16_t n) { wEventFlags[n>>3] &= (uint8_t)~(1u << (n&7)); }
+static inline void SetEvent  (uint16_t n) {
+    uint8_t mask = (uint8_t)(1u << (n & 7));
+    uint8_t *byte = &wEventFlags[n >> 3];
+    if (!(*byte & mask)) {
+        *byte |= mask;
+        Debug_LogEventFlagChange(n, 1);
+    }
+}
+static inline void ClearEvent(uint16_t n) {
+    uint8_t mask = (uint8_t)(1u << (n & 7));
+    uint8_t *byte = &wEventFlags[n >> 3];
+    if (*byte & mask) {
+        *byte &= (uint8_t)~mask;
+        Debug_LogEventFlagChange(n, 0);
+    }
+}
 
 /* ---- WRAM: Item pickup flags ----------------------------- */
 /* Bit i of wPickedUpItems[map_id] = item ball i on that map is gone. */

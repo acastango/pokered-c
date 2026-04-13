@@ -43,9 +43,12 @@ cd build
 ### 2. Build (Incremental)
 
 ```bash
-cd C:/Users/Anthony/pokered/build
-/c/msys64/mingw64/bin/mingw32-make.exe
+# From PowerShell (required — sets MSYS2 bins on PATH so gcc can find cc1/as/ld)
+PATH=/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH && /c/msys64/mingw64/bin/mingw32-make.exe
 ```
+
+> **Note:** When Claude Code runs from PowerShell, MSYS2 tools are not on PATH.
+> The `PATH=...` prefix is required or gcc fails silently.
 
 Output: `pokered.exe`
 

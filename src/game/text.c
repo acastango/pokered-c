@@ -78,10 +78,15 @@ static const char    *ascii_ptr  = NULL;
 static int            ascii_mode = 0;
 static int            text_open  = 0;
 static int            wait_input = 0;
+static int            s_instant_next = 0;   /* one-shot for next Text_Show* */
+static int            s_instant_active = 0; /* latched for current open text */
 /* wDoNotWaitForButtonPressAfterDisplayingText — when set, end-of-text
  * skips the A-press wait and goes straight to HoldTextDisplayOpen
  * (wait for A release, then return with box still visible). */
 int wDoNotWaitForButtonPress = 0;
+static void (*s_pending_sfx)(void) = NULL;
+
+void Text_SetPendingSFX(void (*fn)(void)) { s_pending_sfx = fn; }
 static int            letter_timer = 0;   /* frames remaining before next char */
 /* cursor position saved so scroll can clear it before copying */
 static int            cur_col    = TEXT_COL0;
@@ -341,6 +346,8 @@ void Text_ShowBox(const uint8_t *str) {
     text_open    = 1;
     wait_input   = 0;
     letter_timer = 0;   /* first char prints on the very next Text_Update call */
+    s_instant_active = s_instant_next;
+    s_instant_next = 0;
 
     hWY = BOX_ROW * TILE_PX;   /* enable window layer at text box row */
     draw_box_border();
@@ -356,6 +363,8 @@ void Text_ShowASCII(const char *str) {
     text_open    = 1;
     wait_input   = 0;
     letter_timer = 0;
+    s_instant_active = s_instant_next;
+    s_instant_next = 0;
 
     hWY = BOX_ROW * TILE_PX;   /* enable window layer at text box row */
     draw_box_border();
@@ -366,6 +375,10 @@ void Text_ShowASCII(const char *str) {
 
 int Text_IsOpen(void) {
     return text_open;
+}
+
+void Text_InstantNext(void) {
+    s_instant_next = 1;
 }
 
 void Text_Update(void) {
@@ -406,20 +419,21 @@ void Text_Update(void) {
             return;
         }
 
+        /* End-of-text auto-advance path: when flagged, do not require an
+         * explicit A press to continue. This mirrors the ASM
+         * wDoNotWaitForButtonPressAfterDisplayingText behavior. */
+        if (wait_input == 2 && wDoNotWaitForButtonPress) {
+            wait_input = 5;  /* wait for A release, then mark text done */
+            return;
+        }
+
         if (!(hJoyPressed & PAD_A)) return;
         Audio_PlaySFX_PressAB();
 
-        /* End of text: normally transition to release-wait then close.
-         * If wDoNotWaitForButtonPress is set, skip the A-press wait entirely:
-         * just wait for A release, then leave text open (mirrors ASM
-         * HoldTextDisplayOpen path when wDoNotWaitForButtonPressAfterDisplayingText). */
+        /* End of text: normal close path waits for A release. */
         if (wait_input == 2) {
-            if (wDoNotWaitForButtonPress) {
-                /* Go straight to hold-open: wait for A release, stay open */
-                wait_input = 5;  /* new state: no-wait hold */
-                return;
-            }
-            wait_input = 4; return;
+            wait_input = 4;
+            return;
         }
 
         if (wait_input == 3) {
@@ -444,11 +458,19 @@ void Text_Update(void) {
      * A or B held → skip the delay (prints one char per frame).       *
      * Original: hJoyHeld check; held skips the counter, waits 1 more  *
      * DelayFrame then prints.  We simplify to: held → timer = 0.      */
-    if (letter_timer > 0) {
+    if (!s_instant_active && letter_timer > 0) {
         if (hJoyHeld & (PAD_A | PAD_B))
             letter_timer = 0;
         else
             { letter_timer--; return; }
+    }
+
+    if (s_instant_active) {
+        /* Print full page immediately until a wait/control boundary. */
+        for (int guard = 0; guard < 512 && wait_input == 0; guard++)
+            (void)print_one_char();
+        letter_timer = 0;
+        return;
     }
 
     /* Print one character; if it returns 1, start the inter-char timer. */
@@ -480,4 +502,11 @@ void Text_Close(void) {
     }
     /* if keep_tiles: hWY stays active so caller can draw YES/NO box on top */
     s_keep_tiles_on_close = 0;
+
+    /* Fire any pending post-text SFX (mirrors text_asm PlaySound blocks). */
+    if (s_pending_sfx) {
+        void (*fn)(void) = s_pending_sfx;
+        s_pending_sfx = NULL;
+        fn();
+    }
 }

@@ -10,7 +10,7 @@
  *   Player         — always at screen tile (8,9) → grid cell (4,4)
  *
  * Classification priority (highest first):
- *   player > NPC > warp-list entry > door tile > grass > ledge > passable/solid
+ *   player > NPC > warp-list entry > sign > item > hidden event > door tile > grass > ledge > passable/solid
  */
 
 #include "debug_overlay.h"
@@ -45,6 +45,9 @@ static int s_overlay_on = 0;
 #define OV_LEDGE  0xEEBB0068u   /* yellow — ledge */
 #define OV_WARP   0x00BBFF68u   /* cyan   — warp / door */
 #define OV_NPC    0xFF00FF80u   /* magenta — NPC tile */
+#define OV_SIGN   0xFF880068u   /* orange  — sign */
+#define OV_ITEM   0xFFDD0068u   /* gold    — item on ground */
+#define OV_HIDDEN 0x8800FF68u   /* purple  — hidden event */
 
 void Debug_SetCollisionOverlay(int on) {
     s_overlay_on = on;
@@ -84,6 +87,30 @@ void Debug_UpdateOverlay(void) {
                     }
                 }
                 if (is_warp) { Display_SetOverlayTile(tx, ty, OV_WARP); continue; }
+
+                /* Sign tiles (game coords → tile coords) */
+                int is_sign = 0;
+                for (int i = 0; i < ev->num_signs; i++) {
+                    if ((int)ev->signs[i].x * 2 == mx && (int)ev->signs[i].y * 2 + 1 == my)
+                        { is_sign = 1; break; }
+                }
+                if (is_sign) { Display_SetOverlayTile(tx, ty, OV_SIGN); continue; }
+
+                /* Item tiles (game coords → tile coords) */
+                int is_item = 0;
+                for (int i = 0; i < ev->num_items; i++) {
+                    if ((int)ev->items[i].x * 2 == mx && (int)ev->items[i].y * 2 + 1 == my)
+                        { is_item = 1; break; }
+                }
+                if (is_item) { Display_SetOverlayTile(tx, ty, OV_ITEM); continue; }
+
+                /* Hidden event tiles (already in tile coords: x=orig*2, y=orig*2+1) */
+                int is_hidden = 0;
+                for (int i = 0; i < ev->num_hidden_events; i++) {
+                    if ((int)ev->hidden_events[i].x == mx && (int)ev->hidden_events[i].y == my)
+                        { is_hidden = 1; break; }
+                }
+                if (is_hidden) { Display_SetOverlayTile(tx, ty, OV_HIDDEN); continue; }
             }
 
             /* Tile-based classification */

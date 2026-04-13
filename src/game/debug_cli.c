@@ -14,11 +14,14 @@
 #include "pokecenter.h"         /* Pokecenter_IsWaitingYesNo */
 #include "pokemon.h"            /* Pokemon_GetName, Pokemon_InitMon */
 #include "battle/battle_ui.h"   /* BattleUI_GetState */
+#include "battle/battle_exp.h"  /* Battle_AddExpDirect, gDebugExpRate */
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
+#include "../data/event_data.h"    /* map_events_t, gMapEvents */
 #include "../data/moves_data.h"     /* BMOVE */
 #include "../data/event_constants.h"
 #include "inventory.h"
+#include "badge.h"
 #include "../platform/hardware.h"
 #include "../game/constants.h"
 #include <stdio.h>
@@ -209,14 +212,25 @@ static void write_battle_state(FILE *fp) {
     }
 }
 
-static char tile_char(int mx, int my, int px, int py, int nc) {
+static char tile_char(int mx, int my, int px, int py, int nc,
+                      const map_events_t *ev) {
     /* px/py and NPC positions are in game coords; convert to tile coords.
-     * mx/my are already tile coords (from gCamX + tx loop). */
+     * mx/my are already tile coords (from gCamX + tx loop).
+     * Signs and items use game coords (*2 / *2+1); hidden events are already
+     * in tile coords (x=orig*2, y=orig*2+1 per event_data.h). */
     if (mx == px * 2 && my == py * 2 + 1) return '@';
     for (int i = 0; i < nc; i++) {
         int ntx, nty;
         NPC_GetTilePos(i, &ntx, &nty);
         if (ntx * 2 == mx && nty * 2 + 1 == my) return 'N';
+    }
+    if (ev) {
+        for (int i = 0; i < ev->num_signs; i++)
+            if ((int)ev->signs[i].x * 2 == mx && (int)ev->signs[i].y * 2 + 1 == my) return 'S';
+        for (int i = 0; i < ev->num_items; i++)
+            if ((int)ev->items[i].x * 2 == mx && (int)ev->items[i].y * 2 + 1 == my) return 'I';
+        for (int i = 0; i < ev->num_hidden_events; i++)
+            if ((int)ev->hidden_events[i].x == mx && (int)ev->hidden_events[i].y == my) return 'H';
     }
     uint8_t tid = Map_GetTile(mx, my);
     if (Warp_IsDoorTile(tid))                    return '+';
@@ -244,11 +258,15 @@ static void write_overworld_state(FILE *fp) {
         "+  = Warp/Door",
         "N  = NPC",
         "^v<> = Ledge",
+        "S  = Sign",
+        "I  = Item",
+        "H  = Hidden event",
     };
     static const int LEGEND_COUNT = (int)(sizeof(legend) / sizeof(legend[0]));
 
     int nc = NPC_GetCount();
     int px = (int)wXCoord, py = (int)wYCoord;
+    const map_events_t *ev = (wCurMap < NUM_MAPS) ? &gMapEvents[wCurMap] : NULL;
 
     fprintf(fp, "+");
     for (int x = 0; x < SCREEN_WIDTH; x++) fprintf(fp, "-");
@@ -256,7 +274,7 @@ static void write_overworld_state(FILE *fp) {
     for (int ty = 0; ty < SCREEN_HEIGHT; ty++) {
         fprintf(fp, "|");
         for (int tx = 0; tx < SCREEN_WIDTH; tx++)
-            fprintf(fp, "%c", tile_char(gCamX + tx, gCamY + ty, px, py, nc));
+            fprintf(fp, "%c", tile_char(gCamX + tx, gCamY + ty, px, py, nc, ev));
         fprintf(fp, "|");
         if (ty < LEGEND_COUNT) fprintf(fp, "  %s", legend[ty]);
         fprintf(fp, "\n");
@@ -587,23 +605,46 @@ static void process_cmd(const char *cmd) {
                 return;
             }
         } else {
-            /* Numeric: teleport <map_id> <x> <y> */
+            /* Numeric: teleport <map_id> <x> <y> (decimal or 0x hex) */
             map_id = 0; x = 3; y = 3;
-            sscanf(cmd, "%*s %d %d %d", &map_id, &x, &y);
+            { char m[16]="0", xs[16]="3", ys[16]="3";
+              sscanf(cmd, "%*s %15s %15s %15s", m, xs, ys);
+              map_id = (int)strtol(m,  NULL, 0);
+              x      = (int)strtol(xs, NULL, 0);
+              y      = (int)strtol(ys, NULL, 0); }
         }
 
         extern void Map_Load(uint8_t map_id);
         extern void NPC_Load(void);
         extern void PalletScripts_OnMapLoad(void);
         extern void OaksLabScripts_OnMapLoad(void);
+        extern void Display_LoadMapPalette(void);
         wCurMap  = (uint8_t)map_id;
         wXCoord  = (uint8_t)x;
         wYCoord  = (uint8_t)y;
+        /* Apply darkness for cave maps, clear it for outdoor maps */
+        gMapPalOffset = (map_id == 0x52 /* ROCK_TUNNEL_1F */ ||
+                         map_id == 0xE8 /* ROCK_TUNNEL_B1F */) ? 6 : 0;
         Map_Load(wCurMap);
         NPC_Load();
         PalletScripts_OnMapLoad();
         OaksLabScripts_OnMapLoad();
+        Display_LoadMapPalette();
         printf("[cli] teleport → map %d (%d,%d)\n", map_id, x, y);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "givebadge") == 0) {
+        /* givebadge <n>  — set badge bit n (0=Boulder … 7=Earth) */
+        char tok[16] = {0};
+        sscanf(cmd, "%*s %15s", tok);
+        int n = (int)strtol(tok, NULL, 0);
+        if (n < 0 || n > 7) {
+            printf("[cli] givebadge: n must be 0-7\n");
+        } else {
+            wObtainedBadges |= (uint8_t)(1u << n);
+            printf("[cli] givebadge %d → wObtainedBadges=0x%02X\n", n, wObtainedBadges);
+        }
         write_state();
         return;
     }
@@ -647,6 +688,7 @@ static void process_cmd(const char *cmd) {
             { "revive",        0x35 }, { "max_revive",    0x36 },
             { "super_repel",   0x38 }, { "max_repel",     0x39 },
             { "oaks_parcel",   0x46 }, { "parcel",        0x46 },
+            { "poke_flute",    0x49 }, { "pokeflute",     0x49 },
             { "hm01",          0xC4 }, { "tm01",          0xC9 },
             { NULL, 0 }
         };
@@ -672,6 +714,243 @@ static void process_cmd(const char *cmd) {
             printf("[cli] giveitem 0x%02X x%d → added\n", id, qty);
         } else {
             printf("[cli] giveitem: bag full\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "givetm") == 0) {
+        /* givetm <n> — give TM n (1-50) */
+        if (n < 1 || n > 50) {
+            printf("[cli] givetm: n must be 1-50\n");
+        } else {
+            uint8_t id = (uint8_t)(TM01 + n - 1);
+            if (Inventory_Add(id, 1) == 0)
+                printf("[cli] givetm %d → TM%02d (0x%02X) added\n", n, n, id);
+            else
+                printf("[cli] givetm: bag full\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "givehm") == 0) {
+        /* givehm <n> — give HM n (1-5) */
+        if (n < 1 || n > 5) {
+            printf("[cli] givehm: n must be 1-5\n");
+        } else {
+            uint8_t id = (uint8_t)(HM01 + n - 1);
+            if (Inventory_Add(id, 1) == 0)
+                printf("[cli] givehm %d → HM%02d (0x%02X) added\n", n, n, id);
+            else
+                printf("[cli] givehm: bag full\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "givemon") == 0) {
+        /* givemon <dex 1-151> [level 1-100]
+         * Appends a Pokémon to the party (or replaces slot 6 if full).
+         * Uses national dex number — e.g. givemon 19 20 = Rattata Lv20. */
+        int dex = 1, level = 20;
+        sscanf(cmd, "%*s %d %d", &dex, &level);
+        if (dex < 1 || dex > 151) {
+            printf("[cli] givemon: dex must be 1-151\n");
+        } else if (level < 1 || level > 100) {
+            printf("[cli] givemon: level must be 1-100\n");
+        } else {
+            uint8_t species = gDexToSpecies[dex];
+            int slot = (wPartyCount < 6) ? wPartyCount : 5;
+            Pokemon_InitMon(&wPartyMons[slot], species, (uint8_t)level);
+            if (wPartyCount < 6) wPartyCount++;
+            printf("[cli] givemon: slot %d → %s Lv%d (species 0x%02X)\n",
+                   slot + 1, Pokemon_GetName(dex), level, species);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "bulba15") == 0 || strcmp(verb, "givemon_bulba15") == 0) {
+        /* bulba15 — one-shot test setup:
+         * slot 1 = Bulbasaur Lv15 with a strong grass/control moveset.
+         * Preserves party slots 2-6 if present. */
+        uint8_t species = gDexToSpecies[1]; /* Bulbasaur */
+        Pokemon_InitMon(&wPartyMons[0], species, 15);
+        if (wPartyCount < 1) wPartyCount = 1;
+
+        /* Moves: Sleep Powder, Razor Leaf, Leech Seed, Vine Whip */
+        wPartyMons[0].base.moves[0] = 79; /* SLEEP POWDER */
+        wPartyMons[0].base.moves[1] = 75; /* RAZOR LEAF   */
+        wPartyMons[0].base.moves[2] = 73; /* LEECH SEED   */
+        wPartyMons[0].base.moves[3] = 22; /* VINE WHIP    */
+        wPartyMons[0].base.pp[0] = gMoves[79].pp;
+        wPartyMons[0].base.pp[1] = gMoves[75].pp;
+        wPartyMons[0].base.pp[2] = gMoves[73].pp;
+        wPartyMons[0].base.pp[3] = gMoves[22].pp;
+        wPartyMons[0].base.hp = wPartyMons[0].max_hp;
+        wPartyMons[0].base.status = 0;
+
+        printf("[cli] bulba15: slot 1 -> BULBASAUR Lv15 (SLEEP POWDER / RAZOR LEAF / LEECH SEED / VINE WHIP)\n");
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "squirtle15") == 0 || strcmp(verb, "givemon_squirtle15") == 0) {
+        /* squirtle15 — one-shot test setup:
+         * slot 1 = Squirtle Lv15 with Bubble in moveset.
+         * Preserves party slots 2-6 if present. */
+        uint8_t species = gDexToSpecies[7]; /* Squirtle */
+        Pokemon_InitMon(&wPartyMons[0], species, 15);
+        if (wPartyCount < 1) wPartyCount = 1;
+
+        /* Moves: Bubble, Water Gun, Tackle, Tail Whip */
+        wPartyMons[0].base.moves[0] = 145; /* BUBBLE    */
+        wPartyMons[0].base.moves[1] = 55;  /* WATER GUN */
+        wPartyMons[0].base.moves[2] = 33;  /* TACKLE    */
+        wPartyMons[0].base.moves[3] = 39;  /* TAIL WHIP */
+        wPartyMons[0].base.pp[0] = gMoves[145].pp;
+        wPartyMons[0].base.pp[1] = gMoves[55].pp;
+        wPartyMons[0].base.pp[2] = gMoves[33].pp;
+        wPartyMons[0].base.pp[3] = gMoves[39].pp;
+        wPartyMons[0].base.hp = wPartyMons[0].max_hp;
+        wPartyMons[0].base.status = 0;
+
+        printf("[cli] squirtle15: slot 1 -> SQUIRTLE Lv15 (BUBBLE / WATER GUN / TACKLE / TAIL WHIP)\n");
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "teachmove") == 0) {
+        /* teachmove <slot 1-6> <move_id hex or dec>
+         * Teaches a move to the given party slot (fills first empty move slot,
+         * or overwrites slot 0 if all are filled).
+         * Example: teachmove 1 0x94   → teach Flash to slot 1 */
+        int slot = 1;
+        char move_str[16] = {0};
+        sscanf(cmd, "%*s %d %15s", &slot, move_str);
+        int move_id = (int)strtol(move_str, NULL, 0);
+        slot--;  /* 1-based → 0-based */
+        if (slot < 0 || slot >= (int)wPartyCount) {
+            printf("[cli] teachmove: slot must be 1-%d\n", wPartyCount);
+        } else if (move_id < 1 || move_id > 0xA5) {
+            printf("[cli] teachmove: invalid move id 0x%02X\n", move_id);
+        } else {
+            uint8_t *moves = wPartyMons[slot].base.moves;
+            int target = 0;
+            for (int i = 0; i < 4; i++) {
+                if (moves[i] == 0) { target = i; break; }
+                if (i == 3) target = 0;  /* overwrite slot 0 if all filled */
+            }
+            moves[target] = (uint8_t)move_id;
+            printf("[cli] teachmove: slot %d move[%d] = 0x%02X\n",
+                   slot + 1, target, move_id);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "teach") == 0) {
+        /* teach <slot 1-6> <move_id|move_name>
+         * Appends move to next empty slot; if all 4 full, overwrites slot 4.
+         * Sets PP to move's base PP. No other restrictions.
+         * Accepts numeric ID (hex or dec) or plain name (case-insensitive,
+         * spaces/underscores ignored): e.g. "hyperbeam", "hyper_beam", "SURF" */
+        int slot = 1;
+        char move_str[32] = {0};
+        sscanf(cmd, "%*s %d %31s", &slot, move_str);
+        slot--;
+
+        /* resolve move ID — numeric first, then name search */
+        int move_id = 0;
+        char *end;
+        long parsed = strtol(move_str, &end, 0);
+        if (end != move_str && *end == '\0') {
+            move_id = (int)parsed;
+        } else {
+            /* normalise input: lowercase, strip spaces/underscores */
+            char needle[32] = {0};
+            int ni = 0;
+            for (int i = 0; move_str[i] && ni < 31; i++) {
+                char c = (char)tolower((unsigned char)move_str[i]);
+                if (c != ' ' && c != '_') needle[ni++] = c;
+            }
+            for (int id = 1; id <= 0xA5; id++) {
+                const char *nm = gMoveNames[id];
+                char norm[32] = {0};
+                int nnorm = 0;
+                for (int i = 0; nm[i] && nnorm < 31; i++) {
+                    char c = (char)tolower((unsigned char)nm[i]);
+                    if (c != ' ' && c != '_') norm[nnorm++] = c;
+                }
+                if (strcmp(needle, norm) == 0) { move_id = id; break; }
+            }
+        }
+
+        if (slot < 0 || slot >= (int)wPartyCount) {
+            printf("[cli] teach: slot must be 1-%d\n", wPartyCount);
+        } else if (move_id < 1 || move_id > 0xA5) {
+            printf("[cli] teach: unknown move '%s'\n", move_str);
+        } else {
+            uint8_t *moves = wPartyMons[slot].base.moves;
+            uint8_t *pp    = wPartyMons[slot].base.pp;
+            int target = 3;  /* default: overwrite slot 4 */
+            for (int i = 0; i < 4; i++) {
+                if (moves[i] == 0) { target = i; break; }
+            }
+            moves[target] = (uint8_t)move_id;
+            pp[target]    = gMoves[move_id].pp;
+            printf("[cli] teach: slot %d move[%d] = 0x%02X (pp=%d)\n",
+                   slot + 1, target, move_id, pp[target]);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "sethealth") == 0) {
+        /* sethealth <slot 1-6> <hp>  — set current HP; clamped to max_hp */
+        int slot = 0, hp = 0;
+        sscanf(cmd, "%*s %d %d", &slot, &hp);
+        slot--;  /* 1-based → 0-based */
+        if (slot < 0 || slot >= (int)wPartyCount) {
+            printf("[cli] sethealth: slot must be 1-%d\n", wPartyCount);
+        } else {
+            if (hp < 0) hp = 0;
+            if (hp > (int)wPartyMons[slot].max_hp) hp = (int)wPartyMons[slot].max_hp;
+            wPartyMons[slot].base.hp = (uint16_t)hp;
+            /* Sync active battle mon if in battle */
+            if (slot == (int)wPlayerMonNumber) wBattleMon.hp = (uint16_t)hp;
+            printf("[cli] sethealth: slot %d HP → %d/%d\n",
+                   slot + 1, hp, (int)wPartyMons[slot].max_hp);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "healparty") == 0) {
+        /* healparty — full HP + clear status on all party mons */
+        for (int i = 0; i < (int)wPartyCount; i++) {
+            wPartyMons[i].base.hp     = wPartyMons[i].max_hp;
+            wPartyMons[i].base.status = 0;
+        }
+        printf("[cli] healparty: all %d mons fully healed\n", wPartyCount);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "setmoney") == 0) {
+        /* setmoney <amount 0-999999> — set player money (stored as 3-byte BCD) */
+        int amount = 0;
+        sscanf(cmd, "%*s %d", &amount);
+        if (amount < 0)      amount = 0;
+        if (amount > 999999) amount = 999999;
+        int a = amount;
+        wPlayerMoney[2] = (uint8_t)((a % 10) | ((a / 10 % 10) << 4)); a /= 100;
+        wPlayerMoney[1] = (uint8_t)((a % 10) | ((a / 10 % 10) << 4)); a /= 100;
+        wPlayerMoney[0] = (uint8_t)((a % 10) | ((a / 10 % 10) << 4));
+        printf("[cli] setmoney: $%d\n", amount);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "listbag") == 0) {
+        /* listbag — print all items currently in bag */
+        printf("[cli] bag (%d items):\n", wNumBagItems);
+        for (int i = 0; i < (int)wNumBagItems; i++) {
+            uint8_t id  = wBagItems[i * 2];
+            uint8_t qty = wBagItems[i * 2 + 1];
+            char name[20];
+            Inventory_DecodeASCII(id, name, sizeof(name));
+            printf("  [%d] 0x%02X %-18s x%d\n", i + 1, id, name, qty);
         }
         write_state();
         return;
@@ -775,10 +1054,170 @@ static void process_cmd(const char *cmd) {
             wXCoord = 20; wYCoord = 8;  /* two tiles south of trigger */
             Map_Load(wCurMap); NPC_Load();
             CeruleanScripts_OnMapLoad();
-            printf("[cli] checkpoint: cerulean — at Cerulean City bridge (rival trigger at y=6)\n");
+            printf("[cli] checkpoint: cerulean — at Cerulean City bridge (rival trigger at y=6), beat_rival=%d\n",
+                   CheckEvent(EVENT_BEAT_CERULEAN_RIVAL));
+        } else if (strcmp(cp, "route22") == 0) {
+            /* All flags through Pokedex gift, rival ready on Route 22 */
+            SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
+            SetEvent(EVENT_FOLLOWED_OAK_INTO_LAB);
+            SetEvent(EVENT_OAK_ASKED_TO_CHOOSE_MON);
+            SetEvent(EVENT_GOT_STARTER);
+            SetEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB);
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_1ST_ROUTE22_RIVAL_BATTLE);
+            SetEvent(EVENT_ROUTE22_RIVAL_WANTS_BATTLE);
+            ClearEvent(EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 10);
+                wPartyCount = 1;
+            }
+            extern void Map_Load(uint8_t map_id);
+            extern void NPC_Load(void);
+            extern void Route22Scripts_OnMapLoad(void);
+            wCurMap = 0x21;  /* ROUTE_22 */
+            wXCoord = 31; wYCoord = 5;  /* east of rival trigger (x=29) */
+            Map_Load(wCurMap); NPC_Load();
+            Route22Scripts_OnMapLoad();
+            printf("[cli] checkpoint: route22 — on Route 22, walk left to trigger rival\n");
+        } else if (strcmp(cp, "brock") == 0) {
+            /* All flags through Pokedex gift, standing inside Pewter Gym */
+            SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
+            SetEvent(EVENT_FOLLOWED_OAK_INTO_LAB);
+            SetEvent(EVENT_OAK_ASKED_TO_CHOOSE_MON);
+            SetEvent(EVENT_GOT_STARTER);
+            SetEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB);
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 15);
+                wPartyCount = 1;
+            }
+            ClearEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            ClearEvent(EVENT_BEAT_BROCK);
+            extern void Map_Load(uint8_t map_id);
+            extern void NPC_Load(void);
+            wCurMap = 0x36;  /* PEWTER_GYM */
+            wXCoord = 4; wYCoord = 2;  /* one tile below Brock (Brock is at 4,1) */
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();  /* sets trainer facing directions */
+            printf("[cli] checkpoint: brock — inside Pewter Gym\n");
+        } else if (strcmp(cp, "misty") == 0) {
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            ClearEvent(EVENT_BEAT_MISTY);
+            ClearEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            ClearEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            ClearEvent(EVENT_GOT_TM11);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 25);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x41;  /* CERULEAN_GYM */
+            wXCoord = 4; wYCoord = 8;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: misty — inside Cerulean Gym\n");
+        } else if (strcmp(cp, "cerulean_rocket") == 0) {
+            /* All flags through Misty + SS Ticket obtained; Rocket thief not yet beaten */
+            SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
+            SetEvent(EVENT_FOLLOWED_OAK_INTO_LAB);
+            SetEvent(EVENT_OAK_ASKED_TO_CHOOSE_MON);
+            SetEvent(EVENT_GOT_STARTER);
+            SetEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB);
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);   /* guards cleared, Rocket accessible */
+            ClearEvent(EVENT_BEAT_CERULEAN_ROCKET_THIEF);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 25);
+                wPartyCount = 1;
+            }
+            extern void Map_Load(uint8_t map_id);
+            extern void NPC_Load(void);
+            extern void CeruleanScripts_OnMapLoad(void);
+            wCurMap = 3;   /* CERULEAN_CITY */
+            wXCoord = 30; wYCoord = 9;  /* one tile south of Rocket NPC at (30,8) */
+            Map_Load(wCurMap); NPC_Load();
+            CeruleanScripts_OnMapLoad();
+            printf("[cli] checkpoint: cerulean_rocket — at Rocket thief trigger (30,9) in Cerulean City\n");
+        } else if (strcmp(cp, "ss_anne_hm") == 0) {
+            /* ss_anne_hm — player on VermilionDock, one step from exit, HM01 obtained.
+             * Tests SS Anne departure cutscene (walk north to trigger). */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            ClearEvent(EVENT_SS_ANNE_LEFT);
+            Inventory_Add(ITEM_SS_TICKET, 1);
+            Inventory_Add(HM01, 1);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 25);
+                wPartyCount = 1;
+            }
+            extern void Map_Load(uint8_t map_id);
+            extern void NPC_Load(void);
+            extern void SSAnneScripts_OnMapLoad(void);
+            wCurMap = 0x5F;  /* SS_ANNE_1F */
+            wXCoord = 26; wYCoord = 1;  /* one step south of exit warp at (26,0) to VermilionDock */
+            Map_Load(wCurMap); NPC_Load();
+            SSAnneScripts_OnMapLoad();
+            printf("[cli] checkpoint: ss_anne_hm — inside SS Anne 1F, walk north to dock then departure\n");
+        } else if (strcmp(cp, "surge") == 0) {
+            /* surge — inside Vermilion Gym, puzzle solved, facing Lt. Surge */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);           /* puzzle solved, door open */
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            ClearEvent(EVENT_BEAT_LT_SURGE);
+            ClearEvent(EVENT_GOT_TM24);
+            Inventory_Add(HM01, 1);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 35);
+                wPartyCount = 1;
+            }
+            extern void VermilionGymScripts_OnMapLoad(void);
+            wCurMap = 0x5C;  /* VERMILION_GYM */
+            wXCoord = 5; wYCoord = 3;  /* two tiles south of Lt. Surge at (5,1) */
+            Map_Load(wCurMap); NPC_Load();
+            VermilionGymScripts_OnMapLoad();
+            printf("[cli] checkpoint: surge — inside Vermilion Gym, facing Lt. Surge\n");
         } else {
             printf("[cli] Unknown checkpoint: %s\n"
-                   "      Available: parcel_ready, pokedex_ready, mt_moon, cerulean\n", cp);
+                   "      Available: parcel_ready, pokedex_ready, mt_moon, cerulean, route22, brock, misty, cerulean_rocket, ss_anne_hm, surge\n", cp);
         }
         write_state();
         return;
@@ -797,6 +1236,41 @@ static void process_cmd(const char *cmd) {
         for (int i = 0; i < 6; i++)
             Pokemon_InitMon(&wPartyMons[i], kTeam[i], 100);
         printf("[cli] giveteam — party set to Mewtwo/Dragonite/Alakazam/Machamp/Gengar/Lapras @ lv100\n");
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "addexp") == 0) {
+        /* addexp <slot 1-6> <amount>
+         * Directly adds exp to a party slot.  Handles level-up stat recalc
+         * and move learning.  Does not trigger evolution.
+         * Example: addexp 1 5000 */
+        int slot = 1, amount = 0;
+        sscanf(cmd, "%*s %d %d", &slot, &amount);
+        slot--;  /* 1-based → 0-based */
+        if (slot < 0 || slot >= (int)wPartyCount) {
+            printf("[cli] addexp: slot must be 1-%d\n", wPartyCount);
+        } else if (amount <= 0) {
+            printf("[cli] addexp: amount must be > 0\n");
+        } else {
+            Battle_AddExpDirect((uint8_t)slot, (uint32_t)amount);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "exprate") == 0) {
+        /* exprate <multiplier>
+         * Sets the debug exp rate applied in Battle_GainExperience.
+         * Value is a percentage: 100=1×, 150=1.5×, 200=2×, 300=3×.
+         * Example: exprate 200   → double exp from all battles */
+        int rate = 100;
+        sscanf(cmd, "%*s %d", &rate);
+        if (rate < 1 || rate > 9999) {
+            printf("[cli] exprate: value must be 1-9999 (100=1×, 200=2×, 300=3×)\n");
+        } else {
+            gDebugExpRate = rate;
+            printf("[cli] exprate: exp multiplier set to %d%% (%d.%02dx)\n",
+                   rate, rate / 100, rate % 100);
+        }
         write_state();
         return;
     }

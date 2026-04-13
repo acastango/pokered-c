@@ -22,6 +22,7 @@
 #include "overworld.h"
 #include "music.h"
 #include "inventory.h"
+#include "../platform/audio.h"
 #include "../platform/hardware.h"
 #include "../data/event_constants.h"
 #include <stdio.h>
@@ -41,7 +42,8 @@
 
 typedef enum {
     RS_IDLE = 0,
-    RS_PRE_TEXT_CONGRATS,  /* "Congratulations! / You just earned a prize!" */
+    RS_PRE_TEXT_CONGRATS,  /* "Congratulations! You beat our 5 contest trainers!" */
+    RS_PRE_TEXT_PRIZE,     /* "You just earned a fabulous prize!" */
     RS_PRE_TEXT_NUGGET,    /* give nugget + show receive message */
     RS_PRE_TEXT_ROCKET,    /* "By the way, join TEAM ROCKET?" speech */
     RS_BATTLE_PENDING,     /* waiting for game.c to start battle */
@@ -56,9 +58,12 @@ static int          g_post_step      = 0;
 
 /* ---- Text strings ----------------------------------------------------- */
 
-/* _Route24CooltrainerM1YouBeatOurContestText + YouJustEarnedAPrizeText */
+/* _Route24CooltrainerM1YouBeatOurContestText */
 static const char kCongratsText[] =
-    "Congratulations!\nYou beat our 5\ncontest trainers!\f"
+    "Congratulations!\nYou beat our 5\ncontest trainers!";
+
+/* _Route24CooltrainerM1YouJustEarnedAPrizeText */
+static const char kPrizeText[] =
     "You just earned a\nfabulous prize!";
 
 /* _Route24CooltrainerM1ReceivedNuggetText */
@@ -140,9 +145,17 @@ void Route24Scripts_Tick(void) {
 
     case RS_PRE_TEXT_CONGRATS:
         if (Text_IsOpen()) { Text_Update(); return; }
+        Audio_PlaySFX_GetItem1();
+        Text_ShowASCII(kPrizeText);
+        g_state = RS_PRE_TEXT_PRIZE;
+        return;
+
+    case RS_PRE_TEXT_PRIZE:
+        if (Text_IsOpen()) { Text_Update(); return; }
         /* Give nugget and show receive message */
         Inventory_Add(ITEM_NUGGET, 1);
         SetEvent(EVENT_GOT_NUGGET);
+        Audio_PlaySFX_GetItem1();
         Text_ShowASCII(kNuggetText);
         g_state = RS_PRE_TEXT_NUGGET;
         return;
