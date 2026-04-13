@@ -1,0 +1,35 @@
+{
+  "name": "monet",
+  "version": "0.1.0",
+  "description": "Persistent project memory for Codex using the local monet MCP server and workflow skill.",
+  "author": {
+    "name": "Anthony"
+  },
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "mcp",
+    "workflow",
+    "coding"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "monet",
+    "shortDescription": "Persistent project memory for Codex",
+    "longDescription": "Adds the local monet MCP server and a Codex skill for memory-first project workflows, tree-aware exploration, and durable decision capture.",
+    "developerName": "Anthony",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Search",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Use monet to orient on this repo before editing.",
+      "Search the memory tree for prior decisions on this feature.",
+      "Use monet tools instead of raw file reads while exploring."
+    ],
+    "brandColor": "#2F6B5F"
+  }
+}
