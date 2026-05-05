@@ -78,11 +78,18 @@ static void update_random(uint32_t frame) {
 }
 
 /* ---- Main loop ------------------------------------------- */
-extern int gSkipMenu;  /* game.c — bypass main menu when --skip and save exists */
+extern int gSkipMenu;  /* game.c — bypass title/menu when quickstart flag + save exists */
 
 int main(int argc, char *argv[]) {
+    int sfx_debug = 0;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--skip") == 0) gSkipMenu = 1;
+        if (strcmp(argv[i], "--skip") == 0 ||
+            strcmp(argv[i], "--quickstart") == 0 ||
+            strcmp(argv[i], "--skip-title") == 0) {
+            gSkipMenu = 1;
+        } else if (strcmp(argv[i], "--sfx-debug") == 0) {
+            sfx_debug = 1;
+        }
     }
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
@@ -99,6 +106,10 @@ int main(int argc, char *argv[]) {
     if (Audio_Init() != 0) {
         fprintf(stderr, "Audio_Init failed: %s (continuing without audio)\n",
                 SDL_GetError());
+    }
+    Audio_SetMoveSfxDebug(sfx_debug);
+    if (sfx_debug) {
+        printf("[debug] Move SFX tracing ON (--sfx-debug)\n");
     }
 
     Input_Init();

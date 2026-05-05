@@ -147,3 +147,32 @@ void Battle_AdjustDamageForMoveType(void);
  *   2. Reflected evasion stage (14 - evasion_stage) of defender
  * Result floored at 1, capped at 255.  Stored back into the accuracy var. */
 void Battle_CalcHitChance(void);
+
+/* ---- MoveHitTest trace (debug instrumentation) ---- */
+typedef struct battle_hittrace_t {
+    uint32_t seq;
+    uint8_t enabled;
+    uint8_t player_turn;
+    uint8_t move_num;
+    uint8_t move_effect;
+    uint8_t base_acc;
+    uint8_t scaled_acc;
+    uint8_t roll;
+    uint8_t missed;
+    uint8_t reason; /* see BHTR_* below */
+} battle_hittrace_t;
+
+enum {
+    BHTR_HIT = 0,
+    BHTR_MISS_DREAM_EATER = 1,
+    BHTR_HIT_SWIFT = 2,
+    BHTR_MISS_INVULNERABLE = 3,
+    BHTR_MISS_MIST = 4,
+    BHTR_HIT_XACCURACY = 5,
+    BHTR_MISS_ACCURACY_ROLL = 6
+};
+
+void Battle_HitTraceEnable(uint8_t enable);
+uint8_t Battle_HitTraceIsEnabled(void);
+void Battle_HitTraceReset(void);
+battle_hittrace_t Battle_GetLastHitTrace(void);

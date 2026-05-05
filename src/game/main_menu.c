@@ -138,12 +138,19 @@ void MainMenu_Tick(void) {
         set_cursor(gCursor, (uint8_t)Font_CharToTile(CHAR_ARROW));
         return;
     }
-    if (hJoyPressed & PAD_A) {
+    if (hJoyPressed & (PAD_A | PAD_START)) {
         Audio_PlaySFX_PressAB();
         gOpen = 0;
         if (gHasSave && gCursor == 0)
             gResult = MAIN_MENU_CONTINUE;
         else
             gResult = MAIN_MENU_NEW_GAME;
+        return;
+    }
+
+    if (hJoyPressed & PAD_B) {
+        Audio_PlaySFX_PressAB();
+        gOpen = 0;
+        gResult = MAIN_MENU_BACK;
     }
 }

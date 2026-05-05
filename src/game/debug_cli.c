@@ -14,7 +14,10 @@
 #include "pokecenter.h"         /* Pokecenter_IsWaitingYesNo */
 #include "pokemon.h"            /* Pokemon_GetName, Pokemon_InitMon */
 #include "battle/battle_ui.h"   /* BattleUI_GetState */
+#include "battle/battle_init.h" /* Battle_Start */
 #include "battle/battle_exp.h"  /* Battle_AddExpDirect, gDebugExpRate */
+#include "battle/battle.h"      /* Battle hittrace diagnostics */
+#include "music.h"              /* Music_Play */
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
 #include "../data/event_data.h"    /* map_events_t, gMapEvents */
@@ -27,6 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "../data/font_data.h"
 
 #define CMD_FILE   "bugs/cli_cmd.txt"
@@ -66,6 +70,12 @@ static void seq_clear(void) { s_seq_len = 0; s_seq_pos = 0; }
 static int s_poll_timer     = 0;
 static int s_wait_remaining = 0;
 static int s_pending_write  = 0;
+
+/* ---- Move animation lab (auto-play move sequence in a controlled battle) */
+static int s_animlab_enabled  = 0;
+static int s_animlab_move_id  = 1;  /* next move ID to test (1..NUM_MOVE_DEFS-1) */
+static int s_animlab_loops    = 0;  /* full passes through move IDs */
+static int s_animlab_level    = 50;
 
 /* ---- In-game console state --------------------------------------- */
 #define CON_TOP_ROW      16
@@ -153,6 +163,92 @@ static const char *bui_state_name(int s) {
     }
 }
 
+static const char *hittrace_reason_name(uint8_t r) {
+    switch (r) {
+        case BHTR_HIT: return "hit";
+        case BHTR_MISS_DREAM_EATER: return "miss:dream_eater_target_awake";
+        case BHTR_HIT_SWIFT: return "hit:swift_always";
+        case BHTR_MISS_INVULNERABLE: return "miss:target_invulnerable";
+        case BHTR_MISS_MIST: return "miss:mist_block";
+        case BHTR_HIT_XACCURACY: return "hit:x_accuracy_bypass";
+        case BHTR_MISS_ACCURACY_ROLL: return "miss:accuracy_roll";
+        default: return "unknown";
+    }
+}
+
+static int first_alive_party_slot(void) {
+    for (int i = 0; i < wPartyCount && i < PARTY_LENGTH; i++) {
+        if (wPartyMons[i].base.hp > 0) return i;
+    }
+    return -1;
+}
+
+static void animlab_set_player_move(uint8_t move_id) {
+    if (move_id == 0 || move_id >= NUM_MOVE_DEFS) move_id = 1;
+
+    int slot = (int)wPlayerMonNumber;
+    if (slot < 0 || slot >= PARTY_LENGTH || slot >= wPartyCount) slot = 0;
+
+    wBattleMon.moves[0] = move_id;
+    wBattleMon.moves[1] = 0;
+    wBattleMon.moves[2] = 0;
+    wBattleMon.moves[3] = 0;
+    wBattleMon.pp[0]    = gMoves[move_id].pp;
+    wBattleMon.pp[1]    = 0;
+    wBattleMon.pp[2]    = 0;
+    wBattleMon.pp[3]    = 0;
+
+    wPartyMons[slot].base.moves[0] = move_id;
+    wPartyMons[slot].base.moves[1] = 0;
+    wPartyMons[slot].base.moves[2] = 0;
+    wPartyMons[slot].base.moves[3] = 0;
+    wPartyMons[slot].base.pp[0]    = gMoves[move_id].pp;
+    wPartyMons[slot].base.pp[1]    = 0;
+    wPartyMons[slot].base.pp[2]    = 0;
+    wPartyMons[slot].base.pp[3]    = 0;
+}
+
+static void animlab_set_enemy_harmless(void) {
+    /* Keep enemy harmless and deterministic so we can focus on move visuals. */
+    wEnemyMon.moves[0] = MOVE_GROWL;
+    wEnemyMon.moves[1] = 0;
+    wEnemyMon.moves[2] = 0;
+    wEnemyMon.moves[3] = 0;
+    wEnemyMon.pp[0]    = gMoves[MOVE_GROWL].pp;
+    wEnemyMon.pp[1]    = 0;
+    wEnemyMon.pp[2]    = 0;
+    wEnemyMon.pp[3]    = 0;
+}
+
+static void animlab_start_battle(int level) {
+    int alive = first_alive_party_slot();
+    if (alive < 0) {
+        Pokemon_InitMon(&wPartyMons[0], STARTER1, (uint8_t)level);
+        wPartyCount = 1;
+        alive = 0;
+    }
+
+    wPartyMons[alive].base.hp     = wPartyMons[alive].max_hp;
+    wPartyMons[alive].base.status = 0;
+
+    wCurPartySpecies = SPECIES_RHYDON;
+    wCurEnemyLevel   = (uint8_t)level;
+
+    Music_Play(MUSIC_WILD_BATTLE);
+    Battle_Start();
+
+    animlab_set_enemy_harmless();
+    animlab_set_player_move((uint8_t)s_animlab_move_id);
+
+    BattleUI_Enter();
+    extern void Game_SetScene(int);
+    Game_SetScene(2); /* SCENE_BATTLE */
+
+    s_animlab_enabled = 1;
+    s_animlab_level   = level;
+    printf("[cli] animlab: started (level %d), auto-playing move animations\n", level);
+}
+
 static int count_bits8(uint8_t value) {
 #ifdef _MSC_VER
     unsigned int bits = value;
@@ -164,6 +260,34 @@ static int count_bits8(uint8_t value) {
 #endif
 }
 
+/* Resolve move by numeric token (hex/dec) or move name.
+ * Name matching is case-insensitive and ignores spaces/underscores. */
+static int cli_resolve_move_id(const char *move_str) {
+    if (!move_str || !*move_str) return 0;
+
+    char *end;
+    long parsed = strtol(move_str, &end, 0);
+    if (end != move_str && *end == '\0') return (int)parsed;
+
+    char needle[32] = {0};
+    int ni = 0;
+    for (int i = 0; move_str[i] && ni < 31; i++) {
+        char c = (char)tolower((unsigned char)move_str[i]);
+        if (c != ' ' && c != '_') needle[ni++] = c;
+    }
+    for (int id = 1; id <= 0xA5; id++) {
+        const char *nm = gMoveNames[id];
+        char norm[32] = {0};
+        int nnorm = 0;
+        for (int i = 0; nm[i] && nnorm < 31; i++) {
+            char c = (char)tolower((unsigned char)nm[i]);
+            if (c != ' ' && c != '_') norm[nnorm++] = c;
+        }
+        if (strcmp(needle, norm) == 0) return id;
+    }
+    return 0;
+}
+
 /* ---- State writers ------------------------------------------------ */
 
 static void write_battle_state(FILE *fp) {
@@ -172,6 +296,32 @@ static void write_battle_state(FILE *fp) {
 
     fprintf(fp, "=== BATTLE (%s) ===\n", btype);
     fprintf(fp, "UI State: %s\n\n", bui_state_name(bui));
+
+    {
+        battle_hittrace_t ht = Battle_GetLastHitTrace();
+        fprintf(fp, "HITTRACE: %s\n", Battle_HitTraceIsEnabled() ? "ON" : "OFF");
+        if (ht.seq > 0) {
+            const char *mname = (ht.move_num < NUM_MOVE_DEFS && gMoveNames[ht.move_num])
+                ? gMoveNames[ht.move_num] : "???";
+            fprintf(fp,
+                "  seq=%lu turn=%s move=%u(%s) effect=0x%02X base_acc=%u scaled_acc=%u roll=%u missed=%u reason=%s\n\n",
+                (unsigned long)ht.seq,
+                ht.player_turn ? "enemy" : "player",
+                ht.move_num, mname, ht.move_effect,
+                ht.base_acc, ht.scaled_acc, ht.roll, ht.missed,
+                hittrace_reason_name(ht.reason));
+        } else {
+            fprintf(fp, "  (no MoveHitTest samples yet)\n\n");
+        }
+    }
+
+    if (s_animlab_enabled) {
+        uint8_t next = (uint8_t)((s_animlab_move_id > 0 && s_animlab_move_id < NUM_MOVE_DEFS)
+            ? s_animlab_move_id : 1);
+        const char *next_name = gMoveNames[next] ? gMoveNames[next] : "???";
+        fprintf(fp, "ANIMLAB: ON  next=%d (%s)  loops=%d\n\n",
+                (int)next, next_name, s_animlab_loops);
+    }
 
     /* Enemy mon */
     fprintf(fp, "ENEMY:  %s Lv%d  HP: %d/%d  [%s]\n",
@@ -506,6 +656,53 @@ static void process_cmd(const char *cmd) {
                    slot + 1,
                    Pokemon_GetName(gSpeciesToDex[species]),
                    level);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "animlab") == 0) {
+        char mode[16] = "start";
+        int level = 50;
+        sscanf(cmd, "%*s %15s %d", mode, &level);
+
+        if (strcmp(mode, "start") == 0 || strcmp(mode, "on") == 0) {
+            if (level < 5 || level > 100) level = 50;
+            s_animlab_move_id = 1;
+            s_animlab_loops   = 0;
+            animlab_start_battle(level);
+        } else if (strcmp(mode, "stop") == 0 || strcmp(mode, "off") == 0) {
+            s_animlab_enabled = 0;
+            printf("[cli] animlab: stopped (battle remains under manual control)\n");
+        } else if (strcmp(mode, "status") == 0) {
+            printf("[cli] animlab: %s (next move %d, loops %d, level %d)\n",
+                   s_animlab_enabled ? "ON" : "OFF",
+                   s_animlab_move_id, s_animlab_loops, s_animlab_level);
+        } else {
+            printf("[cli] animlab: use 'animlab start [level]', 'animlab stop', or 'animlab status'\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "hittrace") == 0) {
+        char arg[16] = {0};
+        sscanf(cmd, "%*s %15s", arg);
+        if (strcmp(arg, "on") == 0) {
+            Battle_HitTraceEnable(1);
+            printf("[cli] hittrace: ON\n");
+        } else if (strcmp(arg, "off") == 0) {
+            Battle_HitTraceEnable(0);
+            printf("[cli] hittrace: OFF\n");
+        } else if (strcmp(arg, "reset") == 0) {
+            Battle_HitTraceReset();
+            printf("[cli] hittrace: reset\n");
+        } else if (strcmp(arg, "status") == 0 || arg[0] == '\0') {
+            battle_hittrace_t ht = Battle_GetLastHitTrace();
+            printf("[cli] hittrace: %s seq=%lu move=0x%02X effect=0x%02X missed=%u reason=%s\n",
+                   Battle_HitTraceIsEnabled() ? "ON" : "OFF",
+                   (unsigned long)ht.seq, ht.move_num, ht.move_effect, ht.missed,
+                   hittrace_reason_name(ht.reason));
+        } else {
+            printf("[cli] hittrace: use 'hittrace on|off|reset|status'\n");
         }
         write_state();
         return;
@@ -854,31 +1051,7 @@ static void process_cmd(const char *cmd) {
         sscanf(cmd, "%*s %d %31s", &slot, move_str);
         slot--;
 
-        /* resolve move ID — numeric first, then name search */
-        int move_id = 0;
-        char *end;
-        long parsed = strtol(move_str, &end, 0);
-        if (end != move_str && *end == '\0') {
-            move_id = (int)parsed;
-        } else {
-            /* normalise input: lowercase, strip spaces/underscores */
-            char needle[32] = {0};
-            int ni = 0;
-            for (int i = 0; move_str[i] && ni < 31; i++) {
-                char c = (char)tolower((unsigned char)move_str[i]);
-                if (c != ' ' && c != '_') needle[ni++] = c;
-            }
-            for (int id = 1; id <= 0xA5; id++) {
-                const char *nm = gMoveNames[id];
-                char norm[32] = {0};
-                int nnorm = 0;
-                for (int i = 0; nm[i] && nnorm < 31; i++) {
-                    char c = (char)tolower((unsigned char)nm[i]);
-                    if (c != ' ' && c != '_') norm[nnorm++] = c;
-                }
-                if (strcmp(needle, norm) == 0) { move_id = id; break; }
-            }
-        }
+        int move_id = cli_resolve_move_id(move_str);
 
         if (slot < 0 || slot >= (int)wPartyCount) {
             printf("[cli] teach: slot must be 1-%d\n", wPartyCount);
@@ -896,6 +1069,118 @@ static void process_cmd(const char *cmd) {
             printf("[cli] teach: slot %d move[%d] = 0x%02X (pp=%d)\n",
                    slot + 1, target, move_id, pp[target]);
         }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "movetestteam1") == 0) {
+        /* movetestteam1 — force a 6-mon party with the first 24 move-animation
+         * test moves in exact slot order:
+         * mon1: moves 1-4, mon2: 5-8, ... mon6: 21-24 */
+        static const char *const kMoveNames24[24] = {
+            "ABSORB", "ACID", "ACID ARMOR", "AGILITY",
+            "AMNESIA", "AURORA BEAM", "BARRAGE", "BARRIER",
+            "BIDE", "BIND", "BITE", "BLIZZARD",
+            "BODY SLAM", "BONE CLUB", "BONEMERANG", "BUBBLE",
+            "BUBBLEBEAM", "CLAMP", "COMET PUNCH", "CONFUSE RAY",
+            "CONFUSION", "CONSTRICT", "CONVERSION", "COUNTER"
+        };
+        uint8_t move_ids[24];
+        int ok = 1;
+        for (int i = 0; i < 24; i++) {
+            int id = cli_resolve_move_id(kMoveNames24[i]);
+            if (id < 1 || id > 0xA5) {
+                printf("[cli] movetestteam1: failed to resolve move '%s'\n", kMoveNames24[i]);
+                ok = 0;
+                break;
+            }
+            move_ids[i] = (uint8_t)id;
+        }
+        if (!ok) {
+            write_state();
+            return;
+        }
+
+        wPartyCount = PARTY_LENGTH;
+        for (int p = 0; p < PARTY_LENGTH; p++) {
+            Pokemon_InitMon(&wPartyMons[p], STARTER1, 50);
+            wPartyMons[p].base.status = 0;
+            wPartyMons[p].base.hp = wPartyMons[p].max_hp;
+            for (int m = 0; m < 4; m++) {
+                uint8_t mid = move_ids[p * 4 + m];
+                wPartyMons[p].base.moves[m] = mid;
+                wPartyMons[p].base.pp[m] = gMoves[mid].pp;
+            }
+        }
+
+        /* Keep active battle struct coherent if slot 1 is active. */
+        if (wPlayerMonNumber == 0) {
+            for (int m = 0; m < 4; m++) {
+                wBattleMon.moves[m] = wPartyMons[0].base.moves[m];
+                wBattleMon.pp[m] = wPartyMons[0].base.pp[m];
+            }
+        }
+
+        printf("[cli] movetestteam1: set 6-mon party with 24 move-animation test moves (slots 1-24)\n");
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "movetestteam2") == 0) {
+        /* movetestteam2 — force a 6-mon party with move-animation
+         * test moves #25-48 in exact slot order:
+         * mon1: moves 25-28, mon2: 29-32, ... mon6: 45-48 */
+        static const char *const kMoveNames24[24] = {
+            "CRABHAMMER", "CUT", "DEFENSE CURL", "DIG",
+            "DISABLE", "DIZZY PUNCH", "DOUBLE KICK", "DOUBLE SLAP",
+            "DOUBLE TEAM", "DOUBLE-EDGE", "DRAGON RAGE", "DREAM EATER",
+            "DRILL PECK", "EARTHQUAKE", "EGG BOMB", "EMBER",
+            "EXPLOSION", "FIRE BLAST", "FIRE PUNCH", "FIRE SPIN",
+            "FISSURE", "FLAMETHROWER", "FLASH", "FLY"
+        };
+        static const uint8_t kSpecies[PARTY_LENGTH] = {
+            SPECIES_BULBASAUR,
+            SPECIES_CHARMANDER,
+            SPECIES_SQUIRTLE,
+            SPECIES_PIKACHU,
+            SPECIES_EEVEE,
+            SPECIES_DRATINI
+        };
+        uint8_t move_ids[24];
+        int ok = 1;
+        for (int i = 0; i < 24; i++) {
+            int id = cli_resolve_move_id(kMoveNames24[i]);
+            if (id < 1 || id > 0xA5) {
+                printf("[cli] movetestteam2: failed to resolve move '%s'\n", kMoveNames24[i]);
+                ok = 0;
+                break;
+            }
+            move_ids[i] = (uint8_t)id;
+        }
+        if (!ok) {
+            write_state();
+            return;
+        }
+
+        wPartyCount = PARTY_LENGTH;
+        for (int p = 0; p < PARTY_LENGTH; p++) {
+            Pokemon_InitMon(&wPartyMons[p], kSpecies[p], 50);
+            wPartyMons[p].base.status = 0;
+            wPartyMons[p].base.hp = wPartyMons[p].max_hp;
+            for (int m = 0; m < 4; m++) {
+                uint8_t mid = move_ids[p * 4 + m];
+                wPartyMons[p].base.moves[m] = mid;
+                wPartyMons[p].base.pp[m] = gMoves[mid].pp;
+            }
+        }
+
+        /* Keep active battle struct coherent if slot 1 is active. */
+        if (wPlayerMonNumber == 0) {
+            for (int m = 0; m < 4; m++) {
+                wBattleMon.moves[m] = wPartyMons[0].base.moves[m];
+                wBattleMon.pp[m] = wPartyMons[0].base.pp[m];
+            }
+        }
+
+        printf("[cli] movetestteam2: set 6 unique mons with move-animation test moves (slots 25-48)\n");
         write_state();
         return;
     }
@@ -1314,6 +1599,44 @@ void DebugCLI_Tick(void) {
     if (s_seq_pos < s_seq_len) {
         gCliButtons = s_seq[s_seq_pos++];
         gCliFrames  = 1;
+    }
+
+    /* Auto-drive move animation lab while battle UI is active. */
+    if (s_animlab_enabled && get_scene() == 2 /* BATTLE */) {
+        /* Keep battle state stable so the sequence can run indefinitely. */
+        wBattleMon.hp = wBattleMon.max_hp;
+        wEnemyMon.hp  = wEnemyMon.max_hp;
+        wBattleMon.status = 0;
+        wEnemyMon.status  = 0;
+        wPlayerBattleStatus1 = wPlayerBattleStatus2 = wPlayerBattleStatus3 = 0;
+        wEnemyBattleStatus1  = wEnemyBattleStatus2  = wEnemyBattleStatus3  = 0;
+        animlab_set_enemy_harmless();
+
+        /* If dialogue is open, tap A to advance. */
+        if (Text_IsOpen()) {
+            gCliButtons = BTN_A;
+            gCliFrames  = 1;
+        } else if (s_seq_pos >= s_seq_len) {
+            int bui = BattleUI_GetState();
+            if (bui == 10 /* BUI_MENU */) {
+                uint8_t move_id = (uint8_t)((s_animlab_move_id > 0 && s_animlab_move_id < NUM_MOVE_DEFS)
+                    ? s_animlab_move_id : 1);
+                animlab_set_player_move(move_id);
+
+                seq_clear();
+                seq_battle_menu(0);
+                seq_move_select(1);
+
+                s_animlab_move_id++;
+                if (s_animlab_move_id >= NUM_MOVE_DEFS) {
+                    s_animlab_move_id = 1;
+                    s_animlab_loops++;
+                }
+            } else if (bui == 11 /* BUI_MOVE_SELECT */) {
+                seq_clear();
+                seq_push(BTN_A, PRESS, GAP);
+            }
+        }
     }
 
     /* After sequence done + reaction wait, write state */

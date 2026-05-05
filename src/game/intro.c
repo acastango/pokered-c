@@ -21,6 +21,7 @@
 #include "inventory.h"
 #include "pokemon.h"
 #include "music.h"
+#include "naming_screen.h"
 #include "../platform/hardware.h"
 #include "../data/event_constants.h"
 #include <string.h>
@@ -44,8 +45,10 @@ typedef enum {
     IS_IDLE = 0,
     IS_SPEECH1,       /* Hello there! / My name is OAK!          */
     IS_SPEECH2,       /* This world is inhabited by POKEMON…      */
-    IS_NAME_PROMPT,   /* First, what is your name? / You are ASH  */
-    IS_RIVAL_PROMPT,  /* This is my grandson … His name is GARY!  */
+    IS_NAME_PROMPT,   /* First, what is your name?                 */
+    IS_NAME_ENTRY,    /* custom player naming screen               */
+    IS_RIVAL_PROMPT,  /* This is my grandson … what is his name?   */
+    IS_RIVAL_ENTRY,   /* custom rival naming screen                */
     IS_SPEECH3,       /* ASH! Your very own POKEMON legend…       */
     IS_DONE,
 } IntroState;
@@ -53,6 +56,8 @@ typedef enum {
 static IntroState gState   = IS_IDLE;
 static int        gActive  = 0;
 static int        gWaiting = 0; /* 1 = text shown, waiting for it to close */
+static int        gNameOpened = 0;
+static int        gRivalOpened = 0;
 
 /* ---- Oak speech texts (ASCII, \n=line \f=paragraph) ---------- */
 static const char kSpeech1[] =
@@ -66,12 +71,11 @@ static const char kSpeech2[] =
     "\fI study POKEMON\nas a profession.";
 
 static const char kNamePrompt[] =
-    "First, what is\nyour name?"
-    "\fYou shall be\ncalled ASH!";
+    "First, what is\nyour name?";
 
 static const char kRivalPrompt[] =
     "This is my grand-\nson. He's been\nyour rival since\nyou were a baby."
-    "\fHis name is GARY!";
+    "\f...Erm, what is\nhis name again?";
 
 static const char kSpeech3[] =
     "ASH!\nYour very own\nPOKEMON legend is\nabout to unfold!"
@@ -110,7 +114,9 @@ static void init_player_data(void) {
 void Intro_Start(void) {
     gActive  = 1;
     gWaiting = 0;
-    gState   = IS_DONE; /* TEMP: skip Oak speech for testing */
+    gState   = IS_SPEECH1;
+    gNameOpened = 0;
+    gRivalOpened = 0;
     init_player_data();
     /* Play Routes2 music like the original (Music_Routes2 during OakSpeech) */
     Music_Play(MUSIC_ROUTES2);
@@ -131,8 +137,8 @@ void Intro_Tick(void) {
         switch (gState) {
             case IS_SPEECH1:     gState = IS_SPEECH2;      break;
             case IS_SPEECH2:     gState = IS_NAME_PROMPT;  break;
-            case IS_NAME_PROMPT: gState = IS_RIVAL_PROMPT; break;
-            case IS_RIVAL_PROMPT:gState = IS_SPEECH3;      break;
+            case IS_NAME_PROMPT: gState = IS_NAME_ENTRY;   break;
+            case IS_RIVAL_PROMPT:gState = IS_RIVAL_ENTRY;  break;
             case IS_SPEECH3:     gState = IS_DONE;         break;
             default: break;
         }
@@ -151,9 +157,35 @@ void Intro_Tick(void) {
             Text_ShowASCII(kNamePrompt);
             gWaiting = 1;
             break;
+        case IS_NAME_ENTRY:
+            if (!gNameOpened) {
+                NamingScreen_Open(NAME_PLAYER_SCREEN, 0, wPlayerName);
+                gNameOpened = 1;
+                break;
+            }
+            if (NamingScreen_IsOpen()) break;
+            if (wPlayerName[0] == 0x00 || wPlayerName[0] == 0x50) {
+                gNameOpened = 0;
+                break;
+            }
+            gState = IS_RIVAL_PROMPT;
+            break;
         case IS_RIVAL_PROMPT:
             Text_ShowASCII(kRivalPrompt);
             gWaiting = 1;
+            break;
+        case IS_RIVAL_ENTRY:
+            if (!gRivalOpened) {
+                NamingScreen_Open(NAME_RIVAL_SCREEN, 0, wRivalName);
+                gRivalOpened = 1;
+                break;
+            }
+            if (NamingScreen_IsOpen()) break;
+            if (wRivalName[0] == 0x00 || wRivalName[0] == 0x50) {
+                gRivalOpened = 0;
+                break;
+            }
+            gState = IS_SPEECH3;
             break;
         case IS_SPEECH3:
             Text_ShowASCII(kSpeech3);

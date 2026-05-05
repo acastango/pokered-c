@@ -49,6 +49,8 @@
 #include "gate_scripts.h"
 #include "vermilion_gym_scripts.h"
 #include "pokedex.h"
+#include "town_map.h"
+#include "title_screen.h"
 #include "main_menu.h"
 #include "intro.h"
 #include "pallet_scripts.h"
@@ -65,6 +67,9 @@
 #include "tmhm.h"
 #include "field_moves.h"
 #include "pokeflute.h"
+#include "naming_screen.h"
+#include "name_rater_scripts.h"
+#include "yesno.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,6 +81,7 @@ typedef enum {
     SCENE_BTRANS,        /* battle transition animation   */
     SCENE_BATTLE,
     SCENE_MENU,          /* future */
+    SCENE_TITLE,         /* startup title sequence        */
     SCENE_MAIN_MENU,     /* startup: CONTINUE / NEW GAME */
     SCENE_INTRO,         /* Oak's speech, new-game setup  */
 } GameScene;
@@ -87,6 +93,7 @@ void Game_SetScene(int s)  { gScene = (GameScene)s; }
 
 /* Set by --skip flag in main.c: bypass main menu when a save exists */
 int gSkipMenu = 0;
+static int gStartupHasSave = 0;
 
 /* ---- Enter overworld from loaded wCurMap/wXCoord/wYCoord ---------- */
 /* Fire all per-map OnMapLoad callbacks.  Called any time the current map
@@ -125,22 +132,21 @@ void GameInit(void) {
     WRAMClear();
     wLastBlackoutMap = 0xFF;  /* default before any pokecenter heal (mirrors NewGameWarp) */
 
-    int save_ok = (Save_Load() == 0);
-    if (save_ok)
+    gStartupHasSave = (Save_Load() == 0);
+    if (gStartupHasSave)
         printf("[save] Save loaded OK — map %d @ (%d,%d)\n", wCurMap, wXCoord, wYCoord);
     else
-        printf("[save] No save found — showing main menu\n");
+        printf("[save] No save found — showing title screen\n");
 
     Font_Load();
     /* --skip flag: jump straight to overworld when a save is available */
-    if (gSkipMenu && save_ok) {
+    if (gSkipMenu && gStartupHasSave) {
         enter_overworld();
         return;
     }
-    /* Always show main menu first (CONTINUE if save found, NEW GAME otherwise).
-     * Mirrors MainMenu in engine/menus/main_menu.asm. */
-    MainMenu_Open(save_ok);
-    gScene = SCENE_MAIN_MENU;
+    /* Show title first (DisplayTitleScreen), then main menu. */
+    TitleScreen_Open();
+    gScene = SCENE_TITLE;
 }
 
 /* Wild encounter message: "Wild <POKEMON>!" placeholder */
@@ -436,6 +442,22 @@ void GameTick(void) {
      * Polling it after the 30 Hz gate would silently discard presses on  *
      * odd frames.  The original WaitForTextScrollButtonPress uses a       *
      * single DelayFrame (not two), so text input is natively 60 Hz.     */
+    /* ---- Title screen (startup) ----------------------------------- */
+    if (gScene == SCENE_TITLE) {
+        if (TitleScreen_IsOpen()) {
+            TitleScreen_Tick();
+        } else {
+            int result = TitleScreen_GetResult();
+            if (result == TITLE_SCREEN_CLEAR_SAVE)
+                printf("[title] UP+SELECT+B detected (clear-save dialog path not yet ported)\n");
+            /* Title uploads overwrite some box tile slots; restore font set for menu UI. */
+            Font_Load();
+            MainMenu_Open(gStartupHasSave);
+            gScene = SCENE_MAIN_MENU;
+        }
+        return;
+    }
+
     /* ---- Main menu (startup) -------------------------------------- */
     if (gScene == SCENE_MAIN_MENU) {
         if (MainMenu_IsOpen()) {
@@ -447,6 +469,9 @@ void GameTick(void) {
             } else if (result == MAIN_MENU_NEW_GAME) {
                 Intro_Start();
                 gScene = SCENE_INTRO;
+            } else if (result == MAIN_MENU_BACK) {
+                TitleScreen_Open();
+                gScene = SCENE_TITLE;
             }
         }
         return;
@@ -455,6 +480,7 @@ void GameTick(void) {
     /* ---- Intro (Oak's speech / new-game setup) -------------------- */
     if (gScene == SCENE_INTRO) {
         if (Text_IsOpen()) { Text_Update(); return; }
+        if (NamingScreen_IsOpen()) { NamingScreen_Tick(); return; }
         if (Intro_IsActive()) {
             Intro_Tick();
         } else {
@@ -466,6 +492,12 @@ void GameTick(void) {
 
     if (Text_IsOpen()) {
         Text_Update();
+        /* Yes/No menus in Gen 1 are shown concurrently with the question text.
+         * Keep drawing the overlay while dialog owns the frame. */
+        if (YesNo_IsOpen())
+            YesNo_PostRender();
+        if (OaksLabScripts_IsActive())
+            OaksLabScripts_PostRender();
         /* If text is still open, stop here.  If text just closed while in
          * battle, fall through so BattleUI_Tick runs in the SAME frame —
          * avoids a 1-frame blank text box caused by Text_Close() erasing
@@ -480,6 +512,11 @@ void GameTick(void) {
          * menu selection in BattleUI_Tick on the same frame.  Mirror this by
          * consuming the input that closed the text. */
         hJoyPressed = 0;
+    }
+
+    if (NamingScreen_IsOpen()) {
+        NamingScreen_Tick();
+        return;
     }
 
     if (Menu_IsOpen()) {
@@ -504,6 +541,16 @@ void GameTick(void) {
         return;
     }
 
+    if (NameRater_IsActive()) {
+        NameRater_Tick();
+        if (!PartyMenu_IsOpen() && !NamingScreen_IsOpen()) {
+            Map_BuildScrollView();
+            NameRater_PostRender();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+        }
+        return;
+    }
+
     if (FieldMove_IsActive()) {
         FieldMove_Tick();
         Map_BuildScrollView();
@@ -514,6 +561,11 @@ void GameTick(void) {
 
     if (Pokedex_IsOpen()) {
         Pokedex_Tick();
+        return;
+    }
+
+    if (TownMap_IsOpen()) {
+        TownMap_Tick();
         return;
     }
 
@@ -843,6 +895,13 @@ void GameTick(void) {
          * check for it after each tick and start the battle transition. */
         int oakslab_was_active = OaksLabScripts_IsActive();
         OaksLabScripts_Tick();
+        /* OaksLab can open NamingScreen from inside its state machine
+         * (starter nickname prompt). If that happens, do not run any
+         * overworld map/OAM rebuild in this frame, or it will overwrite
+         * the freshly drawn naming UI before NamingScreen_Tick gets control. */
+        if (NamingScreen_IsOpen()) {
+            return;
+        }
         {
             uint8_t tr_class, tr_no;
             if (OaksLabScripts_GetPendingBattle(&tr_class, &tr_no)) {

@@ -9,6 +9,7 @@
  */
 #include "battle_effects.h"
 #include "battle.h"
+#include "battle_switch.h"
 #include "../../platform/hardware.h"
 #include "../constants.h"
 #include "../types.h"
@@ -374,6 +375,33 @@ static void Effect_StatModifierUp(void) {
     }
     stat_mods[idx] = new_mod;
 
+    /* ASM quirk: for ATK/DEF/SPD/SPC paths only, if the *current modified*
+     * stat is already 999, it jumps to RestoreOriginalStatModifier, which
+     * decrements the just-written stage once and exits as "nothing happened".
+     * This means +1 effects net to no stage gain, while +2 effects net to +1. */
+    if (idx < 4u) {
+        uint16_t cur_stat = 0u;
+        if (hWhoseTurn == 0) {
+            switch (idx) {
+                case 0u: cur_stat = wBattleMon.atk; break;
+                case 1u: cur_stat = wBattleMon.def; break;
+                case 2u: cur_stat = wBattleMon.spd; break;
+                default: cur_stat = wBattleMon.spc; break;
+            }
+        } else {
+            switch (idx) {
+                case 0u: cur_stat = wEnemyMon.atk; break;
+                case 1u: cur_stat = wEnemyMon.def; break;
+                case 2u: cur_stat = wEnemyMon.spd; break;
+                default: cur_stat = wEnemyMon.spc; break;
+            }
+        }
+        if (cur_stat >= MAX_STAT_VALUE && stat_mods[idx] > STAT_STAGE_MIN) {
+            stat_mods[idx]--;
+            return;
+        }
+    }
+
     /* Recalculate ATK/DEF/SPD/SPC (not ACC/EVA) */
     if (idx < 4) {
         wCalculateWhoseStats = hWhoseTurn ? 1 : 0;
@@ -384,6 +412,11 @@ static void Effect_StatModifierUp(void) {
     if (move_num == MOVE_MINIMIZE) {
         if (hWhoseTurn == 0) wPlayerMonMinimized = 1;
         else                 wEnemyMonMinimized  = 1;
+    }
+
+    /* ASM: ApplyBadgeStatBoosts is called for player's own stat-up moves. */
+    if (hWhoseTurn == 0) {
+        Battle_ApplyBadgeStatBoosts();
     }
 
     /* Gen 1 quirk: re-apply burn/paralysis penalties after every stat change */
@@ -413,6 +446,9 @@ static void Effect_StatModifierDown(void) {
         }
     }
 
+    /* ASM runs substitute blocking before both side and non-side branches. */
+    if (CheckTargetSubstitute()) { wMoveMissed = 1; return; }
+
     /* Side effects (0x44-0x47): 33% proc chance */
     if (effect >= EFFECT_ATTACK_DOWN_SIDE) {
         if (BattleRandom() >= PCT33) return;  /* no effect — move still hit */
@@ -422,14 +458,15 @@ static void Effect_StatModifierDown(void) {
             target_mods[idx]--;
             wCalculateWhoseStats = (hWhoseTurn == 0) ? 1u : 0u;
             Battle_CalculateModifiedStats();
+            /* ASM: ApplyBadgeStatBoosts is called when enemy lowers player stats. */
+            if (hWhoseTurn != 0) {
+                Battle_ApplyBadgeStatBoosts();
+            }
             Battle_QuarterSpeedDueToParalysis();
             Battle_HalveAttackDueToBurn();
         }
         return;
     }
-
-    /* Substitute blocks non-side stat-down effects */
-    if (CheckTargetSubstitute()) { wMoveMissed = 1; return; }
 
     /* Accuracy test for -1/-2 effects */
     Battle_MoveHitTest();
@@ -462,6 +499,11 @@ static void Effect_StatModifierDown(void) {
     if (idx < 4) {
         wCalculateWhoseStats = (hWhoseTurn == 0) ? 1u : 0u;
         Battle_CalculateModifiedStats();
+    }
+
+    /* ASM: ApplyBadgeStatBoosts is called when enemy lowers player stats. */
+    if (hWhoseTurn != 0) {
+        Battle_ApplyBadgeStatBoosts();
     }
 
     /* Gen 1 quirk: re-apply penalties */
@@ -626,7 +668,9 @@ static void Effect_OHKO(void) {
         atk_spd = wEnemyMon.spd;
         def_spd = wBattleMon.spd;
     }
-    if (atk_spd > def_spd) {
+    /* ASM parity: success when attacker speed is >= defender speed.
+     * (only strictly slower fails via carry branch). */
+    if (atk_spd >= def_spd) {
         wDamage            = 0xFFFF;
         wCriticalHitOrOHKO = 2;
     } else {
@@ -651,7 +695,7 @@ static void Effect_Charge(void) {
 }
 
 /* ---- TrappingEffect (effects.asm:1080) -----------------------------------
- * Sets USING_TRAPPING_MOVE, clears Hyper Beam on target, rolls 1-4 for
+ * Sets USING_TRAPPING_MOVE, clears Hyper Beam on target, rolls 2-5 for
  * the trapping turn counter using the same 3/8–3/8–1/8–1/8 distribution. */
 static void Effect_Trapping(void) {
     uint8_t *bstat1;
@@ -671,7 +715,8 @@ static void Effect_Trapping(void) {
 
     uint8_t r = BattleRandom() & 3u;
     if (r >= 2) r = BattleRandom() & 3u;
-    *ctr = r + 1u;  /* 1-4 */
+    /* ASM stores 1..4 here (first hit already consumed this turn). */
+    *ctr = (uint8_t)(r + 1u);
 }
 
 /* ---- ConfusionSideEffect (effects.asm:1114) and ConfusionEffect ----------
@@ -799,13 +844,18 @@ static void Effect_Disable(void) {
     /* Already disabled? Fail. */
     if (*target_disabled != 0) { wMoveMissed = 1; return; }
 
-    /* Pick a random non-null move slot with PP > 0. */
+    /* Pick a random non-null move slot.
+     * ASM quirk/parity: in non-link battles on player's turn (disabling enemy),
+     * PP checks are skipped because enemy PP is treated as unlimited. */
     uint8_t slot;
     for (;;) {
         slot = BattleRandom() & 3u;
         if (target_moves[slot] == 0) continue;
-        /* Check PP (non-link AI has unlimited PP so skip check).
-         * In link battle we'd check actual PP; for now always accept. */
+
+        if (hWhoseTurn == 0 && wLinkState != LINK_STATE_BATTLING) {
+            break;
+        }
+
         uint8_t pp = target_pp[slot] & PP_MASK;
         if (pp == 0) {
             /* No PP: only fail if all moves have 0 PP */

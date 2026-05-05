@@ -40,6 +40,9 @@
 #define PAD_BUTTONS         0x0F    /* A | B | SELECT | START */
 #define PAD_CTRL_PAD        0xF0    /* direction bits */
 
+/* ---- Options bits ---------------------------------------- */
+#define BIT_BATTLE_ANIMATION 7      /* 1 = battle animations disabled */
+
 /* ---- Mon status byte ------------------------------------- */
 #define STATUS_SLP_MASK     0x07    /* bits 2-0: sleep turn counter */
 #define STATUS_PSN          (1<<3)

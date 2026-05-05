@@ -17,6 +17,7 @@
 #include "npc.h"
 #include "tmhm.h"
 #include "pokeflute.h"
+#include "town_map.h"
 #include "../platform/hardware.h"
 #include "../data/font_data.h"
 #include <string.h>
@@ -281,6 +282,9 @@ void BagMenu_Tick(void) {
                     if (gBagBattleMode) {
                         /* In battle: record selection and close immediately */
                         gBagSelectedItem = id;
+                        bag_close();
+                    } else if (id == ITEM_TOWN_MAP) {
+                        TownMap_Open();
                         bag_close();
                     } else if (id >= HM01) {
                         /* Overworld TM/HM: start teaching flow */

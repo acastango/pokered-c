@@ -58,6 +58,10 @@ class State:
         self.vib_delay    = 0  # frames before vibrato onset after note trigger
         self.vib_rate     = 0  # frames per half-oscillation
         self.vib_depth    = 0  # frequency deviation in GB freq register units
+        # One-shot pitch slide command state (applies to next note only).
+        self.slide_pending = False
+        self.slide_len_mod = 0
+        self.slide_target  = 0
 
     def copy(self):
         s = State()
@@ -100,7 +104,8 @@ def preprocess(raw_lines):
     return flat, labels
 
 
-def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_wave=False):
+def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='',
+                is_wave=False, is_drum=False, drum_map=None):
     """Parse note/command lines starting at start_idx.
     Returns (events, next_idx, loop_start_in_events).
     If stop_on_ret=True, stop at sound_ret (used for subroutines).
@@ -158,6 +163,11 @@ def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_
                     else:
                         state.env_nibble = fade_raw & 0xF              # decrease or 0
 
+        elif s.startswith('drum_speed '):
+            m = re.match(r'drum_speed\s+(\d+)', s)
+            if m:
+                state.speed = int(m.group(1))
+
         elif s.startswith('octave '):
             m = re.match(r'octave\s+(\d+)', s)
             if m: state.octave = int(m.group(1))
@@ -172,10 +182,36 @@ def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_
                 state.vib_rate  = int(m.group(2))
                 state.vib_depth = int(m.group(3))
 
-        elif s.startswith('pitch_slide') \
-             or s.startswith('stereo_panning') or s.startswith('duty_cycle_pattern') \
+        elif s.startswith('pitch_slide'):
+            m = re.match(r'pitch_slide\s+(\d+)\s*,\s*(\d+)\s*,\s*([A-G][b#_])', s)
+            if m:
+                state.slide_pending = True
+                state.slide_len_mod = int(m.group(1))
+                tgt_oct = int(m.group(2))
+                tgt_name = m.group(3)
+                if tgt_name in NOTE_IDX:
+                    state.slide_target = calc_freq(
+                        NOTE_IDX[tgt_name], tgt_oct, state.perfect_pitch)
+                else:
+                    state.slide_target = 0
+
+        elif s.startswith('stereo_panning') or s.startswith('duty_cycle_pattern') \
              or s.startswith('pitch_sweep'):
             pass  # ignored
+
+        elif is_drum and s.startswith('drum_note '):
+            m = re.match(r'drum_note\s+(\d+)\s*,\s*(\d+)', s)
+            if m:
+                inst = int(m.group(1))
+                note_len = int(m.group(2))
+                delay, state.frac = calc_delay(
+                    note_len, state.speed, state.tempo, state.frac)
+                # Store drum instrument ID in duty field; runtime plays the
+                # full mapped noise-instrument sequence per drum hit.
+                if not drum_map or inst not in drum_map:
+                    inst = 0
+                events.append((0, delay, inst, 0, 0,
+                               0, 0, 0, 0, 0))
 
         elif s.startswith('note '):
             m = re.match(r'note\s+([A-G][b#_]),\s*(\d+)', s)
@@ -189,8 +225,17 @@ def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_
                         note_len, state.speed, state.tempo, state.frac)
                     env_byte = (state.volume << 4) | state.env_nibble
                     duty_val = state.wave_inst if is_wave else state.duty
+                    slide_target = 0
+                    slide_frames = 0
+                    if state.slide_pending:
+                        slide_target = state.slide_target
+                        slide_frames = max(1, delay - state.slide_len_mod)
+                        state.slide_pending = False
+                        state.slide_len_mod = 0
+                        state.slide_target = 0
                     events.append((freq, delay, duty_val, state.volume, env_byte,
-                                   state.vib_delay, state.vib_rate, state.vib_depth))
+                                   state.vib_delay, state.vib_rate, state.vib_depth,
+                                   slide_target, slide_frames))
 
         elif s.startswith('rest '):
             m = re.match(r'rest\s+(\d+)', s)
@@ -199,7 +244,9 @@ def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_
                 delay, state.frac = calc_delay(
                     note_len, state.speed, state.tempo, state.frac)
                 duty_val = state.wave_inst if is_wave else state.duty
-                events.append((0, delay, duty_val, 0, 0, 0, 0, 0))
+                # Rest does not consume pending pitch_slide in the original engine;
+                # keep pending state for the next note.
+                events.append((0, delay, duty_val, 0, 0, 0, 0, 0, 0, 0))
 
         elif s.startswith('sound_call '):
             m = re.match(r'sound_call\s+(\S+)', s)
@@ -210,7 +257,8 @@ def parse_block(flat, start_idx, state, labels, stop_on_ret=False, scope='', is_
                     sub_start = labels[key] + 1  # skip the label line itself
                     sub_events, _, _ = parse_block(flat, sub_start, state,
                                                    labels, stop_on_ret=True,
-                                                   scope=scope, is_wave=is_wave)
+                                                   scope=scope, is_wave=is_wave,
+                                                   is_drum=is_drum, drum_map=drum_map)
                     events.extend(sub_events)
 
         elif s.startswith('sound_ret'):
@@ -277,7 +325,8 @@ def extract_global_tempo(raw_lines, ch1_label=None):
     return 256  # default when no tempo command present
 
 
-def parse_channel(raw_lines, channel_label, global_tempo=None, is_wave=False):
+def parse_channel(raw_lines, channel_label, global_tempo=None, is_wave=False,
+                  is_drum=False, drum_map=None):
     """Parse one music channel. Returns (events, loop_start)."""
     flat, labels = preprocess(raw_lines)
 
@@ -293,10 +342,42 @@ def parse_channel(raw_lines, channel_label, global_tempo=None, is_wave=False):
     state = State()
     if global_tempo is not None:
         state.tempo = global_tempo   # shared across all channels in this song
+    if is_drum:
+        state.speed = 12
     events, _, loop_start = parse_block(flat, ch_start, state, labels,
                                         stop_on_ret=True, scope=channel_label,
-                                        is_wave=is_wave)
+                                        is_wave=is_wave, is_drum=is_drum,
+                                        drum_map=drum_map)
     return events, loop_start
+
+def load_noise_instruments(base, bank):
+    out = {}
+    for i in range(1, 20):
+        path = os.path.join(base, 'audio', 'sfx', f'noise_instrument{i:02d}_{bank}.asm')
+        if not os.path.exists(path):
+            continue
+        steps = []
+        with open(path) as f:
+            for line in f:
+                s = line.strip()
+                if ';' in s:
+                    s = s[:s.index(';')].strip()
+                m = re.match(r'noise_note\s+(\d+)\s*,\s*(\d+)\s*,\s*([-\d]+)\s*,\s*(\d+)', s)
+                if not m:
+                    continue
+                step_len = int(m.group(1))
+                vol = int(m.group(2)) & 0xF
+                fade_raw = int(m.group(3))
+                if fade_raw < 0:
+                    env_nibble = 0x8 | ((-fade_raw) & 0x7)
+                else:
+                    env_nibble = fade_raw & 0xF
+                env_byte = (vol << 4) | env_nibble
+                nr43 = int(m.group(4)) & 0xFF
+                steps.append((nr43, env_byte, step_len + 1))
+        if steps:
+            out[i] = steps
+    return out
 
 
 # -----------------------------------------------------------
@@ -304,9 +385,9 @@ def parse_channel(raw_lines, channel_label, global_tempo=None, is_wave=False):
 # -----------------------------------------------------------
 def emit_array(c_name, events, loop_start):
     lines = [f'static const note_evt_t {c_name}[] = {{']
-    for idx, (freq, frames, duty, vol, env_byte, vd, vr, vdp) in enumerate(events):
+    for idx, (freq, frames, duty, vol, env_byte, vd, vr, vdp, st, sf) in enumerate(events):
         lm = '  /* loop */' if idx == loop_start else ''
-        lines.append(f'    {{{freq:5}, {frames:3}, {duty}, {vol}, 0x{env_byte:02X}, {vd}, {vr}, {vdp}}},' + lm)
+        lines.append(f'    {{{freq:5}, {frames:3}, {duty}, {vol}, 0x{env_byte:02X}, {vd}, {vr}, {vdp}, {st:5}, {sf:3}}},' + lm)
     lines.append(f'}};  /* {len(events)} events, loop@{loop_start} */')
     return '\n'.join(lines)
 
@@ -346,6 +427,7 @@ MUSIC_ID = {
     'MUSIC_JIGGLYPUFF':     24,
     'MUSIC_WILD_BATTLE':    25,
     'MUSIC_PKMN_HEALED':   26,
+    'MUSIC_INTRO_BATTLE':  39,
 }
 
 def parse_songs(songs_asm_path):
@@ -370,6 +452,7 @@ def main():
     base      = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              '..', 'pokered-master')
     music_dir = os.path.join(base, 'audio', 'music')
+    drums3    = load_noise_instruments(base, 3)
 
     songs = [
         ('pallettown', 'Music_PalletTown',  3),
@@ -398,8 +481,10 @@ def main():
         ('museumguy',         'Music_MuseumGuy',         3),
         ('vermilion',         'Music_Vermilion',         3),
         ('ssanne',            'Music_SSAnne',            3),
+        ('titlescreen',       'Music_TitleScreen',       4),
         ('safarizone',        'Music_SafariZone',        3),
         ('surfing',           'Music_Surfing',           3),
+        ('introbattle',       'Music_IntroBattle',       4),
     ]
 
     print('/* AUTO-GENERATED by tools/extract_audio.py — do not edit manually */')
@@ -408,9 +493,26 @@ def main():
     print()
     print('typedef struct { uint16_t freq; uint16_t frames;')
     print('                 uint8_t duty;  uint8_t volume; uint8_t env_byte;')
-    print('                 uint8_t vib_delay; uint8_t vib_rate; uint8_t vib_depth; } note_evt_t;')
+    print('                 uint8_t vib_delay; uint8_t vib_rate; uint8_t vib_depth;')
+    print('                 uint16_t slide_target; uint8_t slide_frames; } note_evt_t;')
     print('typedef struct { const note_evt_t *notes; int count;')
     print('                 int loop_start; } ch_data_t;')
+    print('typedef struct { uint8_t nr43; uint8_t env_byte; uint8_t frames; } drum_step_t;')
+    print('typedef struct { const drum_step_t *steps; uint8_t count; } drum_inst_t;')
+    print()
+
+    for inst in range(1, 20):
+        steps = drums3.get(inst, [])
+        print(f'static const drum_step_t kDrumInst{inst}_steps[] = {{')
+        for nr43, env_byte, frames in steps:
+            print(f'    {{ 0x{nr43:02X}, 0x{env_byte:02X}, {frames} }},')
+        print('};')
+        print()
+    print('static const drum_inst_t kDrumInst[20] = {')
+    print('    { NULL, 0 },')
+    for inst in range(1, 20):
+        print(f'    {{ kDrumInst{inst}_steps, (uint8_t)(sizeof(kDrumInst{inst}_steps)/sizeof(kDrumInst{inst}_steps[0])) }},')
+    print('};')
     print()
 
     for stem, label_base, num_ch in songs:
@@ -423,11 +525,12 @@ def main():
             arr_name  = f'k{short}_Ch{ch}_notes'
             data_name = f'k{short}_Ch{ch}'
             events, ls = parse_channel(raw, ch_label, global_tempo=global_tempo,
-                                       is_wave=(ch == 3))
+                                       is_wave=(ch == 3), is_drum=(ch == 4),
+                                       drum_map=drums3)
             if not events:
                 print(f'/* WARNING: {ch_label} produced 0 events */')
                 # emit a single silent event to avoid empty array
-                events = [(0, 1, 0, 0, 0)]
+                events = [(0, 1, 0, 0, 0, 0, 0, 0, 0, 0)]
                 ls = 0
             print(emit_array(arr_name, events, ls))
             print(emit_ch_data(data_name, arr_name, len(events), ls))

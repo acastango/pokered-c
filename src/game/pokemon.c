@@ -311,6 +311,18 @@ void Pokemon_AddToParty(uint8_t species, uint8_t level) {
     m->spc    = CalcStat(bs->spc, dv_spc, 0, level, 0);
     m->base.hp = m->max_hp;
 
+    /* ASM parity (_AddPartyMon):
+     * - write OT name for new slot from wPlayerName
+     * - default nickname to species name
+     * - update species list + terminator */
+    memcpy(wPartyMonOT[wPartyCount], wPlayerName, NAME_LENGTH);
+    {
+        const char *name = Pokemon_GetName(dex);
+        Pokemon_EncodeNameString(name ? name : "", wPartyMonNicks[wPartyCount]);
+    }
+    wPartySpecies[wPartyCount] = species;
+    wPartySpecies[wPartyCount + 1] = 0xFF;
+
     wPartyCount++;
 }
 

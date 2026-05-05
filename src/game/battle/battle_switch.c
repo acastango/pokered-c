@@ -50,6 +50,10 @@ static void apply_badge_stat_boosts(void) {
     if (b & (1u << BIT_VOLCANOBADGE)) wBattleMon.spc = apply_boost(wBattleMon.spc);
 }
 
+void Battle_ApplyBadgeStatBoosts(void) {
+    apply_badge_stat_boosts();
+}
+
 /* ============================================================
  * Battle_AnyPartyAlive — AnyPartyAlive (core.asm:1455)
  *

@@ -32,6 +32,7 @@
 #include "battle_trainer.h"
 #include "battle_catch.h"
 #include "battle_items.h"
+#include "move_anim.h"
 #include "../party_menu.h"
 #include "../bag_menu.h"
 #include "../inventory.h"
@@ -52,6 +53,7 @@
 #include "../overworld.h"   /* gScrollTileMap, SCROLL_MAP_W */
 #include "../trainer_sight.h" /* gEngagedTrainerClass */
 #include "../player.h"      /* gScrollPxX, gScrollPxY */
+#include "../naming_screen.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -80,6 +82,11 @@ typedef enum {
     BUI_EXEC_SECOND,    /* after residual-A message: exec 2nd move  */
     BUI_TURN_END,       /* after second move text: check + loop     */
     BUI_TURN_FINISH,    /* after residual-B message: cleanup + loop */
+    BUI_RESIDUAL_EVENT,   /* consume residual event queue in ASM order */
+    BUI_RESIDUAL_ANIM,    /* residual scripted move animation runtime  */
+    BUI_RESIDUAL_HP_ANIM, /* animate one residual HP target            */
+    BUI_RESIDUAL_FAINT_DELAY, /* fainted from residual: DelayFrames(20) */
+    BUI_RESIDUAL_RESOLVE, /* continue after residual pipeline          */
     BUI_EXP_DRAIN,      /* drain exp/level-up texts after faint     */
     BUI_TRAINER_VICTORY_SLIDE, /* trainer sprite slides in from right (56px, 4px/tick) */
     BUI_TRAINER_VICTORY_PAUSE, /* 40-frame hold after slide completes                  */
@@ -89,6 +96,10 @@ typedef enum {
     BUI_WAIT_SOUND,            /* WaitForSoundToFinish then show money text            */
     BUI_FADE_WHITE,            /* white palette hold ~30f then BUI_END                 */
     BUI_LEVELUP_STATS,  /* wait for A on the level-up stats box     */
+    BUI_LEARN_FORGET_YESNO,    /* level-up learn move: delete old move? yes/no         */
+    BUI_LEARN_PICK_MOVE,       /* choose which existing move to forget                  */
+    BUI_LEARN_STOP_YESNO,      /* B on pick: confirm abandoning learn                   */
+    BUI_LEARN_RESULT_TEXT,     /* post-selection learn/decline text                     */
     BUI_ENEMY_FAINT_ANIM, /* enemy sprite slides down off-screen (14f) */
     BUI_PLAYER_FAINTED, /* player mon fainted: checks + open menu   */
     BUI_USE_NEXT_MON,   /* wild only: "Use next Pokemon?" YES/NO    */
@@ -104,6 +115,10 @@ typedef enum {
     BUI_CAUGHT,         /* add caught mon to party / box, maybe show dex     */
     BUI_CAUGHT_DEX_WAIT,/* wait through "new dex data" text + dex page       */
     BUI_CAUGHT_BOX_TEXT,/* wait for post-dex PC transfer text                */
+    BUI_CAUGHT_NICK_PROMPT,/* ask nickname yes/no                             */
+    BUI_CAUGHT_NICK_QUERY,/* nickname yes/no input                            */
+    BUI_CAUGHT_NICKNAME,/* naming screen open for caught mon                 */
+    BUI_CAUGHT_NICK_WAIT,/* wait until naming screen closes                  */
     BUI_EVOLUTION,      /* post-battle evolution screen (flicker + B-cancel) */
     BUI_END,            /* battle over                              */
 } bui_state_t;
@@ -122,6 +137,35 @@ static char s_pfx_b[8];
 /* Shared message buffer — never modified while Text_IsOpen() */
 static char s_msg_buf[384];
 
+/* Player-side battle display name:
+ * prefer current party nickname, fall back to species name. */
+static const char *bui_player_mon_name(void) {
+    static char s_name[NAME_LENGTH + 1];
+    int slot = (int)wPlayerMonNumber;
+    if (slot >= 0 && slot < PARTY_LENGTH && slot < (int)wPartyCount) {
+        const uint8_t *nick = wPartyMonNicks[slot];
+        if (nick[0] != 0x00 && nick[0] != 0x50) {
+            int out = 0;
+            for (int i = 0; i < NAME_LENGTH - 1 && out < NAME_LENGTH; i++) {
+                uint8_t c = nick[i];
+                if (c == 0x50) break;
+                if      (c >= 0x80 && c <= 0x99) s_name[out++] = (char)('A' + (c - 0x80));
+                else if (c >= 0xA0 && c <= 0xB9) s_name[out++] = (char)('a' + (c - 0xA0));
+                else if (c >= 0xF6)              s_name[out++] = (char)('0' + (c - 0xF6));
+                else if (c == 0x7F)              s_name[out++] = ' ';
+                else if (c == 0xE8)              s_name[out++] = '.';
+                else if (c == 0xE7)              s_name[out++] = '!';
+                else if (c == 0xE6)              s_name[out++] = '?';
+                else if (c == 0xE3)              s_name[out++] = '-';
+                else if (c == 0xE0)              s_name[out++] = '\'';
+            }
+            s_name[out] = '\0';
+            if (out > 0) return s_name;
+        }
+    }
+    return Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+}
+
 /* Item selected from bag that requires a party-slot target (medicine, revive, etc.) */
 static uint8_t s_pending_item = 0;
 
@@ -139,6 +183,10 @@ static int s_faint_step  = 0;  /* 0=inactive, 1-7=animation progress */
 static int s_faint_timer = 0;
 /* Pending level-up stats box — drawn after the "grew to level N!" text closes */
 static levelup_stats_t s_pending_lvl_stats;
+/* Pending learn-move flow (level-up with 4 moves already known). */
+static uint8_t s_learn_slot = 0xFF;
+static uint8_t s_learn_move = 0;
+static int     s_learn_cursor = 0;
 
 /* Trainer victory sequence (BUI_TRAINER_VICTORY_SLIDE/PAUSE/TEXT/FADE_WHITE) */
 static int         s_victory_timer      = 0;
@@ -303,6 +351,9 @@ static uint8_t        s_caught_dex = 0;
 static int            s_caught_new_entry = 0;
 static int            s_caught_sent_to_box = 0;
 static int            s_caught_dex_started = 0;
+static int            s_caught_party_slot = -1;
+static int            s_caught_box_slot = -1;
+static int            s_caught_box_index = -1;
 
 /* Move animation state — PlayApplyingAttackAnimation equivalent.
  * type: 0=none  1=vert-shake(b=8)  2=horiz-heavy(b=8)  4=blink-enemy  5=horiz-light(b=2)
@@ -311,6 +362,36 @@ static int s_anim_type;
 static int s_anim_frame;
 static int s_anim_total;
 static int s_anim_first;
+static int s_move_anim_active;
+static int s_move_anim_hit_sfx_started;
+static int s_move_anim_should_hit_sfx;
+static uint8_t s_move_anim_owner_turn;
+static uint8_t s_move_anim_queue_ids[3];
+static uint8_t s_move_anim_queue_forced_turn[3];
+static uint8_t s_move_anim_queue_count;
+static uint8_t s_move_anim_queue_index;
+/* Charge-turn visibility latches:
+ * keep side hidden across turn boundary until the resolve-turn animation runs. */
+static int s_player_charge_hidden;
+static int s_enemy_charge_hidden;
+static int s_player_charge_resolving_anim;
+static int s_enemy_charge_resolving_anim;
+static move_anim_ctx_t s_move_anim_ctx;
+typedef struct {
+    uint8_t is_pre;
+    battle_status_msg_t msg;
+} bui_status_evt_t;
+#define BUI_STATUS_EVT_MAX 8
+static bui_status_evt_t s_evt_status_q[2][BUI_STATUS_EVT_MAX];
+static uint8_t s_evt_status_q_count[2];
+static battle_move_result_t s_evt_move_result;
+#define BUI_HIT_EVT_Q_MAX 8
+static uint8_t s_evt_hit_sfx_q[BUI_HIT_EVT_Q_MAX];
+static uint8_t s_evt_hit_sfx_q_count;
+static uint8_t s_evt_hit_sfx_q_index;
+static uint8_t s_evt_hp_target_q[BUI_HIT_EVT_Q_MAX];
+static uint8_t s_evt_hp_target_q_count;
+static uint8_t s_evt_hp_target_q_index;
 
 /* HP bar scroll animation state — UpdateHPBar2 equivalent.
  * s_hp_anim_who: 0=enemy bar animated, 1=player bar animated
@@ -324,6 +405,23 @@ static int      s_hp_cur_px;
 static int      s_hp_half_frame;
 static uint16_t s_hp_pre_hp;
 static uint16_t s_hp_pre_max;
+static uint16_t s_hp_pre_player_hp;
+static uint16_t s_hp_pre_player_max;
+static uint16_t s_hp_pre_enemy_hp;
+static uint16_t s_hp_pre_enemy_max;
+static int      s_hp_stage2_pending;
+static int      s_hp_stage2_px;
+static int      s_multihit_replay_armed;
+static int      s_multihit_replay_whose;
+static int      s_residual_phase; /* 0=after first move, 1=after second move */
+static int      s_residual_alive;
+#define BUI_RESIDUAL_EVT_MAX 12
+/* Timing protocol: round(20 * 62.5 / 59.7275) = 21. */
+#define BUI_RESIDUAL_FAINT_DELAY_FRAMES 21
+static battle_event_t s_residual_evt_q[BUI_RESIDUAL_EVT_MAX];
+static uint8_t  s_residual_evt_q_count;
+static uint8_t  s_residual_evt_q_index;
+static int      s_residual_delay_frames;
 
 /* Drain-HP text shown as a separate dialog after the move text closes.
  * Mirrors drain_hp.asm: the PrintText call fires AFTER UpdateHPBar2 +
@@ -337,6 +435,7 @@ static char s_drain_text[128];
 typedef struct {
     uint8_t target_status;
     uint8_t target_bstat1;
+    uint8_t attacker_bstat1;
     uint8_t target_stat_mods[6];
     uint8_t attacker_stat_mods[6];
 } pre_move_snap_t;
@@ -363,6 +462,8 @@ static int bui_char_to_tile(unsigned char c) {
 }
 
 static void bui_place_player_sprite(void);  /* forward decl — defined after bui_load_sprites */
+static void bui_hide_player_sprite(void);   /* forward decl — defined after bui_load_sprites */
+static void bui_hide_player_slide_oam(void);/* forward decl — defined after bui_load_sprites */
 static void bui_ball_load_poof_tiles(void); /* forward decl — defined after poof data */
 
 /* Decode a pokéred-encoded name (0x50-terminated) to null-terminated ASCII.
@@ -740,6 +841,10 @@ static void bui_draw_levelup_stats(const levelup_stats_t *s) {
 /* Party pokeball OAM (DrawAllPokeballs): 6 entries after the two sprite blocks. */
 #define POKEBALL_OAM_BASE         102   /* player party balls: OAM 102-107 */
 #define ENEMY_POKEBALL_OAM_BASE   108   /* enemy party balls (trainer only): OAM 108-113 */
+/* pokered constants/move_constants.asm:
+ * SHOWPIC_ANIM=166, STATUS_AFFECTED_ANIM=167 */
+#define MOVE_ANIM_STATUS_AFFECTED_ID 167u
+#define MOVE_ANIM_POUND_ID           1u
 #define POKEBALL_TILE_BASE    120   /* sprite tile 120=normal,121=status,122=fainted,123=empty
                                     * Must not overlap player slide tiles 53-101, enemy 0-48,
                                     * or ball throw tiles 114-119. */
@@ -749,6 +854,94 @@ static void bui_draw_levelup_stats(const levelup_stats_t *s) {
  * OAM X = screen_x + 8.  Six balls spaced 8px apart: 96,104,112,120,128,136. */
 #define POKEBALL_OAM_X_START  96
 #define POKEBALL_OAM_X_STEP   8
+
+static uint8_t sEnemySpriteSavedY[49];
+static uint8_t sEnemySpriteSavedX[49];
+static uint8_t sEnemySpriteVisible = 1u;
+
+uint16_t BattleUI_GetAnimOAMStart(void) {
+    return 0u;
+}
+
+uint16_t BattleUI_GetAnimOAMEnd(void) {
+    /* Keep animation runtime away from persistent battle-scene OAM:
+     * 53..101 enemy sprite, 102..113 party pokeballs. */
+    return 52u;
+}
+
+uint16_t BattleUI_GetEnemyOAMStart(void) {
+    return ENEMY_SPR_OAM_BASE;
+}
+
+uint16_t BattleUI_GetEnemyOAMEnd(void) {
+    return (uint16_t)(ENEMY_SPR_OAM_BASE + 48u);
+}
+
+void BattleUI_EnemySpriteCaptureState(void) {
+    uint16_t i;
+    uint16_t start = BattleUI_GetEnemyOAMStart();
+    uint16_t end = BattleUI_GetEnemyOAMEnd();
+    for (i = start; i <= end && i < MAX_SPRITES; i++) {
+        uint16_t idx = i - start;
+        if (idx >= 49u) break;
+        sEnemySpriteSavedY[idx] = wShadowOAM[i].y;
+        sEnemySpriteSavedX[idx] = wShadowOAM[i].x;
+    }
+    sEnemySpriteVisible = 1u;
+}
+
+void BattleUI_EnemySpriteSetVisible(uint8_t visible) {
+    uint16_t i;
+    uint16_t start = BattleUI_GetEnemyOAMStart();
+    uint16_t end = BattleUI_GetEnemyOAMEnd();
+    uint8_t old_visible = sEnemySpriteVisible;
+    uint8_t new_visible = visible ? 1u : 0u;
+    sEnemySpriteVisible = new_visible;
+    for (i = start; i <= end && i < MAX_SPRITES; i++) {
+        uint16_t idx = i - start;
+        if (idx >= 49u) break;
+        if (new_visible) {
+            wShadowOAM[i].y = sEnemySpriteSavedY[idx];
+            wShadowOAM[i].x = sEnemySpriteSavedX[idx];
+        } else {
+            /* Preserve the last valid sprite coordinates.
+             * If hide is called repeatedly while already hidden, don't clobber
+             * saved positions with zeros. */
+            if (old_visible) {
+                sEnemySpriteSavedY[idx] = wShadowOAM[i].y;
+                sEnemySpriteSavedX[idx] = wShadowOAM[i].x;
+            }
+            wShadowOAM[i].y = 0u;
+        }
+    }
+}
+
+uint8_t BattleUI_IsEnemySpriteVisible(void) {
+    return sEnemySpriteVisible;
+}
+
+void BattleUI_EnemySpriteOffsetY(int8_t delta) {
+    uint16_t i;
+    uint16_t start = BattleUI_GetEnemyOAMStart();
+    uint16_t end = BattleUI_GetEnemyOAMEnd();
+    for (i = start; i <= end && i < MAX_SPRITES; i++) {
+        uint16_t idx = i - start;
+        int16_t y;
+        if (idx >= 49u) break;
+        if (wShadowOAM[i].y != 0u) {
+            y = (int16_t)wShadowOAM[i].y + (int16_t)delta;
+            if (y < 0) y = 0;
+            if (y > 255) y = 255;
+            wShadowOAM[i].y = (uint8_t)y;
+            sEnemySpriteSavedY[idx] = wShadowOAM[i].y;
+        } else {
+            y = (int16_t)sEnemySpriteSavedY[idx] + (int16_t)delta;
+            if (y < 0) y = 0;
+            if (y > 255) y = 255;
+            sEnemySpriteSavedY[idx] = (uint8_t)y;
+        }
+    }
+}
 
 /* Red's back sprite — 49 tiles (7x7 canvas) extracted from gfx/player/redb.png via
  * the same ScaleSpriteByTwo algorithm used for pokemon back sprites:
@@ -882,24 +1075,49 @@ static void bui_hide_pokeballs(void) {
     }
 }
 
+/* Stamp enemy sprite OAM to the canonical 7x7 in-battle position. */
+static void bui_place_enemy_sprite_full_oam(void) {
+    for (int ty = 0; ty < 7; ty++) {
+        for (int tx = 0; tx < 7; tx++) {
+            int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+            wShadowOAM[idx].y     = (uint8_t)(ENEMY_SPR_PX_Y + ty * 8 + OAM_Y_OFS);
+            wShadowOAM[idx].x     = (uint8_t)(ENEMY_SPR_PX_X + tx * 8 + OAM_X_OFS);
+            wShadowOAM[idx].tile  = (uint8_t)(ENEMY_SPR_TILE_BASE + ty * 7 + tx);
+            wShadowOAM[idx].flags = 0;
+        }
+    }
+}
+
 static void bui_load_sprites(void) {
     uint8_t e_dex = gSpeciesToDex[wEnemyMon.species];
     uint8_t p_dex = gSpeciesToDex[wBattleMon.species];
+    uint8_t enemy_hidden = (uint8_t)((wEnemyBattleStatus1 & ((1u << BSTAT1_INVULNERABLE) |
+                                                             (1u << BSTAT1_CHARGING_UP))) ||
+                                     s_enemy_charge_hidden);
+    uint8_t player_hidden = (uint8_t)((wPlayerBattleStatus1 & ((1u << BSTAT1_INVULNERABLE) |
+                                                               (1u << BSTAT1_CHARGING_UP))) ||
+                                      s_player_charge_hidden);
+
+    if ((wPlayerBattleStatus1 & (1u << BSTAT1_CHARGING_UP)) ||
+        (wEnemyBattleStatus1 & (1u << BSTAT1_CHARGING_UP)) ||
+        s_player_charge_hidden || s_enemy_charge_hidden ||
+        s_player_charge_resolving_anim || s_enemy_charge_resolving_anim) {
+        printf("[DIGDBG] load_sprites p_b1=0x%02X e_b1=0x%02X p_hidden=%u e_hidden=%u p_latch=%d e_latch=%d p_resolve=%d e_resolve=%d\n",
+               wPlayerBattleStatus1, wEnemyBattleStatus1,
+               player_hidden, enemy_hidden,
+               s_player_charge_hidden, s_enemy_charge_hidden,
+               s_player_charge_resolving_anim, s_enemy_charge_resolving_anim);
+    }
 
     /* Enemy front sprite: 7×7 OBJ tiles */
     if (e_dex > 0 && e_dex <= 151) {
         for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
             Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
                                    gPokemonFrontSprite[e_dex][i]);
-        for (int ty = 0; ty < 7; ty++) {
-            for (int tx = 0; tx < 7; tx++) {
-                int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
-                wShadowOAM[idx].y    = (uint8_t)(ENEMY_SPR_PX_Y + ty * 8 + 16);
-                wShadowOAM[idx].x    = (uint8_t)(ENEMY_SPR_PX_X + tx * 8 + 8);
-                wShadowOAM[idx].tile = (uint8_t)(ENEMY_SPR_TILE_BASE + ty * 7 + tx);
-                wShadowOAM[idx].flags = 0;
-            }
-        }
+        bui_place_enemy_sprite_full_oam();
+        BattleUI_EnemySpriteCaptureState();
+        if (enemy_hidden)
+            BattleUI_EnemySpriteSetVisible(0u);
     }
 
     /* Player back sprite: drawn as BG tiles (CopyUncompressedPicToTilemap).
@@ -909,17 +1127,53 @@ static void bui_load_sprites(void) {
         for (int i = 0; i < POKEMON_BACK_TILES; i++)
             Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
                              gPokemonBackSprite[p_dex][i]);
-        bui_place_player_sprite();
+        /* PLAYER_SLIDE_OAM is intro/send-out scaffolding. Keep it hard-hidden
+         * in normal battle rendering so it can never flash over charge states. */
+        bui_hide_player_slide_oam();
+        if (player_hidden)
+            bui_hide_player_sprite();
+        else
+            bui_place_player_sprite();
     }
 }
 
 /* Re-stamp player back sprite tile IDs onto gScrollTileMap.
  * Call after any clear that erases the sprite area (e.g. PP box clear). */
 static void bui_place_player_sprite(void) {
-    for (int ty = 0; ty < 7; ty++)
-        for (int tx = 0; tx < 7; tx++)
-            bui_set_tile(PLAYER_SPR_COL + tx, PLAYER_SPR_ROW + ty,
-                         (uint8_t)(PLAYER_SPR_BG_BASE + ty * 7 + tx));
+    for (int ty = 0; ty < 7; ty++) {
+        for (int tx = 0; tx < 7; tx++) {
+            int col = PLAYER_SPR_COL + tx;
+            int row = PLAYER_SPR_ROW + ty;
+            uint8_t tile = (uint8_t)(PLAYER_SPR_BG_BASE + ty * 7 + tx);
+            uint16_t sidx = (uint16_t)(row + 2) * SCROLL_MAP_W + (uint16_t)(col + 2);
+            uint16_t tidx = (uint16_t)row * SCREEN_WIDTH + (uint16_t)col;
+            if (sidx < (SCROLL_MAP_W * SCROLL_MAP_H))
+                gScrollTileMap[sidx] = tile;
+            if (tidx < SCREEN_AREA)
+                wTileMap[tidx] = tile;
+        }
+    }
+}
+
+static void bui_hide_player_sprite(void) {
+    for (int ty = 0; ty < 7; ty++) {
+        for (int tx = 0; tx < 7; tx++) {
+            int col = PLAYER_SPR_COL + tx;
+            int row = PLAYER_SPR_ROW + ty;
+            uint16_t sidx = (uint16_t)(row + 2) * SCROLL_MAP_W + (uint16_t)(col + 2);
+            uint16_t tidx = (uint16_t)row * SCREEN_WIDTH + (uint16_t)col;
+            if (sidx < (SCROLL_MAP_W * SCROLL_MAP_H))
+                gScrollTileMap[sidx] = BLANK_TILE_SLOT;
+            if (tidx < SCREEN_AREA)
+                wTileMap[tidx] = BLANK_TILE_SLOT;
+        }
+    }
+}
+
+static void bui_hide_player_slide_oam(void) {
+    for (int i = 0; i < 49; i++) {
+        wShadowOAM[PLAYER_SLIDE_OAM_BASE + i].y = 0;
+    }
 }
 
 /* HP bar: 6 tiles wide, 48 pixels total (matches DrawHPBar d=6).
@@ -1042,7 +1296,7 @@ static void bui_draw_player_hud(void) {
         bui_set_tile(c, 11, (uint8_t)Font_CharToTile(0x76));
     bui_set_tile(9,  11, (uint8_t)Font_CharToTile(0x6F));
     /* Name at hlcoord(10,7), left-aligned in cols 10-19 (10 chars, CenterMonName ≥4) */
-    const char *name = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+    const char *name = bui_player_mon_name();
     char nbuf[11];
     snprintf(nbuf, sizeof(nbuf), "%-10s", name);
     bui_put_str(10, 7, nbuf);
@@ -1227,6 +1481,48 @@ static void bui_draw_move_menu(int cursor) {
     }
 }
 
+static const char *bui_party_mon_name(uint8_t slot) {
+    static char s_name[NAME_LENGTH + 1];
+    if (slot < PARTY_LENGTH && slot < wPartyCount) {
+        const uint8_t *nick = wPartyMonNicks[slot];
+        if (nick[0] != 0x00 && nick[0] != 0x50) {
+            int out = 0;
+            for (int i = 0; i < NAME_LENGTH - 1 && out < NAME_LENGTH; i++) {
+                uint8_t c = nick[i];
+                if (c == 0x50) break;
+                if      (c >= 0x80 && c <= 0x99) s_name[out++] = (char)('A' + (c - 0x80));
+                else if (c >= 0xA0 && c <= 0xB9) s_name[out++] = (char)('a' + (c - 0xA0));
+                else if (c >= 0xF6)              s_name[out++] = (char)('0' + (c - 0xF6));
+                else if (c == 0x7F)              s_name[out++] = ' ';
+                else if (c == 0xE8)              s_name[out++] = '.';
+                else if (c == 0xE7)              s_name[out++] = '!';
+                else if (c == 0xE6)              s_name[out++] = '?';
+                else if (c == 0xE3)              s_name[out++] = '-';
+                else if (c == 0xE0)              s_name[out++] = '\'';
+            }
+            s_name[out] = '\0';
+            if (out > 0) return s_name;
+        }
+        return Pokemon_GetName(gSpeciesToDex[wPartyMons[slot].base.species]);
+    }
+    return "";
+}
+
+static void bui_draw_forget_move_menu(uint8_t slot, int cursor) {
+    bui_draw_move_box();
+    for (int i = 0; i < NUM_MOVES; i++) {
+        uint8_t move = wPartyMons[slot].base.moves[i];
+        char buf[14];
+        char prefix = (cursor == i) ? '>' : ' ';
+        if (move && move < NUM_MOVE_DEFS)
+            snprintf(buf, sizeof(buf), "%c%-12s", prefix, gMoveNames[move] ? gMoveNames[move] : "-");
+        else
+            snprintf(buf, sizeof(buf), "%c-", prefix);
+        buf[13] = '\0';
+        bui_put_str(5, 13 + i, buf);
+    }
+}
+
 /* Open the Gen 1 party menu for forced battle selection.
  * Backs up and clears the battle screen; the full Gen 1 party layout is drawn
  * by PartyMenu_Open.  BUI_DRAW_HUD redraws the battle screen after the menu. */
@@ -1236,6 +1532,96 @@ static void bui_open_party_select(void) {
 }
 
 /* ---- Turn execution helpers --------------------------------------- */
+
+static int bui_status_msg_to_page(battle_status_msg_t msg, const char *name,
+                                  char *out, size_t outsz) {
+    if (!out || outsz == 0 || !name) return 0;
+    out[0] = '\0';
+    switch (msg) {
+    case BSTAT_MSG_FAST_ASLEEP:
+        snprintf(out, outsz, "%s\nis fast asleep!", name);
+        return 1;
+    case BSTAT_MSG_WOKE_UP:
+        snprintf(out, outsz, "%s\nwoke up!", name);
+        return 1;
+    case BSTAT_MSG_FROZEN:
+        snprintf(out, outsz, "%s\nis frozen solid!", name);
+        return 1;
+    case BSTAT_MSG_CANT_MOVE:
+        snprintf(out, outsz, "%s\ncan't move!", name);
+        return 1;
+    case BSTAT_MSG_FLINCHED:
+        snprintf(out, outsz, "%s\nflinched!", name);
+        return 1;
+    case BSTAT_MSG_MUST_RECHARGE:
+        snprintf(out, outsz, "%s\nmust recharge!", name);
+        return 1;
+    case BSTAT_MSG_HURT_ITSELF:
+        snprintf(out, outsz, "It hurt itself\nin its confusion!");
+        return 1;
+    case BSTAT_MSG_FULLY_PARALYZED:
+        snprintf(out, outsz, "%s's\nfully paralyzed!", name);
+        return 1;
+    case BSTAT_MSG_MOVE_DISABLED:
+        snprintf(out, outsz, "%s's move is\ndisabled!", name);
+        return 1;
+    case BSTAT_MSG_IS_CONFUSED:
+        snprintf(out, outsz, "%s\nis confused!", name);
+        return 1;
+    case BSTAT_MSG_DISABLED_NO_MORE:
+        snprintf(out, outsz, "%s's\ndisabled no more!", name);
+        return 1;
+    case BSTAT_MSG_CONFUSED_NO_MORE:
+        snprintf(out, outsz, "%s's\nconfused no more!", name);
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static int bui_collect_status_pages(uint8_t side, uint8_t is_pre,
+                                    const char *name,
+                                    char *out, size_t outsz) {
+    size_t pos = 0;
+    int pages = 0;
+    char page[64];
+    uint8_t i;
+
+    if (!out || outsz == 0 || side > 1u) return 0;
+    out[0] = '\0';
+
+    for (i = 0; i < s_evt_status_q_count[side]; i++) {
+        bui_status_evt_t *ev = &s_evt_status_q[side][i];
+        if (ev->is_pre != (is_pre ? 1u : 0u)) continue;
+        if (!bui_status_msg_to_page(ev->msg, name, page, sizeof(page))) continue;
+        if (pages > 0 && pos + 1 < outsz) out[pos++] = '\f';
+        if (pos < outsz) {
+            size_t n = snprintf(out + pos, outsz - pos, "%s", page);
+            if (n >= outsz - pos) {
+                out[outsz - 1] = '\0';
+                return pages + 1;
+            }
+            pos += n;
+        }
+        pages++;
+    }
+
+    /* Fallback path when no event-queued status messages were emitted. */
+    if (pages == 0) {
+        battle_status_msg_t msg = BSTAT_MSG_NONE;
+        if (is_pre) {
+            msg = (side == 0u) ? Battle_GetPlayerPreStatusMsg() : Battle_GetEnemyPreStatusMsg();
+        } else {
+            msg = (side == 0u) ? Battle_GetPlayerStatusMsg() : Battle_GetEnemyStatusMsg();
+        }
+        if (msg != BSTAT_MSG_NONE && bui_status_msg_to_page(msg, name, page, sizeof(page))) {
+            snprintf(out, outsz, "%s", page);
+            pages = 1;
+        }
+    }
+
+    return pages;
+}
 
 
 /* Build and show the appropriate text after a move execution.
@@ -1255,10 +1641,20 @@ static void bui_open_party_select(void) {
 static void bui_show_after_move(int whose, const char *pfx, const char *name,
                                  uint8_t selected, uint8_t move_id,
                                  uint8_t crit, uint8_t missed, uint8_t eff) {
-    battle_status_msg_t smsg = (whose == 0) ? Battle_GetPlayerStatusMsg()
-                                            : Battle_GetEnemyStatusMsg();
-    battle_status_msg_t pmsg = (whose == 0) ? Battle_GetPlayerPreStatusMsg()
-                                            : Battle_GetEnemyPreStatusMsg();
+    char pre_buf[192];
+    char block_buf[192];
+    int pre_pages = bui_collect_status_pages((uint8_t)whose, 1u, name, pre_buf, sizeof(pre_buf));
+    int block_pages = bui_collect_status_pages((uint8_t)whose, 0u, name, block_buf, sizeof(block_buf));
+    battle_move_result_t fail_result = s_evt_move_result;
+    if (fail_result == BATTLE_MOVE_RESULT_NONE) {
+        if (missed) {
+            if (eff == 0u && move_id < NUM_MOVE_DEFS && gMoves[move_id].power > 0u)
+                fail_result = BATTLE_MOVE_RESULT_NO_EFFECT;
+            else
+                fail_result = BATTLE_MOVE_RESULT_MISS;
+        }
+    }
+    s_evt_move_result = BATTLE_MOVE_RESULT_NONE;
 
     /* --- CANNOT_MOVE (trapped by opposing multi-turn move) --- */
     if (selected == CANNOT_MOVE) {
@@ -1268,63 +1664,15 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
     }
 
     /* --- Block message: move not used --- */
-    if (smsg != BSTAT_MSG_NONE) {
-        switch (smsg) {
-        case BSTAT_MSG_FAST_ASLEEP:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nis fast asleep!", name);
-            break;
-        case BSTAT_MSG_WOKE_UP:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nwoke up!", name);
-            break;
-        case BSTAT_MSG_FROZEN:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nis frozen solid!", name);
-            break;
-        case BSTAT_MSG_CANT_MOVE:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\ncan't move!", name);
-            break;
-        case BSTAT_MSG_FLINCHED:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nflinched!", name);
-            break;
-        case BSTAT_MSG_MUST_RECHARGE:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nmust recharge!", name);
-            break;
-        case BSTAT_MSG_HURT_ITSELF:
-            snprintf(s_msg_buf, sizeof(s_msg_buf),
-                     "It hurt itself\nin its confusion!");
-            break;
-        case BSTAT_MSG_FULLY_PARALYZED:
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s's\nfully paralyzed!", name);
-            break;
-        default:
-            s_msg_buf[0] = '\0';
-            break;
-        }
-        if (s_msg_buf[0]) Text_ShowASCII(s_msg_buf);
+    if (block_pages > 0) {
+        Text_ShowASCII(block_buf);
         return;
-    }
-
-    /* --- Build pre-move prefix (confused/disable-wore-off/confusion-wore-off) --- */
-    char pre_buf[64] = "";
-    if (pmsg != BSTAT_MSG_NONE) {
-        switch (pmsg) {
-        case BSTAT_MSG_IS_CONFUSED:
-            snprintf(pre_buf, sizeof(pre_buf), "%s\nis confused!", name);
-            break;
-        case BSTAT_MSG_DISABLED_NO_MORE:
-            snprintf(pre_buf, sizeof(pre_buf), "%s's\ndisabled no more!", name);
-            break;
-        case BSTAT_MSG_CONFUSED_NO_MORE:
-            snprintf(pre_buf, sizeof(pre_buf), "%s's\nconfused no more!", name);
-            break;
-        default:
-            break;
-        }
     }
 
     /* --- Normal move text (possibly prefixed by pre-msg) --- */
     if (move_id == 0) {
         /* Bide accumulation or no move — only show pre-msg if present */
-        if (pre_buf[0]) {
+        if (pre_pages > 0) {
             snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", pre_buf);
             Text_ShowASCII(s_msg_buf);
         }
@@ -1338,13 +1686,29 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
     char move_buf[256];
     int pos = snprintf(move_buf, sizeof(move_buf),
                        "%s%s\nused %s!", pfx, name, mn);
-    if (missed) {
-        pos += snprintf(move_buf + pos, sizeof(move_buf) - pos, "\fMiss!");
-    } else if (eff == 0 && move_id < 166 && gMoves[move_id].power > 0) {
-        /* Only show "Doesn't affect!" for damaging moves — status moves
-         * (power == 0) skip damage calc so wDamageMultipliers is stale. */
-        pos += snprintf(move_buf + pos, sizeof(move_buf) - pos,
+    if (move_id < NUM_MOVE_DEFS) {
+        uint8_t move_eff = gMoves[move_id].effect;
+        uint8_t attacker_pre_b1 = s_pre.attacker_bstat1;
+        uint8_t attacker_cur_b1 = (whose == 0) ? wPlayerBattleStatus1 : wEnemyBattleStatus1;
+        uint8_t charge_started =
+            ((attacker_pre_b1 & (1u << BSTAT1_CHARGING_UP)) == 0u) &&
+            ((attacker_cur_b1 & (1u << BSTAT1_CHARGING_UP)) != 0u);
+        if ((move_eff == EFFECT_CHARGE || move_eff == EFFECT_FLY) &&
+            charge_started) {
+            if (move_id == MOVE_DIG)
+                pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos, "\fDug a hole!");
+            else if (move_eff == EFFECT_FLY)
+                pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos, "\fFlew up high!");
+        }
+    }
+    if (fail_result == BATTLE_MOVE_RESULT_MISS) {
+        pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos, "\fMiss!");
+    } else if (fail_result == BATTLE_MOVE_RESULT_NO_EFFECT) {
+        pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos,
                         "\fDoesn't affect!");
+    } else if (fail_result == BATTLE_MOVE_RESULT_UNAFFECTED) {
+        pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos,
+                        "\fUnaffected!");
     } else {
         /* Each of these matches a separate PrintText call in the original:
          * PrintCriticalOHKOText → its own box, then DisplayEffectiveness → its own box. */
@@ -1363,14 +1727,14 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
     }
     /* Leech Seed landing: append "TARGET was seeded!" on a new page.
      * Mirrors LeechSeedEffect_ (leech_seed.asm:26): "PrintText WasSeededText". */
-    if (!missed && move_id > 0 && move_id < 166 &&
+    if (fail_result == BATTLE_MOVE_RESULT_NONE && move_id > 0 && move_id < 166 &&
         gMoves[move_id].effect == EFFECT_LEECH_SEED) {
         const char *tname, *tpfx;
         if (whose == 0) {
             tname = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
             tpfx  = (wIsInBattle == 1) ? "Wild " : "Foe ";
         } else {
-            tname = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+            tname = bui_player_mon_name();
             tpfx  = "";
         }
         pos += snprintf(move_buf + pos, sizeof(move_buf) - (size_t)pos,
@@ -1383,7 +1747,7 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
      * SuckedHealthText  = "Sucked health from\nTARGET!"
      * DreamWasEatenText = "TARGET's\ndream was eaten!" */
     s_drain_text[0] = '\0';
-    if (!missed && move_id > 0 && move_id < 166) {
+    if (fail_result == BATTLE_MOVE_RESULT_NONE && move_id > 0 && move_id < 166) {
         uint8_t eff_id = gMoves[move_id].effect;
         if (eff_id == EFFECT_DRAIN_HP || eff_id == EFFECT_DREAM_EATER) {
             const char *tname, *tpfx;
@@ -1391,7 +1755,7 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
                 tname = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
                 tpfx  = (wIsInBattle == 1) ? "Wild " : "Foe ";
             } else {
-                tname = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                tname = bui_player_mon_name();
                 tpfx  = "";
             }
             if (eff_id == EFFECT_DREAM_EATER)
@@ -1406,7 +1770,7 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
     /* ---- Post-effect status / stat-change messages ----------------------
      * Compare current state to s_pre snapshot to detect what the move applied.
      * Only runs when the move landed (!missed) and isn't a "Doesn't affect!" case. */
-    if (!missed && !(eff == 0 && move_id < 166 && gMoves[move_id].power > 0)) {
+    if (fail_result == BATTLE_MOVE_RESULT_NONE) {
         static const char *kStatNames[6] = {
             "ATTACK", "DEFENSE", "SPEED", "SPECIAL", "ACCURACY", "EVASION"
         };
@@ -1420,14 +1784,14 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
             tpfx2  = (wIsInBattle == 1) ? "Wild " : "Foe ";
             tname2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
             apfx2  = "";
-            aname2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+            aname2 = bui_player_mon_name();
             cur_tgt_status = wEnemyMon.status;
             cur_tgt_bstat1 = wEnemyBattleStatus1;
             cur_tgt_mods   = wEnemyMonStatMods;
             cur_atk_mods   = wPlayerMonStatMods;
         } else {
             tpfx2  = "";
-            tname2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+            tname2 = bui_player_mon_name();
             apfx2  = (wIsInBattle == 1) ? "Wild " : "Foe ";
             aname2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
             cur_tgt_status = wBattleMon.status;
@@ -1490,7 +1854,7 @@ static void bui_show_after_move(int whose, const char *pfx, const char *name,
     }
     (void)pos;
 
-    if (pre_buf[0]) {
+    if (pre_pages > 0) {
         snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\f%s", pre_buf, move_buf);
     } else {
         snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", move_buf);
@@ -1503,27 +1867,243 @@ static void bui_snapshot_pre(int whose) {
     if (whose == 0) {
         s_pre.target_status = wEnemyMon.status;
         s_pre.target_bstat1 = wEnemyBattleStatus1;
+        s_pre.attacker_bstat1 = wPlayerBattleStatus1;
         memcpy(s_pre.target_stat_mods,   wEnemyMonStatMods,  6);
         memcpy(s_pre.attacker_stat_mods, wPlayerMonStatMods, 6);
     } else {
         s_pre.target_status = wBattleMon.status;
         s_pre.target_bstat1 = wPlayerBattleStatus1;
+        s_pre.attacker_bstat1 = wEnemyBattleStatus1;
         memcpy(s_pre.target_stat_mods,   wPlayerMonStatMods, 6);
         memcpy(s_pre.attacker_stat_mods, wEnemyMonStatMods,  6);
     }
 }
 
+static void bui_snapshot_hp_pre(void) {
+    s_hp_pre_player_hp = wBattleMon.hp;
+    s_hp_pre_player_max = wBattleMon.max_hp;
+    s_hp_pre_enemy_hp = wEnemyMon.hp;
+    s_hp_pre_enemy_max = wEnemyMon.max_hp;
+}
+
+static void bui_evt_reset_hit_queues(void) {
+    s_evt_move_result = BATTLE_MOVE_RESULT_NONE;
+    s_evt_hit_sfx_q_count = 0u;
+    s_evt_hit_sfx_q_index = 0u;
+    s_evt_hp_target_q_count = 0u;
+    s_evt_hp_target_q_index = 0u;
+    memset(s_evt_hit_sfx_q, 0, sizeof(s_evt_hit_sfx_q));
+    memset(s_evt_hp_target_q, 0, sizeof(s_evt_hp_target_q));
+}
+
+static void bui_evt_reset_status_queue(void) {
+    s_evt_status_q_count[0] = 0u;
+    s_evt_status_q_count[1] = 0u;
+    memset(s_evt_status_q, 0, sizeof(s_evt_status_q));
+}
+
+static void bui_evt_push_status_msg(uint8_t side, uint8_t is_pre, battle_status_msg_t msg) {
+    if (side > 1u || msg == BSTAT_MSG_NONE) return;
+    if (s_evt_status_q_count[side] >= BUI_STATUS_EVT_MAX) return;
+    s_evt_status_q[side][s_evt_status_q_count[side]].is_pre = is_pre ? 1u : 0u;
+    s_evt_status_q[side][s_evt_status_q_count[side]].msg = msg;
+    s_evt_status_q_count[side]++;
+}
+
+static void bui_evt_push_hit_sfx(uint8_t mult) {
+    if (mult == 0u) return;
+    if (s_evt_hit_sfx_q_count >= BUI_HIT_EVT_Q_MAX) return;
+    s_evt_hit_sfx_q[s_evt_hit_sfx_q_count++] = (uint8_t)(mult & 0x7Fu);
+}
+
+static uint8_t bui_evt_pop_hit_sfx_or(uint8_t fallback) {
+    if (s_evt_hit_sfx_q_index < s_evt_hit_sfx_q_count)
+        return s_evt_hit_sfx_q[s_evt_hit_sfx_q_index++];
+    return fallback;
+}
+
+static void bui_evt_push_hp_target(uint8_t side) {
+    if (side > 1u) return;
+    if (s_evt_hp_target_q_count >= BUI_HIT_EVT_Q_MAX) return;
+    s_evt_hp_target_q[s_evt_hp_target_q_count++] = side;
+}
+
+static uint8_t bui_evt_pop_hp_target_or(uint8_t fallback) {
+    if (s_evt_hp_target_q_index < s_evt_hp_target_q_count)
+        return s_evt_hp_target_q[s_evt_hp_target_q_index++];
+    return fallback;
+}
+
 /* ---- Move animation helpers --------------------------------------- */
+
+static void bui_start_move_anim_from_queue(void) {
+    uint8_t forced_turn = s_move_anim_queue_forced_turn[s_move_anim_queue_index];
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+    s_move_anim_ctx.animation_id = s_move_anim_queue_ids[s_move_anim_queue_index];
+    hWhoseTurn = (forced_turn == 0xFFu) ? s_move_anim_owner_turn : forced_turn;
+    MoveAnim_Begin(&s_move_anim_ctx);
+    s_move_anim_active = !MoveAnim_IsDone(&s_move_anim_ctx);
+}
+
+static void bui_start_residual_anim(uint8_t anim_id, uint8_t forced_turn) {
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+    s_move_anim_ctx.animation_id = anim_id;
+    hWhoseTurn = forced_turn;
+    MoveAnim_Begin(&s_move_anim_ctx);
+    s_move_anim_active = !MoveAnim_IsDone(&s_move_anim_ctx);
+}
+
+static void bui_restart_move_anim_replay(int whose) {
+    uint8_t move_id = (whose == 0) ? wPlayerMoveNum : wEnemyMoveNum;
+    s_move_anim_active = 0;
+    s_move_anim_owner_turn = (uint8_t)whose;
+    s_move_anim_queue_count = 0u;
+    s_move_anim_queue_index = 0u;
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+    s_move_anim_ctx.animation_id = move_id;
+    hWhoseTurn = s_move_anim_owner_turn;
+    MoveAnim_Begin(&s_move_anim_ctx);
+    s_move_anim_active = !MoveAnim_IsDone(&s_move_anim_ctx);
+}
+
+/* Route per-move script animation through the new MoveAnim runtime.
+ * We keep applying-attack animation in BUI_MOVE_ANIM to preserve the
+ * existing UI phase split (scripted move anim -> applying/hit anim). */
+static void bui_run_move_anim_runtime(int whose) {
+    uint8_t move_id = (whose == 0) ? wPlayerMoveNum : wEnemyMoveNum;
+    battle_status_msg_t smsg =
+        (whose == 0) ? Battle_GetPlayerStatusMsg() : Battle_GetEnemyStatusMsg();
+    uint8_t status_anim_id =
+        (whose == 0) ? Battle_GetPlayerStatusAnimId() : Battle_GetEnemyStatusAnimId();
+    uint8_t confusion_selfhit_pending =
+        (whose == 0) ? Battle_GetPlayerConfusionSelfHitAnimPending()
+                     : Battle_GetEnemyConfusionSelfHitAnimPending();
+    uint8_t status_affected_pending =
+        (whose == 0) ? Battle_GetPlayerStatusAffectedAnimPending()
+                     : Battle_GetEnemyStatusAffectedAnimPending();
+    uint8_t move_effect = (move_id < NUM_MOVE_DEFS) ? gMoves[move_id].effect : 0;
+    uint8_t status1 = (whose == 0) ? wPlayerBattleStatus1 : wEnemyBattleStatus1;
+    uint8_t status1_pre = s_pre.attacker_bstat1;
+    uint8_t is_charge_move = (uint8_t)(move_effect == EFFECT_CHARGE || move_effect == EFFECT_FLY);
+    uint8_t charge_started =
+        ((status1_pre & (1u << BSTAT1_CHARGING_UP)) == 0u) &&
+        ((status1 & (1u << BSTAT1_CHARGING_UP)) != 0u);
+    uint8_t charge_resolving =
+        ((status1_pre & (1u << BSTAT1_CHARGING_UP)) != 0u) &&
+        ((status1 & (1u << BSTAT1_CHARGING_UP)) == 0u);
+    battle_event_t bev;
+
+    s_move_anim_active = 0;
+    s_move_anim_owner_turn = (uint8_t)whose;
+    s_move_anim_queue_count = 0u;
+    s_move_anim_queue_index = 0u;
+    bui_evt_reset_status_queue();
+    bui_evt_reset_hit_queues();
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+
+    /* Primary path: consume ASM-derived core events in emitted order. */
+    while (BattleEvent_Pop(&bev)) {
+        if (bev.type == BATTLE_EVENT_PLAY_ANIM) {
+            if (s_move_anim_queue_count >= sizeof(s_move_anim_queue_ids)) break;
+            s_move_anim_queue_ids[s_move_anim_queue_count] = bev.arg0;
+            s_move_anim_queue_forced_turn[s_move_anim_queue_count] = bev.arg1;
+            s_move_anim_queue_count++;
+        } else if (bev.type == BATTLE_EVENT_STATUS_MSG && bev.arg2 < 2u) {
+            bui_evt_push_status_msg(bev.arg2, bev.arg1, (battle_status_msg_t)bev.arg0);
+        } else if (bev.type == BATTLE_EVENT_HIT_SFX) {
+            bui_evt_push_hit_sfx((uint8_t)(bev.arg0 & 0x7Fu));
+        } else if (bev.type == BATTLE_EVENT_HP_TARGET && bev.arg0 < 2u) {
+            bui_evt_push_hp_target(bev.arg0);
+        } else if (bev.type == BATTLE_EVENT_MOVE_RESULT) {
+            if (bev.arg0 <= BATTLE_MOVE_RESULT_UNAFFECTED)
+                s_evt_move_result = (battle_move_result_t)bev.arg0;
+        }
+    }
+    if (s_move_anim_queue_count > 0u) {
+        bui_start_move_anim_from_queue();
+        return;
+    }
+
+    if (move_id == 0 && status_anim_id == 0u &&
+        !status_affected_pending && !confusion_selfhit_pending) return;
+    if (smsg != BSTAT_MSG_NONE && status_anim_id == 0u &&
+        !status_affected_pending && !confusion_selfhit_pending) return;
+
+    /* Preserve hidden state between turns for Dig/Fly until resolve animation starts. */
+    if (is_charge_move && charge_started) {
+        if (whose == 0) {
+            s_player_charge_hidden = 1;
+            s_player_charge_resolving_anim = 0;
+        } else {
+            s_enemy_charge_hidden = 1;
+            s_enemy_charge_resolving_anim = 0;
+        }
+    } else if (is_charge_move && charge_resolving) {
+        if (whose == 0) {
+            s_player_charge_resolving_anim = 1;
+            bui_hide_player_sprite();
+        } else {
+            s_enemy_charge_resolving_anim = 1;
+            bui_set_enemy_oam_visible(0);
+        }
+    }
+
+    if (is_charge_move) {
+        printf("[DIGDBG] run_anim whose=%d move=0x%02X eff=0x%02X pre_b1=0x%02X cur_b1=0x%02X started=%u resolving=%u p_latch=%d e_latch=%d p_resolve=%d e_resolve=%d\n",
+               whose, move_id, move_effect, status1_pre, status1,
+               charge_started, charge_resolving,
+               s_player_charge_hidden, s_enemy_charge_hidden,
+               s_player_charge_resolving_anim, s_enemy_charge_resolving_anim);
+    }
+
+    /* Status-check animation chain:
+     * 1) SLP/CONF status animation
+     * 2) confusion self-hit POUND with flipped whose-turn
+     * 3) STATUS_AFFECTED for Fly/Charge abort */
+    if (status_anim_id != 0u) {
+        s_move_anim_queue_ids[s_move_anim_queue_count] = status_anim_id;
+        s_move_anim_queue_forced_turn[s_move_anim_queue_count] = 0xFFu;
+        s_move_anim_queue_count++;
+    }
+    if (confusion_selfhit_pending) {
+        s_move_anim_queue_ids[s_move_anim_queue_count] = MOVE_ANIM_POUND_ID;
+        s_move_anim_queue_forced_turn[s_move_anim_queue_count] = (whose == 0) ? 1u : 0u;
+        s_move_anim_queue_count++;
+    }
+    if (status_affected_pending) {
+        s_move_anim_queue_ids[s_move_anim_queue_count] = MOVE_ANIM_STATUS_AFFECTED_ID;
+        s_move_anim_queue_forced_turn[s_move_anim_queue_count] = 0xFFu;
+        s_move_anim_queue_count++;
+    }
+    if (s_move_anim_queue_count > 0u) {
+        bui_start_move_anim_from_queue();
+        return;
+    }
+
+    /* Charge/Fly first turn uses dedicated charge animation IDs in ASM
+     * (ChargeEffect -> PlayBattleAnimation), not the move's normal script. */
+    if (is_charge_move && charge_started) {
+        if (move_id == MOVE_DIG)
+            s_move_anim_ctx.animation_id = 192u; /* SLIDE_DOWN_ANIM */
+        else if (move_effect == EFFECT_FLY)
+            s_move_anim_ctx.animation_id = MOVE_TELEPORT;
+        else
+            s_move_anim_ctx.animation_id = (whose == 0) ? 174u : 175u; /* XSTATITEM(_DUPLICATE)_ANIM */
+    } else {
+        s_move_anim_ctx.animation_id = move_id;
+    }
+    hWhoseTurn = s_move_anim_owner_turn;
+    MoveAnim_Begin(&s_move_anim_ctx);
+    s_move_anim_active = !MoveAnim_IsDone(&s_move_anim_ctx);
+}
 
 /* Show or hide the enemy sprite (OAM entries 0..48) for the blink effect. */
 static void bui_set_enemy_oam_visible(int visible) {
-    for (int ty = 0; ty < 7; ty++)
-        for (int tx = 0; tx < 7; tx++) {
-            int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
-            wShadowOAM[idx].y = visible
-                ? (uint8_t)(ENEMY_SPR_PX_Y + ty * 8 + 16)
-                : 0;
-        }
+    /* ASM parity:
+     * AnimationHide/ShowMonPic uses fixed source tile data each toggle.
+     * Do not re-capture on every hide call, or we mutate the restore baseline
+     * during blink loops and can strand the sprite hidden. */
+    BattleUI_EnemySpriteSetVisible((uint8_t)(visible ? 1u : 0u));
 }
 
 /* Update enemy sprite OAM for faint slide-down animation step N (1-7).
@@ -1551,7 +2131,17 @@ static void bui_enemy_faint_oam(int step) {
  * Mirrors GetPlayerAnimationType / GetEnemyAnimationType from core.asm. */
 static void bui_setup_anim(int whose) {
     uint8_t move_id = (whose == 0) ? wPlayerMoveNum : wEnemyMoveNum;
+    battle_status_msg_t smsg =
+        (whose == 0) ? Battle_GetPlayerStatusMsg() : Battle_GetEnemyStatusMsg();
     s_anim_frame    = 0;
+    s_move_anim_should_hit_sfx = 0;
+
+    if (smsg != BSTAT_MSG_NONE) {
+        /* Status-blocked turns do not run applying/hit animation. */
+        s_anim_type  = 0;
+        s_anim_total = 0;
+        return;
+    }
 
     if (wMoveMissed || move_id == 0) {
         /* Missed or no move — no applying-attack animation */
@@ -1561,6 +2151,26 @@ static void bui_setup_anim(int whose) {
     }
 
     uint8_t effect = (move_id < 166) ? gMoves[move_id].effect : 0;
+    uint8_t power  = (move_id < 166) ? gMoves[move_id].power  : 0;
+    uint8_t status1 = (whose == 0) ? wPlayerBattleStatus1 : wEnemyBattleStatus1;
+    uint8_t status1_pre = s_pre.attacker_bstat1;
+    uint8_t charge_started =
+        ((status1_pre & (1u << BSTAT1_CHARGING_UP)) == 0u) &&
+        ((status1 & (1u << BSTAT1_CHARGING_UP)) != 0u);
+    if ((effect == EFFECT_CHARGE || effect == EFFECT_FLY) &&
+        charge_started) {
+        /* First turn of Dig/Fly/Charge: no generic hit shake / hit SFX path. */
+        s_anim_type  = 0;
+        s_anim_total = 0;
+        return;
+    }
+    if (power == 0) {
+        /* Non-damaging/status move: no generic hit shake/sfx follow-up. */
+        s_anim_type  = 0;
+        s_anim_total = 0;
+        return;
+    }
+    s_move_anim_should_hit_sfx = 1;
 
     if (whose == 0) {
         /* Player's move:
@@ -1592,14 +2202,48 @@ static void bui_setup_anim(int whose) {
  * whose==1 → enemy attacked player (animate player bar at col 12, row 9).
  * s_hp_pre_hp/max must be set BEFORE the execute call. */
 static void bui_setup_hp_anim(int whose) {
-    s_hp_anim_who  = whose;
-    s_hp_old_px    = calc_hp_pixels(s_hp_pre_hp, s_hp_pre_max);
-    if (whose == 0)
+    int target = (int)bui_evt_pop_hp_target_or((uint8_t)whose);
+    s_hp_anim_who  = target;
+    if (target == 0) {
+        s_hp_pre_hp = s_hp_pre_enemy_hp;
+        s_hp_pre_max = s_hp_pre_enemy_max;
         s_hp_new_px = calc_hp_pixels(wEnemyMon.hp, wEnemyMon.max_hp);
-    else
+    } else {
+        s_hp_pre_hp = s_hp_pre_player_hp;
+        s_hp_pre_max = s_hp_pre_player_max;
         s_hp_new_px = calc_hp_pixels(wBattleMon.hp, wBattleMon.max_hp);
+    }
+    s_hp_old_px    = calc_hp_pixels(s_hp_pre_hp, s_hp_pre_max);
     s_hp_cur_px    = s_hp_old_px;
     s_hp_half_frame = 0;
+    s_hp_stage2_pending = 0;
+    s_hp_stage2_px = 0;
+    s_multihit_replay_armed = 0;
+}
+
+static void bui_configure_multihit_visuals(int attacker_whose) {
+    uint8_t hit_count = 1;
+    uint16_t first_hp = 0;
+    uint16_t final_hp = (s_hp_anim_who == 0) ? wEnemyMon.hp : wBattleMon.hp;
+
+    if (attacker_whose == 0) {
+        hit_count = Battle_GetLastPlayerHitCount();
+        first_hp = Battle_GetLastPlayerFirstTargetHP();
+    } else {
+        hit_count = Battle_GetLastEnemyHitCount();
+        first_hp = Battle_GetLastEnemyFirstTargetHP();
+    }
+
+    if (hit_count < 2) return;
+    if (first_hp == 0) return;
+    if (first_hp >= s_hp_pre_hp) return;
+    if (first_hp <= final_hp) return;
+
+    s_hp_new_px = calc_hp_pixels(first_hp, s_hp_pre_max);
+    s_hp_stage2_px = calc_hp_pixels(final_hp, s_hp_pre_max);
+    s_hp_stage2_pending = (s_hp_stage2_px != s_hp_new_px);
+    s_multihit_replay_armed = s_hp_stage2_pending;
+    s_multihit_replay_whose = attacker_whose;
 }
 
 /* Finish the first move: draw HUDs and advance state.
@@ -1626,7 +2270,7 @@ static void bui_exec_first_move(void) {
 
     if (s_player_first) {
         snprintf(s_name_a, sizeof(s_name_a), "%s",
-                 Pokemon_GetName(gSpeciesToDex[wBattleMon.species]));
+                 bui_player_mon_name());
         s_pfx_a[0] = '\0';
         snprintf(s_name_b, sizeof(s_name_b), "%s",
                  Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]));
@@ -1634,26 +2278,28 @@ static void bui_exec_first_move(void) {
 
         hWhoseTurn = 0;
         bui_snapshot_pre(0);
-        s_hp_pre_hp  = wEnemyMon.hp;
-        s_hp_pre_max = wEnemyMon.max_hp;
+        bui_snapshot_hp_pre();
         Battle_ExecutePlayerMove();
+        bui_run_move_anim_runtime(0);
         bui_setup_anim(0);
         bui_setup_hp_anim(0);
+        bui_configure_multihit_visuals(0);
     } else {
         snprintf(s_name_a, sizeof(s_name_a), "%s",
                  Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]));
         snprintf(s_pfx_a, sizeof(s_pfx_a), "%s", wild_pfx);
         snprintf(s_name_b, sizeof(s_name_b), "%s",
-                 Pokemon_GetName(gSpeciesToDex[wBattleMon.species]));
+                 bui_player_mon_name());
         s_pfx_b[0] = '\0';
 
         hWhoseTurn = 1;
         bui_snapshot_pre(1);
-        s_hp_pre_hp  = wBattleMon.hp;
-        s_hp_pre_max = wBattleMon.max_hp;
+        bui_snapshot_hp_pre();
         Battle_ExecuteEnemyMove();
+        bui_run_move_anim_runtime(1);
         bui_setup_anim(1);
         bui_setup_hp_anim(1);
+        bui_configure_multihit_visuals(1);
     }
     s_anim_first = 1;
     /* Show "X used Y!" + effects BEFORE animation — mirrors DisplayUsedMoveText
@@ -1668,6 +2314,7 @@ static void bui_exec_first_move(void) {
         bui_show_after_move(1, s_pfx_a, s_name_a, wEnemySelectedMove, wEnemyMoveNum,
                             wCriticalHitOrOHKO, wMoveMissed, wDamageMultipliers & 0x7F);
     bui_state    = BUI_MOVE_ANIM;
+    s_move_anim_hit_sfx_started = 0;
 }
 
 /* Post-animation enemy faint: game state, HUD refresh, text, exp drain.
@@ -1776,36 +2423,62 @@ static void bui_handle_player_fainted(void) {
     bui_state = BUI_PLAYER_FAINTED;
 }
 
-/* ---- Residual message helper --------------------------------------- */
-/* Formats the burn/poison/leech-seed message for the current mover.
- * Uses hWhoseTurn to determine which side's status flags to read.
- * buf[0] == '\0' means no message. */
-static void bui_format_residual_msg(char *buf, int bufsz) {
-    buf[0] = '\0';
-    const char *mon_name, *pfx;
-    uint8_t status, bstat2;
-
-    if (hWhoseTurn == 0) {
-        status   = wBattleMon.status;
-        bstat2   = wPlayerBattleStatus2;
-        mon_name = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
-        pfx      = "";
+/* ---- Residual event helpers ---------------------------------------- */
+static void bui_get_side_name_prefix(uint8_t side, const char **pfx, const char **name) {
+    if (side == 0u) {
+        *pfx = "";
+        *name = bui_player_mon_name();
     } else {
-        status   = wEnemyMon.status;
-        bstat2   = wEnemyBattleStatus2;
-        mon_name = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-        pfx      = (wIsInBattle == 1) ? "Wild " : "Foe ";
+        *pfx = (wIsInBattle == 1) ? "Wild " : "Foe ";
+        *name = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
     }
+}
 
-    if (status & STATUS_BRN)
-        snprintf(buf, (size_t)bufsz, "%s%s\nwas hurt by its burn!", pfx, mon_name);
-    else if (status & STATUS_PSN)
-        snprintf(buf, (size_t)bufsz, "%s%s\nwas hurt by poison!", pfx, mon_name);
+static int bui_format_residual_event_text(char *line, size_t linesz, const battle_event_t *bev) {
+    const char *pfx = "";
+    const char *name = "";
 
-    /* Leech seed overwrites burn/poison line — original shows it separately,
-     * but for now one message per residual tick is fine. */
-    if (bstat2 & (1u << BSTAT2_SEEDED))
-        snprintf(buf, (size_t)bufsz, "LEECH SEED\nsaps %s%s!", pfx, mon_name);
+    if (!line || linesz == 0 || !bev) return 0;
+    if (bev->type != BATTLE_EVENT_RESIDUAL_MSG) return 0;
+    if (bev->arg1 > 1u) return 0;
+
+    bui_get_side_name_prefix(bev->arg1, &pfx, &name);
+    line[0] = '\0';
+    switch ((battle_residual_msg_t)bev->arg0) {
+    case BATTLE_RESIDUAL_MSG_BURN:
+        snprintf(line, sizeof(line), "%s%s\nwas hurt by its burn!", pfx, name);
+        break;
+    case BATTLE_RESIDUAL_MSG_POISON:
+        snprintf(line, sizeof(line), "%s%s\nwas hurt by poison!", pfx, name);
+        break;
+    case BATTLE_RESIDUAL_MSG_LEECH_SEED:
+        snprintf(line, sizeof(line), "LEECH SEED\nsaps %s%s!", pfx, name);
+        break;
+    default:
+        return 0;
+    }
+    return 1;
+}
+
+static int bui_apply_residual_and_collect_events(void) {
+    battle_event_t bev;
+    int alive;
+    bui_snapshot_hp_pre();
+    s_residual_evt_q_count = 0u;
+    s_residual_evt_q_index = 0u;
+    BattleEvent_ResetTurnQueue();
+    alive = Battle_HandlePoisonBurnLeechSeed();
+    while (BattleEvent_Pop(&bev)) {
+        if (s_residual_evt_q_count >= BUI_RESIDUAL_EVT_MAX) break;
+        s_residual_evt_q[s_residual_evt_q_count++] = bev;
+    }
+    return alive;
+}
+
+static void bui_begin_residual(int phase) {
+    s_residual_phase = phase;
+    s_residual_alive = bui_apply_residual_and_collect_events();
+    bui_state = BUI_RESIDUAL_EVENT;
 }
 
 /* Execute the second mover's move and show its text.
@@ -1814,19 +2487,21 @@ static void bui_exec_second_move(void) {
     if (s_player_first) {
         hWhoseTurn = 1;
         bui_snapshot_pre(1);
-        s_hp_pre_hp  = wBattleMon.hp;
-        s_hp_pre_max = wBattleMon.max_hp;
+        bui_snapshot_hp_pre();
         Battle_ExecuteEnemyMove();
+        bui_run_move_anim_runtime(1);
         bui_setup_anim(1);
         bui_setup_hp_anim(1);
+        bui_configure_multihit_visuals(1);
     } else {
         hWhoseTurn = 0;
         bui_snapshot_pre(0);
-        s_hp_pre_hp  = wEnemyMon.hp;
-        s_hp_pre_max = wEnemyMon.max_hp;
+        bui_snapshot_hp_pre();
         Battle_ExecutePlayerMove();
+        bui_run_move_anim_runtime(0);
         bui_setup_anim(0);
         bui_setup_hp_anim(0);
+        bui_configure_multihit_visuals(0);
     }
     s_anim_first = 0;
     /* Show "X used Y!" + effects BEFORE animation — mirrors DisplayUsedMoveText
@@ -1839,6 +2514,7 @@ static void bui_exec_second_move(void) {
         bui_show_after_move(0, s_pfx_b, s_name_b, wPlayerSelectedMove, wPlayerMoveNum,
                             wCriticalHitOrOHKO, wMoveMissed, wDamageMultipliers & 0x7F);
     bui_state    = BUI_MOVE_ANIM;
+    s_move_anim_hit_sfx_started = 0;
 }
 
 /* ---- Public API ---------------------------------------------------- */
@@ -1849,6 +2525,29 @@ void BattleUI_Restore(void) {
      * redraws the HUD, then transitions to BUI_PLAYER_ACTION_SELECTION,
      * reconstructing the full battle screen from the restored WRAM state. */
     bui_state = BUI_DRAW_HUD;
+    s_move_anim_active = 0;
+    s_move_anim_owner_turn = 0u;
+    s_move_anim_queue_count = 0u;
+    s_move_anim_queue_index = 0u;
+    memset(s_move_anim_queue_ids, 0, sizeof(s_move_anim_queue_ids));
+    memset(s_move_anim_queue_forced_turn, 0xFF, sizeof(s_move_anim_queue_forced_turn));
+    s_move_anim_hit_sfx_started = 0;
+    s_hp_stage2_pending = 0;
+    s_hp_stage2_px = 0;
+    s_multihit_replay_armed = 0;
+    s_multihit_replay_whose = 0;
+    s_residual_phase = 0;
+    s_residual_alive = 1;
+    s_residual_evt_q_count = 0u;
+    s_residual_evt_q_index = 0u;
+    s_residual_delay_frames = 0;
+    s_player_charge_hidden = 0;
+    s_enemy_charge_hidden = 0;
+    s_player_charge_resolving_anim = 0;
+    s_enemy_charge_resolving_anim = 0;
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+    bui_evt_reset_status_queue();
+    bui_evt_reset_hit_queues();
 }
 
 void BattleUI_Enter(void) {
@@ -1863,11 +2562,40 @@ void BattleUI_Enter(void) {
     s_anim_type     = 0;
     s_anim_frame    = 0;
     s_anim_total    = 0;
+    s_move_anim_active = 0;
+    s_move_anim_owner_turn = 0u;
+    s_move_anim_queue_count = 0u;
+    s_move_anim_queue_index = 0u;
+    memset(s_move_anim_queue_ids, 0, sizeof(s_move_anim_queue_ids));
+    memset(s_move_anim_queue_forced_turn, 0xFF, sizeof(s_move_anim_queue_forced_turn));
+    s_move_anim_hit_sfx_started = 0;
+    s_hp_stage2_pending = 0;
+    s_hp_stage2_px = 0;
+    s_multihit_replay_armed = 0;
+    s_multihit_replay_whose = 0;
+    s_residual_phase = 0;
+    s_residual_alive = 1;
+    s_residual_evt_q_count = 0u;
+    s_residual_evt_q_index = 0u;
+    s_residual_delay_frames = 0;
+    s_player_charge_hidden = 0;
+    s_enemy_charge_hidden = 0;
+    s_player_charge_resolving_anim = 0;
+    s_enemy_charge_resolving_anim = 0;
+    memset(&s_move_anim_ctx, 0, sizeof(s_move_anim_ctx));
+    bui_evt_reset_status_queue();
+    bui_evt_reset_hit_queues();
     s_caught_species = 0;
     s_caught_dex = 0;
     s_caught_new_entry = 0;
     s_caught_sent_to_box = 0;
     s_caught_dex_started = 0;
+    s_caught_party_slot = -1;
+    s_caught_box_slot = -1;
+    s_caught_box_index = -1;
+    s_learn_slot = 0xFF;
+    s_learn_move = 0;
+    s_learn_cursor = 0;
     Display_SetShakeOffset(0, 0);
     gScrollPxX = 0;
     gScrollPxY = 0;
@@ -2092,7 +2820,7 @@ void BattleUI_Tick(void) {
                         Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
                                          gPokemonBackSprite[p_dex2][i]);
                 }
-                const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                const char *p_name2 = bui_player_mon_name();
                 snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!", p_name2);
                 Text_ShowASCII(s_msg_buf);
             }
@@ -2119,6 +2847,10 @@ void BattleUI_Tick(void) {
                     Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
                                            gPokemonFrontSprite[e_dex4][i]);
             }
+            /* Establish a fresh full-sprite baseline for show/hide restores.
+             * Required now that hide no longer recaptures every toggle. */
+            bui_place_enemy_sprite_full_oam();
+            BattleUI_EnemySpriteCaptureState();
             bui_set_enemy_oam_visible(0);  /* hide full sprite; crops shown below */
             wShadowOAM[POKEBALL_OAM_BASE].y    = (uint8_t)(ENEMY_SPR_PX_Y + 6 * 8 + OAM_Y_OFS);
             wShadowOAM[POKEBALL_OAM_BASE].x    = (uint8_t)(ENEMY_SPR_PX_X + 3 * 8 + OAM_X_OFS);
@@ -2171,7 +2903,7 @@ void BattleUI_Tick(void) {
                         Display_LoadTile((uint8_t)(PLAYER_SPR_BG_BASE + i),
                                          gPokemonBackSprite[p_dex2][i]);
                 }
-                const char *p_name2 = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+                const char *p_name2 = bui_player_mon_name();
                 snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Go! %s!", p_name2);
                 s_slide_cx = 0;
                 s_wait_cry_next_state = BUI_TRAINER_SLIDE_OUT;
@@ -2274,7 +3006,7 @@ void BattleUI_Tick(void) {
         bui_draw_player_hud();
         bui_load_sprites();
         const char *e_name = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-        const char *p_name = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+        const char *p_name = bui_player_mon_name();
         if (wIsInBattle == 2)
             snprintf(s_msg_buf, sizeof(s_msg_buf),
                      "Trainer sent out\n%s!\fGo! %s!", e_name, p_name);
@@ -2292,6 +3024,23 @@ void BattleUI_Tick(void) {
         bui_draw_enemy_hud();
         bui_draw_player_hud();
         bui_load_sprites();
+        /* MainInBattleLoop parity: skip menu when player is locked into action. */
+        if ((wBattleMon.status & (STATUS_FRZ | STATUS_SLP_MASK)) ||
+            (wPlayerBattleStatus1 & ((1u << BSTAT1_THRASHING_ABOUT) |
+                                     (1u << BSTAT1_CHARGING_UP) |
+                                     (1u << BSTAT1_STORING_ENERGY) |
+                                     (1u << BSTAT1_USING_TRAPPING))) ||
+            (wEnemyBattleStatus1 & (1u << BSTAT1_USING_TRAPPING))) {
+            battle_result_t prep;
+            if (wEnemyBattleStatus1 & (1u << BSTAT1_USING_TRAPPING))
+                wPlayerSelectedMove = CANNOT_MOVE;
+            prep = Battle_TurnPrepare();
+            if (prep == BATTLE_RESULT_PLAYER_FAINTED) { bui_state = BUI_PLAYER_FAINTED; break; }
+            if (prep == BATTLE_RESULT_ENEMY_FAINTED)  { Battle_HandleEnemyMonFainted(); bui_state = BUI_END; break; }
+            s_player_first = Battle_TurnPlayerFirst();
+            bui_exec_first_move();
+            break;
+        }
         bui_cursor = 0;
         bui_draw_main_menu(0);
         hWY = SCREEN_HEIGHT_PX;  /* disable window — battle UI is in gScrollTileMap, not gWindowTileMap */
@@ -2449,53 +3198,8 @@ void BattleUI_Tick(void) {
             }
         }
 
-        /* First mover's end-of-move residual (poison/burn/leech seed).
-         * Applied silently; HP bars updated below. */
-        if (!Battle_HandlePoisonBurnLeechSeed()) {
-            /* First mover fainted from residual */
-            bui_draw_enemy_hud();
-            bui_draw_player_hud();
-            if (s_player_first) {
-                /* Player (first mover) fainted from their own residual */
-                Battle_HandlePlayerMonFainted();
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nfainted!", s_name_a);
-                Text_ShowASCII(s_msg_buf);
-                bui_state = BUI_PLAYER_FAINTED;
-            } else {
-                /* Enemy (first mover) fainted from their own residual */
-                Battle_HandleEnemyMonFainted();
-                bui_draw_enemy_hud();
-                bui_draw_player_hud();
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s%s\nfainted!", s_pfx_a, s_name_a);
-                Text_ShowASCII(s_msg_buf);
-                if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY ||
-                    wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
-                    bui_exp_dest    = BUI_END;
-                    s_exp_suffix[0] = '\0';
-                    s_exp_suffix2[0] = '\0';
-                } else {
-                    const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                    s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
-                    bui_exp_dest = BUI_ENEMY_SEND_OUT;
-                    snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
-                    s_exp_suffix2[0] = '\0';
-                }
-                bui_state = BUI_EXP_DRAIN;
-            }
-            return;
-        }
-        bui_draw_enemy_hud();
-        bui_draw_player_hud();
-        {
-            char rmsg[80];
-            bui_format_residual_msg(rmsg, sizeof(rmsg));
-            if (rmsg[0]) {
-                Text_ShowASCII(rmsg);
-                bui_state = BUI_EXEC_SECOND;
-                break;
-            }
-        }
-        bui_exec_second_move();
+        /* First mover's end-of-move residual (poison/burn/leech seed). */
+        bui_begin_residual(0);
         break;
     }
 
@@ -2504,11 +3208,54 @@ void BattleUI_Tick(void) {
      * HUDs are updated and the move-use text is shown.  Matches the       *
      * original's: execute → PlayMoveAnimation → DrawHPBars → PrintText.  */
     case BUI_MOVE_ANIM: {
+        /* Scripted move animation runtime (PlayAnimation path) runs first.
+         * Once complete, continue with the applying/hit animation below. */
+        if (s_move_anim_active) {
+            if (MoveAnim_Tick(&s_move_anim_ctx)) {
+                uint8_t keep_enemy_hidden = 0u;
+                s_move_anim_active = 0;
+                if (s_move_anim_queue_count > 0u &&
+                    (uint8_t)(s_move_anim_queue_index + 1u) < s_move_anim_queue_count) {
+                    s_move_anim_queue_index++;
+                    bui_start_move_anim_from_queue();
+                    break;
+                }
+                hWhoseTurn = s_move_anim_owner_turn;
+                if (hWhoseTurn == 0u && s_player_charge_resolving_anim) {
+                    s_player_charge_hidden = 0;
+                    s_player_charge_resolving_anim = 0;
+                } else if (hWhoseTurn != 0u && s_enemy_charge_resolving_anim) {
+                    s_enemy_charge_hidden = 0;
+                    s_enemy_charge_resolving_anim = 0;
+                }
+                /* Scripted move animation may end on a hide-pic effect.
+                 * Ensure enemy sprite is visible for the post-move path. */
+                if (hWhoseTurn != 0u) {
+                    uint8_t move_id = wEnemyMoveNum;
+                    uint8_t move_eff = (move_id < NUM_MOVE_DEFS) ? gMoves[move_id].effect : 0u;
+                    if ((move_eff == EFFECT_CHARGE || move_eff == EFFECT_FLY) &&
+                        (wEnemyBattleStatus1 & (1u << BSTAT1_CHARGING_UP))) {
+                        keep_enemy_hidden = 1u;
+                    }
+                }
+                if (!keep_enemy_hidden)
+                    bui_set_enemy_oam_visible(1);
+            }
+            break;
+        }
+
         if (s_anim_total == 0) {
-            /* No animation (missed or no move) — proceed immediately to HP anim */
+            /* No applying animation case: start hit SFX once, then wait for it to finish
+             * before entering HP animation (ASM MoveAnimation call order). */
             Display_SetShakeOffset(0, 0);
-            if (!wMoveMissed)
-                Audio_PlaySFX_BattleHit(wDamageMultipliers & 0x7Fu);
+            if (s_move_anim_should_hit_sfx && !s_move_anim_hit_sfx_started && !wMoveMissed) {
+                uint8_t dmg_mult = bui_evt_pop_hit_sfx_or((uint8_t)(wDamageMultipliers & 0x7Fu));
+                Audio_PlaySFX_BattleHit(dmg_mult);
+                s_move_anim_hit_sfx_started = 1;
+            }
+            if (Audio_IsSFXPlaying()) {
+                break;
+            }
             bui_state = BUI_HP_ANIM;
             break;
         }
@@ -2553,8 +3300,14 @@ void BattleUI_Tick(void) {
         if (s_anim_frame >= s_anim_total) {
             Display_SetShakeOffset(0, 0);
             bui_set_enemy_oam_visible(1);  /* restore if blink left it hidden */
-            if (!wMoveMissed)
-                Audio_PlaySFX_BattleHit(wDamageMultipliers & 0x7Fu);
+            if (s_move_anim_should_hit_sfx && !s_move_anim_hit_sfx_started && !wMoveMissed) {
+                uint8_t dmg_mult = bui_evt_pop_hit_sfx_or((uint8_t)(wDamageMultipliers & 0x7Fu));
+                Audio_PlaySFX_BattleHit(dmg_mult);
+                s_move_anim_hit_sfx_started = 1;
+            }
+            if (Audio_IsSFXPlaying()) {
+                break;
+            }
             bui_state = BUI_HP_ANIM;
         }
         break;
@@ -2566,6 +3319,17 @@ void BattleUI_Tick(void) {
      * DrawHPBar → DelayFrames(2) loop in the original.                 */
     case BUI_HP_ANIM: {
         if (s_hp_cur_px == s_hp_new_px) {
+            if (s_hp_stage2_pending && s_multihit_replay_armed) {
+                s_hp_stage2_pending = 0;
+                s_multihit_replay_armed = 0;
+                s_hp_new_px = s_hp_stage2_px;
+                s_hp_half_frame = 0;
+                s_anim_frame = 0;
+                bui_restart_move_anim_replay(s_multihit_replay_whose);
+                s_move_anim_hit_sfx_started = 0;
+                bui_state = BUI_MOVE_ANIM;
+                break;
+            }
             /* Scroll complete — hand off to finish (which redraws full HUD) */
             if (s_anim_first) bui_finish_first_move();
             else              bui_finish_second_move();
@@ -2584,6 +3348,156 @@ void BattleUI_Tick(void) {
         }
         break;
     }
+
+    /* ---- Residual event queue (core.asm:470 order) --------------- */
+    case BUI_RESIDUAL_EVENT: {
+        while (s_residual_evt_q_index < s_residual_evt_q_count) {
+            battle_event_t *bev = &s_residual_evt_q[s_residual_evt_q_index++];
+            if (bev->type == BATTLE_EVENT_RESIDUAL_MSG) {
+                if (bui_format_residual_event_text(s_msg_buf, sizeof(s_msg_buf), bev))
+                    Text_ShowASCII(s_msg_buf);
+                break;
+            }
+            if (bev->type == BATTLE_EVENT_PLAY_ANIM) {
+                uint8_t turn = (bev->arg1 <= 1u) ? bev->arg1 : (uint8_t)hWhoseTurn;
+                bui_start_residual_anim(bev->arg0, turn);
+                if (s_move_anim_active) {
+                    bui_state = BUI_RESIDUAL_ANIM;
+                    break;
+                }
+                continue;
+            }
+            if (bev->type == BATTLE_EVENT_HP_TARGET && bev->arg0 <= 1u) {
+                bui_setup_hp_anim((int)bev->arg0);
+                bui_state = BUI_RESIDUAL_HP_ANIM;
+                break;
+            }
+        }
+        if (bui_state != BUI_RESIDUAL_EVENT) break;
+        if (!s_residual_alive) {
+            /* core.asm:528-530 -> DrawHUDsAndHPBars then DelayFrames(20). */
+            bui_draw_enemy_hud();
+            bui_draw_player_hud();
+            s_residual_delay_frames = BUI_RESIDUAL_FAINT_DELAY_FRAMES;
+            bui_state = BUI_RESIDUAL_FAINT_DELAY;
+            break;
+        }
+        bui_state = BUI_RESIDUAL_RESOLVE;
+        break;
+    }
+
+    /* ---- Residual scripted move animation runtime ----------------- */
+    case BUI_RESIDUAL_ANIM:
+        if (s_move_anim_active && MoveAnim_Tick(&s_move_anim_ctx)) {
+            s_move_anim_active = 0;
+            bui_set_enemy_oam_visible(1);
+        }
+        if (!s_move_anim_active) {
+            /* Match PlayMoveAnimation cadence: don't advance until move SFX tail
+             * has finished, otherwise HP scrolling can start too early. */
+            if (Audio_IsSFXPlaying()) break;
+            bui_state = BUI_RESIDUAL_EVENT;
+        }
+        break;
+
+    /* ---- Residual HP bar scroll ----------------------------------- */
+    case BUI_RESIDUAL_HP_ANIM: {
+        if (s_hp_cur_px == s_hp_new_px) {
+            bui_state = BUI_RESIDUAL_EVENT;
+            break;
+        }
+        if (s_hp_anim_who == 0)
+            bui_draw_hp_bar_px(4,  2,  s_hp_cur_px);   /* enemy bar */
+        else
+            bui_draw_hp_bar_px(12, 9,  s_hp_cur_px);   /* player bar */
+        s_hp_half_frame ^= 1;
+        if (s_hp_half_frame == 0) {
+            if (s_hp_cur_px > s_hp_new_px) s_hp_cur_px--;
+            else                            s_hp_cur_px++;
+        }
+        break;
+    }
+
+    case BUI_RESIDUAL_FAINT_DELAY:
+        if (s_residual_delay_frames > 0) {
+            s_residual_delay_frames--;
+            break;
+        }
+        bui_state = BUI_RESIDUAL_RESOLVE;
+        break;
+
+    /* ---- Residual continuation after queue resolved --------------- */
+    case BUI_RESIDUAL_RESOLVE:
+        bui_draw_enemy_hud();
+        bui_draw_player_hud();
+        if (!s_residual_alive) {
+            if (s_residual_phase == 0) {
+                /* First mover fainted from residual */
+                if (s_player_first) {
+                    Battle_HandlePlayerMonFainted();
+                    snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nfainted!", s_name_a);
+                    Text_ShowASCII(s_msg_buf);
+                    bui_state = BUI_PLAYER_FAINTED;
+                } else {
+                    Battle_HandleEnemyMonFainted();
+                    bui_draw_enemy_hud();
+                    bui_draw_player_hud();
+                    snprintf(s_msg_buf, sizeof(s_msg_buf), "%s%s\nfainted!", s_pfx_a, s_name_a);
+                    Text_ShowASCII(s_msg_buf);
+                    if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY ||
+                        wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
+                        bui_exp_dest    = BUI_END;
+                        s_exp_suffix[0] = '\0';
+                        s_exp_suffix2[0] = '\0';
+                    } else {
+                        const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                        s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
+                        bui_exp_dest = BUI_ENEMY_SEND_OUT;
+                        snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
+                        s_exp_suffix2[0] = '\0';
+                    }
+                    bui_state = BUI_EXP_DRAIN;
+                }
+            } else {
+                /* Second mover fainted from residual */
+                if (s_player_first) {
+                    Battle_HandleEnemyMonFainted();
+                    bui_draw_enemy_hud();
+                    bui_draw_player_hud();
+                    snprintf(s_msg_buf, sizeof(s_msg_buf), "%s%s\nfainted!", s_pfx_b, s_name_b);
+                    Text_ShowASCII(s_msg_buf);
+                    if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY ||
+                        wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
+                        bui_exp_dest    = BUI_END;
+                        s_exp_suffix[0] = '\0';
+                        s_exp_suffix2[0] = '\0';
+                    } else {
+                        const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                        s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
+                        bui_exp_dest = BUI_ENEMY_SEND_OUT;
+                        snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
+                        s_exp_suffix2[0] = '\0';
+                    }
+                    bui_state = BUI_EXP_DRAIN;
+                } else {
+                    Battle_HandlePlayerMonFainted();
+                    snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nfainted!", s_name_b);
+                    Text_ShowASCII(s_msg_buf);
+                    bui_state = BUI_PLAYER_FAINTED;
+                }
+            }
+            break;
+        }
+
+        if (s_residual_phase == 0) {
+            bui_exec_second_move();
+        } else {
+            Battle_CheckNumAttacksLeft();
+            bui_draw_enemy_hud();
+            bui_draw_player_hud();
+            bui_state = BUI_DRAW_HUD;
+        }
+        break;
 
     /* ---- Second move (after residual-A message dismissed) ---------- */
     case BUI_EXEC_SECOND:
@@ -2632,61 +3546,7 @@ void BattleUI_Tick(void) {
         }
 
         /* Second mover's end-of-move residual */
-        if (!Battle_HandlePoisonBurnLeechSeed()) {
-            bui_draw_enemy_hud();
-            bui_draw_player_hud();
-            if (s_player_first) {
-                /* Enemy (second mover) fainted from residual */
-                Battle_HandleEnemyMonFainted();
-                bui_draw_enemy_hud();
-                bui_draw_player_hud();
-                snprintf(s_msg_buf, sizeof(s_msg_buf),
-                         "%s%s\nfainted!", s_pfx_b, s_name_b);
-                Text_ShowASCII(s_msg_buf);
-                if (wBattleResult == BATTLE_OUTCOME_WILD_VICTORY ||
-                    wBattleResult == BATTLE_OUTCOME_TRAINER_VICTORY) {
-                    bui_exp_dest    = BUI_END;
-                    s_exp_suffix[0] = '\0';
-                    s_exp_suffix2[0] = '\0';
-                } else {
-                    const char *nn = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                    s_grow_stage = 0; s_grow_frame = 0; s_mid_battle_send = 1;
-                    bui_exp_dest = BUI_ENEMY_SEND_OUT;
-                    snprintf(s_exp_suffix, sizeof(s_exp_suffix), "Foe sent out\n%s!", nn);
-                    s_exp_suffix2[0] = '\0';
-                }
-                bui_state = BUI_EXP_DRAIN;
-            } else {
-                /* Player (second mover) fainted from residual */
-                Battle_HandlePlayerMonFainted();
-                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s\nfainted!", s_name_b);
-                Text_ShowASCII(s_msg_buf);
-                bui_state = BUI_PLAYER_FAINTED;
-            }
-            return;
-        }
-
-        bui_draw_enemy_hud();
-        bui_draw_player_hud();
-        {
-            char rmsg[80];
-            bui_format_residual_msg(rmsg, sizeof(rmsg));
-            if (rmsg[0]) {
-                Text_ShowASCII(rmsg);
-                bui_state = BUI_TURN_FINISH;
-                break;
-            }
-        }
-        Battle_CheckNumAttacksLeft();
-        bui_draw_enemy_hud();
-        bui_draw_player_hud();
-        /* Draw the main menu box immediately instead of deferring to BUI_DRAW_HUD.
-         * HUDs are already drawn above; skipping BUI_DRAW_HUD avoids a 1-frame
-         * blank in rows 12-17 between text close and the next menu draw. */
-        bui_cursor = 0;
-        bui_draw_main_menu(0);
-        hWY = SCREEN_HEIGHT_PX;
-        bui_state = BUI_MENU;
+        bui_begin_residual(1);
         break;
     }
 
@@ -2716,17 +3576,31 @@ void BattleUI_Tick(void) {
             bui_state = BUI_LEVELUP_STATS;
             break;
         }
-        levelup_stats_t lvl_stats;
-        const char *txt = BattleExp_TakeNextText(&lvl_stats);
-        if (txt) {
-            bui_draw_player_hud();
-            /* Level-up text: play jingle (mirrors sound_level_up in GrewLevelText) */
-            if (lvl_stats.valid) Audio_PlaySFX_LevelUp();
-            snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", txt);
-            Text_ShowASCII(s_msg_buf);
-            /* Store stats so next tick draws the stats box */
-            s_pending_lvl_stats = lvl_stats;
-            /* stay in BUI_EXP_DRAIN for next text */
+        battleexp_event_t ev;
+        if (BattleExp_TakeNextEvent(&ev)) {
+            if (ev.type == BEXP_EVENT_TEXT) {
+                bui_draw_player_hud();
+                /* Level-up text: play jingle (mirrors sound_level_up in GrewLevelText) */
+                if (ev.stats.valid) Audio_PlaySFX_LevelUp();
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "%s", ev.text);
+                Text_ShowASCII(s_msg_buf);
+                /* Store stats so next tick draws the stats box */
+                s_pending_lvl_stats = ev.stats;
+                /* stay in BUI_EXP_DRAIN for next event */
+            } else if (ev.type == BEXP_EVENT_LEARN_MOVE) {
+                const char *mon = bui_party_mon_name(ev.slot);
+                const char *mv  = (ev.move_id < NUM_MOVE_DEFS && gMoveNames[ev.move_id]) ? gMoveNames[ev.move_id] : "a move";
+                s_learn_slot = ev.slot;
+                s_learn_move = ev.move_id;
+                s_learn_cursor = 0;
+                snprintf(s_msg_buf, sizeof(s_msg_buf),
+                         "%s is trying\nto learn %s!\f"
+                         "But, %s can't\nlearn more than\n4 moves!\f"
+                         "Delete an older\nmove to make\nroom for %s?",
+                         mon, mv, mon, mv);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_LEARN_FORGET_YESNO;
+            }
         } else if (s_exp_suffix[0] != '\0') {
             /* Trainer victory: music fires here, just before "PLAYER defeated TRAINER!" —
              * mirrors PlayBattleVictoryMusic order in core.asm:TrainerBattleVictory. */
@@ -2761,6 +3635,95 @@ void BattleUI_Tick(void) {
             bui_clear_rect(9, 2, 19, 11);
             bui_state = BUI_EXP_DRAIN;
         }
+        break;
+
+    /* ---- Learn move (level-up, 4 moves full): delete old move? ----- */
+    case BUI_LEARN_FORGET_YESNO: {
+        bui_draw_box();
+        bui_put_str(1, 13, s_learn_cursor == 0 ? ">YES" : " YES");
+        bui_put_str(1, 14, s_learn_cursor == 1 ? ">NO " : " NO ");
+        if (hJoyPressed & (PAD_UP | PAD_DOWN))
+            s_learn_cursor ^= 1;
+        if ((hJoyPressed & PAD_A) || (hJoyPressed & PAD_B)) {
+            int chose_no = (s_learn_cursor == 1) || (hJoyPressed & PAD_B);
+            if (chose_no) {
+                const char *mv = (s_learn_move < NUM_MOVE_DEFS && gMoveNames[s_learn_move])
+                                 ? gMoveNames[s_learn_move] : "that move";
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Did not learn\n%s!", mv);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_LEARN_RESULT_TEXT;
+            } else {
+                s_learn_cursor = 0;
+                Text_ShowASCII("Which move\nshould be\nforgotten?");
+                bui_state = BUI_LEARN_PICK_MOVE;
+            }
+        }
+        break;
+    }
+
+    case BUI_LEARN_PICK_MOVE:
+        if (Text_IsOpen()) break;
+        if (s_learn_slot >= wPartyCount) {
+            bui_state = BUI_EXP_DRAIN;
+            break;
+        }
+        bui_draw_forget_move_menu(s_learn_slot, s_learn_cursor);
+        if (hJoyPressed & PAD_UP) {
+            if (s_learn_cursor > 0) s_learn_cursor--;
+        } else if (hJoyPressed & PAD_DOWN) {
+            if (s_learn_cursor < NUM_MOVES - 1) s_learn_cursor++;
+        } else if (hJoyPressed & PAD_B) {
+            const char *mv = (s_learn_move < NUM_MOVE_DEFS && gMoveNames[s_learn_move])
+                             ? gMoveNames[s_learn_move] : "that move";
+            s_learn_cursor = 0;
+            snprintf(s_msg_buf, sizeof(s_msg_buf), "Abandon learning\n%s?", mv);
+            Text_ShowASCII(s_msg_buf);
+            bui_state = BUI_LEARN_STOP_YESNO;
+        } else if (hJoyPressed & PAD_A) {
+            uint8_t old_move = wPartyMons[s_learn_slot].base.moves[s_learn_cursor];
+            const char *mon = bui_party_mon_name(s_learn_slot);
+            const char *oldm = (old_move < NUM_MOVE_DEFS && gMoveNames[old_move]) ? gMoveNames[old_move] : "a move";
+            const char *newm = (s_learn_move < NUM_MOVE_DEFS && gMoveNames[s_learn_move]) ? gMoveNames[s_learn_move] : "a move";
+            wPartyMons[s_learn_slot].base.moves[s_learn_cursor] = s_learn_move;
+            wPartyMons[s_learn_slot].base.pp[s_learn_cursor] =
+                (s_learn_move < NUM_MOVE_DEFS) ? gMoves[s_learn_move].pp : 0;
+            if (s_learn_slot == wPlayerMonNumber) {
+                wBattleMon.moves[s_learn_cursor] = s_learn_move;
+                wBattleMon.pp[s_learn_cursor] = wPartyMons[s_learn_slot].base.pp[s_learn_cursor];
+            }
+            snprintf(s_msg_buf, sizeof(s_msg_buf),
+                     "1, 2, and...\fPoof!\n%s forgot\n%s!\fAnd...\n%s learned\n%s!",
+                     mon, oldm, mon, newm);
+            Text_ShowASCII(s_msg_buf);
+            bui_state = BUI_LEARN_RESULT_TEXT;
+        }
+        break;
+
+    case BUI_LEARN_STOP_YESNO:
+        bui_draw_box();
+        bui_put_str(1, 13, s_learn_cursor == 0 ? ">YES" : " YES");
+        bui_put_str(1, 14, s_learn_cursor == 1 ? ">NO " : " NO ");
+        if (hJoyPressed & (PAD_UP | PAD_DOWN))
+            s_learn_cursor ^= 1;
+        if ((hJoyPressed & PAD_A) || (hJoyPressed & PAD_B)) {
+            int chose_no = (s_learn_cursor == 1) || (hJoyPressed & PAD_B);
+            if (chose_no) {
+                bui_state = BUI_LEARN_PICK_MOVE;
+            } else {
+                const char *mv = (s_learn_move < NUM_MOVE_DEFS && gMoveNames[s_learn_move])
+                                 ? gMoveNames[s_learn_move] : "that move";
+                snprintf(s_msg_buf, sizeof(s_msg_buf), "Did not learn\n%s!", mv);
+                Text_ShowASCII(s_msg_buf);
+                bui_state = BUI_LEARN_RESULT_TEXT;
+            }
+        }
+        break;
+
+    case BUI_LEARN_RESULT_TEXT:
+        if (Text_IsOpen()) break;
+        s_learn_slot = 0xFF;
+        s_learn_move = 0;
+        bui_state = BUI_EXP_DRAIN;
         break;
 
     /* ---- Enemy sprite slide-down faint animation ------------------- *
@@ -2884,7 +3847,7 @@ void BattleUI_Tick(void) {
         }
         Battle_ChooseNextMon((uint8_t)slot);
         snprintf(s_msg_buf, sizeof(s_msg_buf), "Go! %s!",
-                 Pokemon_GetName(gSpeciesToDex[wBattleMon.species]));
+                 bui_player_mon_name());
         Text_ShowASCII(s_msg_buf);
         bui_state = BUI_DRAW_HUD;
         break;
@@ -2989,7 +3952,7 @@ void BattleUI_Tick(void) {
 
             /* "Go!/Do it!/Get'm!" text — mirrors PrintSendOutMonMessage.
              * Variant based on enemy current HP percentage. */
-            const char *new_name = Pokemon_GetName(gSpeciesToDex[wBattleMon.species]);
+            const char *new_name = bui_player_mon_name();
             const char *go_prefix;
             if (wEnemyMon.max_hp == 0 || wEnemyMon.hp == 0) {
                 go_prefix = "Go";
@@ -3394,6 +4357,9 @@ void BattleUI_Tick(void) {
         s_caught_new_entry = !bui_pokedex_owned_num(s_caught_dex);
         s_caught_sent_to_box = 0;
         s_caught_dex_started = 0;
+        s_caught_party_slot = -1;
+        s_caught_box_slot = -1;
+        s_caught_box_index = -1;
         ename = Pokemon_GetName(s_caught_dex);
 
         /* The battle UI handles wild ball catches directly, bypassing
@@ -3438,6 +4404,7 @@ void BattleUI_Tick(void) {
             wPartySpecies[party_slot]     = s_caught_species;
             wPartySpecies[party_slot + 1] = 0xFF;
             wPartyCount++;
+            s_caught_party_slot = party_slot;
         } else {
             s_caught_sent_to_box = 1;
             if (!Pokemon_SendBattleMonToBox(&wEnemyMon)) {
@@ -3446,6 +4413,8 @@ void BattleUI_Tick(void) {
                 bui_state = BUI_END;
                 break;
             }
+            s_caught_box_index = (int)(wCurrentBoxNum % NUM_BOXES);
+            s_caught_box_slot = (int)wBoxCount[s_caught_box_index] - 1;
         }
 
         wBattleResult = BATTLE_OUTCOME_CAUGHT;
@@ -3460,7 +4429,7 @@ void BattleUI_Tick(void) {
             Text_ShowASCII(s_msg_buf);
             bui_state = BUI_CAUGHT_BOX_TEXT;
         } else {
-            bui_state = BUI_END;
+            bui_state = BUI_CAUGHT_NICK_PROMPT;
         }
         break;
     }
@@ -3492,12 +4461,59 @@ void BattleUI_Tick(void) {
             Text_ShowASCII(s_msg_buf);
             bui_state = BUI_CAUGHT_BOX_TEXT;
         } else {
-            bui_state = BUI_END;
+            bui_state = BUI_CAUGHT_NICK_PROMPT;
         }
         break;
 
     case BUI_CAUGHT_BOX_TEXT:
         if (Text_IsOpen()) break;
+        bui_state = BUI_CAUGHT_NICK_PROMPT;
+        break;
+
+    case BUI_CAUGHT_NICK_PROMPT: {
+        const char *ename = Pokemon_GetName(s_caught_dex);
+        bui_cursor = 0;
+        snprintf(s_msg_buf, sizeof(s_msg_buf),
+                 "Do you want to\ngive a nickname\nto %s?", ename ? ename : "");
+        Text_ShowASCII(s_msg_buf);
+        bui_state = BUI_CAUGHT_NICK_QUERY;
+        break;
+    }
+
+    case BUI_CAUGHT_NICK_QUERY:
+        bui_draw_box();
+        bui_put_str(1, 13, bui_cursor == 0 ? ">YES" : " YES");
+        bui_put_str(1, 14, bui_cursor == 1 ? ">NO " : " NO ");
+        if (hJoyPressed & (PAD_UP | PAD_DOWN))
+            bui_cursor ^= 1;
+        if ((hJoyPressed & PAD_A) || (hJoyPressed & PAD_B)) {
+            int chose_no = (bui_cursor == 1) || (hJoyPressed & PAD_B);
+            bui_state = chose_no ? BUI_END : BUI_CAUGHT_NICKNAME;
+        }
+        break;
+
+    case BUI_CAUGHT_NICKNAME:
+        if (NamingScreen_IsOpen()) {
+            bui_state = BUI_CAUGHT_NICK_WAIT;
+            break;
+        }
+        if (s_caught_party_slot >= 0 && s_caught_party_slot < PARTY_LENGTH) {
+            NamingScreen_Open(NAME_MON_SCREEN, s_caught_species, wPartyMonNicks[s_caught_party_slot]);
+            bui_state = BUI_CAUGHT_NICK_WAIT;
+            break;
+        }
+        if (s_caught_sent_to_box &&
+            s_caught_box_index >= 0 && s_caught_box_index < NUM_BOXES &&
+            s_caught_box_slot >= 0 && s_caught_box_slot < BOX_CAPACITY) {
+            NamingScreen_Open(NAME_MON_SCREEN, s_caught_species, wBoxMonNicks[s_caught_box_index][s_caught_box_slot]);
+            bui_state = BUI_CAUGHT_NICK_WAIT;
+            break;
+        }
+        bui_state = BUI_END;
+        break;
+
+    case BUI_CAUGHT_NICK_WAIT:
+        if (NamingScreen_IsOpen()) break;
         bui_state = BUI_END;
         break;
 
@@ -3508,7 +4524,7 @@ void BattleUI_Tick(void) {
         const char *wild_pfx = (wIsInBattle == 1) ? "Wild " : "";
         /* Set up name buffers for faint-check messages in BUI_TURN_END */
         snprintf(s_name_a, sizeof(s_name_a), "%s",
-                 Pokemon_GetName(gSpeciesToDex[wBattleMon.species]));
+                 bui_player_mon_name());
         s_pfx_a[0] = '\0';
         snprintf(s_name_b, sizeof(s_name_b), "%s",
                  Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]));
@@ -3517,9 +4533,9 @@ void BattleUI_Tick(void) {
 
         hWhoseTurn = 1;
         bui_snapshot_pre(1);
-        s_hp_pre_hp  = wBattleMon.hp;
-        s_hp_pre_max = wBattleMon.max_hp;
+        bui_snapshot_hp_pre();
         Battle_ExecuteEnemyMove();
+        bui_run_move_anim_runtime(1);
         bui_setup_anim(1);
         bui_setup_hp_anim(1);
         s_anim_first = 0;   /* finishing "second" move → bui_finish_second_move */

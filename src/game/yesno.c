@@ -8,10 +8,10 @@
 #include "../data/font_data.h"
 #include "../platform/hardware.h"
 
-/* Box position on screen (0-indexed, rows 0-17, cols 0-19) */
-#define BOX_ROW  14
-#define BOX_COL  13
-#define BOX_W     7
+/* ASM menu geometry (YesNoChoice): cols 14-19, rows 8-11 */
+#define BOX_ROW   8
+#define BOX_COL  14
+#define BOX_W     6
 #define BOX_H     4
 
 /* Pokemon font encoding helpers */
@@ -26,7 +26,7 @@
 
 typedef enum {
     YN_IDLE = 0,
-    YN_TEXT,   /* text showing; wait for it to close */
+    YN_TEXT,   /* text showing; may draw box now or wait for final page close */
     YN_DRAW,   /* first frame after text: draw box */
     YN_INPUT,  /* waiting for A/B/UP/DOWN */
     YN_DONE,   /* result ready; returns to IDLE next tick */
@@ -35,8 +35,26 @@ typedef enum {
 static yn_state_t s_state  = YN_IDLE;
 static int        s_cursor = 0;  /* 0=YES, 1=NO */
 static int        s_result = 0;
+static int        s_saved_valid = 0;
+static int        s_wait_for_text_close = 0;
 
 static uint8_t s_saved[BOX_H * BOX_W];
+
+/* If prompt requires multiple pages/scrolling, defer YES/NO until the final
+ * page is reached (after text closes). Otherwise show the box immediately. */
+static int prompt_requires_scroll(const char *p) {
+    int line = 1;
+    if (!p) return 0;
+    while (*p) {
+        if (*p == '\f') return 1;
+        if (*p == '\n') {
+            line++;
+            if (line > 2) return 1;
+        }
+        p++;
+    }
+    return 0;
+}
 
 static int poke_char(unsigned char c) {
     if (c >= 'A' && c <= 'Z') return Font_CharToTile((unsigned char)(0x80 + (c - 'A')));
@@ -63,36 +81,35 @@ static void restore_tiles(void) {
 }
 
 static void draw_box(void) {
-    /* Top border: ┌─────┐ */
+    /* Top border: ┌────┐ */
     set_tile(BOX_ROW, BOX_COL,             Font_CharToTile(POKE_CORNER_TL));
     for (int c = 1; c < BOX_W - 1; c++)
         set_tile(BOX_ROW, BOX_COL + c,     Font_CharToTile(POKE_HORIZ));
     set_tile(BOX_ROW, BOX_COL + BOX_W - 1, Font_CharToTile(POKE_CORNER_TR));
 
-    /* Bottom border: └─────┘ */
+    /* Bottom border: └────┘ */
     set_tile(BOX_ROW + 3, BOX_COL,              Font_CharToTile(POKE_CORNER_BL));
     for (int c = 1; c < BOX_W - 1; c++)
         set_tile(BOX_ROW + 3, BOX_COL + c,      Font_CharToTile(POKE_HORIZ));
     set_tile(BOX_ROW + 3, BOX_COL + BOX_W - 1,  Font_CharToTile(POKE_CORNER_BR));
 
-    /* Row 1: │ ►YES │ or │  YES │ */
-    /* Row 2: │  NO  │ or │ ►NO  │ */
-    static const char * const kLabels[2] = { "YES", "NO " };
-    for (int r = 0; r < 2; r++) {
-        set_tile(BOX_ROW + 1 + r, BOX_COL,             Font_CharToTile(POKE_VERT));
-        set_tile(BOX_ROW + 1 + r, BOX_COL + BOX_W - 1, Font_CharToTile(POKE_VERT));
-        /* cursor */
-        int is_selected = (r == s_cursor);
-        set_tile(BOX_ROW + 1 + r, BOX_COL + 1,
-                 is_selected ? Font_CharToTile(POKE_CURSOR)
-                             : Font_CharToTile(POKE_SPACE));
-        /* label (3 chars) */
-        const char *label = kLabels[r];
-        for (int i = 0; i < 3; i++)
-            set_tile(BOX_ROW + 1 + r, BOX_COL + 2 + i, poke_char(label[i]));
-        /* trailing space */
-        set_tile(BOX_ROW + 1 + r, BOX_COL + 5, Font_CharToTile(POKE_SPACE));
-    }
+    /* YES row */
+    set_tile(BOX_ROW + 1, BOX_COL,             Font_CharToTile(POKE_VERT));
+    set_tile(BOX_ROW + 1, BOX_COL + 1, s_cursor == 0 ? Font_CharToTile(POKE_CURSOR)
+                                                      : Font_CharToTile(POKE_SPACE));
+    set_tile(BOX_ROW + 1, BOX_COL + 2, poke_char('Y'));
+    set_tile(BOX_ROW + 1, BOX_COL + 3, poke_char('E'));
+    set_tile(BOX_ROW + 1, BOX_COL + 4, poke_char('S'));
+    set_tile(BOX_ROW + 1, BOX_COL + BOX_W - 1, Font_CharToTile(POKE_VERT));
+
+    /* NO row */
+    set_tile(BOX_ROW + 2, BOX_COL,             Font_CharToTile(POKE_VERT));
+    set_tile(BOX_ROW + 2, BOX_COL + 1, s_cursor == 1 ? Font_CharToTile(POKE_CURSOR)
+                                                      : Font_CharToTile(POKE_SPACE));
+    set_tile(BOX_ROW + 2, BOX_COL + 2, poke_char('N'));
+    set_tile(BOX_ROW + 2, BOX_COL + 3, poke_char('O'));
+    set_tile(BOX_ROW + 2, BOX_COL + 4, Font_CharToTile(POKE_SPACE));
+    set_tile(BOX_ROW + 2, BOX_COL + BOX_W - 1, Font_CharToTile(POKE_VERT));
 }
 
 /* ---- Public API ------------------------------------------------------- */
@@ -101,13 +118,27 @@ void YesNo_Show(const char *prompt) {
     s_state  = YN_TEXT;
     s_cursor = 0;
     s_result = 0;
-    wDoNotWaitForButtonPress = 0;
+    s_saved_valid = 0;
+    s_wait_for_text_close = prompt_requires_scroll(prompt);
+    /* Keep the question box visible after text completes so YES/NO overlays
+     * on top of it (Gen 1 behavior). */
+    Text_KeepTilesOnClose();
     Text_ShowASCII(prompt);
 }
 
 int  YesNo_IsOpen(void)      { return s_state != YN_IDLE; }
 int  YesNo_GetResult(void)   { return s_result; }
-void YesNo_PostRender(void)  { if (s_state == YN_INPUT) draw_box(); }
+void YesNo_PostRender(void)  {
+    int show_box = (s_state == YN_DRAW || s_state == YN_INPUT);
+    if (s_state == YN_TEXT && !s_wait_for_text_close) show_box = 1;
+    if (show_box) {
+        if (!s_saved_valid) {
+            save_tiles();
+            s_saved_valid = 1;
+        }
+        draw_box();
+    }
+}
 
 void YesNo_Tick(void) {
     switch (s_state) {
@@ -115,10 +146,11 @@ void YesNo_Tick(void) {
             break;
 
         case YN_TEXT:
-            /* Text is ticked by game.c before TMHM_Tick runs; by the time
-             * YesNo_Tick is called, text has already been closed. */
-            if (!Text_IsOpen()) {
-                save_tiles();
+            if (!s_wait_for_text_close || !Text_IsOpen()) {
+                if (!s_saved_valid) {
+                    save_tiles();
+                    s_saved_valid = 1;
+                }
                 s_state = YN_DRAW;
             }
             break;
@@ -134,16 +166,17 @@ void YesNo_Tick(void) {
             draw_box();  /* refresh cursor each frame */
             if (hJoyPressed & PAD_A) {
                 s_result = (s_cursor == 0) ? 1 : 0;
-                restore_tiles();
+                if (s_saved_valid) restore_tiles();
                 s_state = YN_DONE;
             } else if (hJoyPressed & PAD_B) {
                 s_result = 0;
-                restore_tiles();
+                if (s_saved_valid) restore_tiles();
                 s_state = YN_DONE;
             }
             break;
 
         case YN_DONE:
+            s_saved_valid = 0;
             s_state = YN_IDLE;
             break;
     }

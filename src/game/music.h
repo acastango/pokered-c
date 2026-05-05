@@ -41,6 +41,7 @@
 #define MUSIC_MEET_EVIL_TRAINER   36
 #define MUSIC_SURFING             37
 #define MUSIC_MEET_PROF_OAK       38  /* Oak appears / Professor Oak theme */
+#define MUSIC_INTRO_BATTLE        39
 
 /* Play a music track (stops any current music first).
  * music_id: one of MUSIC_* above; MUSIC_NONE stops playback. */

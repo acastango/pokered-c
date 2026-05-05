@@ -17,6 +17,11 @@
  *   select      — press Select
  *   wait [N]    — wait N frames doing nothing (default 60)
  *   state       — just write state, no action
+ *   animlab start [level] — start auto-play move animation test loop
+ *   animlab stop          — stop auto-play (keeps current battle active)
+ *   animlab status        — show animlab status in cli state/output
+ *   hittrace on|off|reset|status — MoveHitTest diagnostic tracing
+ *   movetestteam1         — set 6-mon party with 24 predefined move-anim test moves
  *
  * State file format: plain ASCII, grid + legend + party summary.
  */

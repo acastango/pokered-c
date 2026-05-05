@@ -6,10 +6,11 @@
  *   Music_Update()    — called once per frame (60 Hz); advances each channel
  *                       and calls Audio_WriteReg() when a new note fires
  *
- * Three music channels map to GB APU channels 0-2:
+ * Four music channels map to GB APU channels 0-3:
  *   CH0 = GB CH1 (square wave, melody)
  *   CH1 = GB CH2 (square wave, harmony)
  *   CH2 = GB CH3 (wave channel, bass/accompaniment)
+ *   CH3 = GB CH4 (noise channel, drums/percussion)
  *
  * CH3 is initialised with a 50% square wave pattern so it sounds like
  * a square wave. The original pokered uses wMusicWaveInstrument tables
@@ -31,17 +32,31 @@ typedef struct {
     uint8_t  vib_rate;       /* half-period length in frames */
     int      vib_rate_left;  /* frames remaining in current half-period */
     int      vib_phase;      /* 0 = +depth, 1 = -depth */
+    /* pitch slide */
+    int      slide_active;
+    uint8_t  slide_decreasing;
+    uint8_t  slide_cur_lo;
+    uint8_t  slide_cur_hi;
+    uint8_t  slide_target_lo;
+    uint8_t  slide_target_hi;
+    uint8_t  slide_step_int;
+    uint8_t  slide_step_frac;
+    uint8_t  slide_cur_frac;
+    /* CH4 drum instrument playback (noise sequences) */
+    const drum_inst_t *drum_inst;
+    int      drum_step;
+    int      drum_timer;
 } ch_seq_t;
 
-static ch_seq_t gSeq[3];
+static ch_seq_t gSeq[4];
 static uint8_t  gCurrentMusic   = MUSIC_NONE;
 static int      g_skip_update    = 0;  /* skip first Music_Update after Music_Play */
-static uint8_t  g_suspend_count[3] = {0, 0, 0};  /* nested channel ownership by SFX */
+static uint8_t  g_suspend_count[4] = {0, 0, 0, 0};  /* nested channel ownership by SFX */
 
 /* ---- Song table --------------------------------------------------- */
-/* Each entry: up to 3 channels (NULL = unused). */
+/* Each entry: up to 4 channels (NULL = unused). */
 typedef struct {
-    const ch_data_t *ch[3];
+    const ch_data_t *ch[4];
 } song_t;
 
 static const song_t kSongs[] = {
@@ -68,7 +83,7 @@ static const song_t kSongs[] = {
     /* MUSIC_POKEMON_TOWER */  { { NULL,            NULL,            NULL            } },
     /* MUSIC_SILPH_CO */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_SAFARI_ZONE */    { { &kSafariZone_Ch1,&kSafariZone_Ch2,&kSafariZone_Ch3} },
-    /* MUSIC_TITLE */          { { NULL,            NULL,            NULL            } },
+    /* MUSIC_TITLE */          { { &kTitleScreen_Ch1,&kTitleScreen_Ch2,&kTitleScreen_Ch3,&kTitleScreen_Ch4 } },
     /* MUSIC_JIGGLYPUFF */     { { NULL,                NULL,                NULL                } },
     /* MUSIC_WILD_BATTLE */         { { &kWildBattle_Ch1,        &kWildBattle_Ch2,        &kWildBattle_Ch3        } },
     /* MUSIC_DEFEATED_WILD_MON */   { { &kDefeatedWildMon_Ch1,   &kDefeatedWildMon_Ch2,   &kDefeatedWildMon_Ch3   } },
@@ -84,6 +99,7 @@ static const song_t kSongs[] = {
     /* MUSIC_MEET_EVIL_TRAINER */  { { &kMeetEvilTrainer_Ch1,   &kMeetEvilTrainer_Ch2,   &kMeetEvilTrainer_Ch3   } },
     /* MUSIC_SURFING */            { { &kSurfing_Ch1,           &kSurfing_Ch2,           &kSurfing_Ch3           } },
     /* MUSIC_MEET_PROF_OAK */     { { &kMeetProfOak_Ch1,       &kMeetProfOak_Ch2,       &kMeetProfOak_Ch3       } },
+    /* MUSIC_INTRO_BATTLE */      { { &kIntroBattle_Ch1,       &kIntroBattle_Ch2,       &kIntroBattle_Ch3,      &kIntroBattle_Ch4 } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 
@@ -96,6 +112,78 @@ static void reset_vib(ch_seq_t *seq, const note_evt_t *n) {
     seq->vib_rate       = n->vib_rate ? n->vib_rate : 1;
     seq->vib_rate_left  = seq->vib_rate;
     seq->vib_phase      = 0;
+}
+
+static void reset_slide(ch_seq_t *seq, const note_evt_t *n) {
+    seq->slide_active = 0;
+    seq->slide_decreasing = 0;
+    seq->slide_cur_lo = (uint8_t)(n->freq & 0xFF);
+    seq->slide_cur_hi = (uint8_t)((n->freq >> 8) & 0x07);
+    seq->slide_target_lo = (uint8_t)(n->slide_target & 0xFF);
+    seq->slide_target_hi = (uint8_t)((n->slide_target >> 8) & 0x07);
+    seq->slide_step_int = 0;
+    seq->slide_step_frac = 0;
+    seq->slide_cur_frac = 0;
+    if (n->freq == 0 || n->slide_target == 0 || n->slide_frames == 0) return;
+    if (n->freq == n->slide_target) return;
+    seq->slide_active = 1;
+
+    /* Port of Audio3_InitPitchSlideVars division/path quirks from engine_3.asm. */
+    {
+        uint8_t divisor = n->slide_frames;
+        if (divisor == 0) divisor = 1;
+
+        uint8_t d = seq->slide_cur_hi;
+        uint8_t e = seq->slide_cur_lo;
+        uint8_t th = seq->slide_target_hi;
+        uint8_t tl = seq->slide_target_lo;
+        uint8_t diff_hi = 0;
+        uint8_t diff_lo = 0;
+
+        /* Decide direction by comparing current - target. */
+        {
+            uint16_t cur = ((uint16_t)d << 8) | e;
+            uint16_t tgt = ((uint16_t)th << 8) | tl;
+            if (cur >= tgt) {
+                seq->slide_decreasing = 1;
+                diff_hi = (uint8_t)((cur - tgt) >> 8);
+                diff_lo = (uint8_t)(cur - tgt);
+            } else {
+                /* Increasing path bug-compatible diff calc from engine:
+                 * when cur_lo > tgt_lo, effective diff is 0x200 larger.
+                 */
+                seq->slide_decreasing = 0;
+                {
+                    uint8_t lo = (uint8_t)(tl - e);
+                    uint8_t borrow = (tl < e) ? 1 : 0;
+                    uint8_t d_bug = (uint8_t)(d - borrow);
+                    uint8_t hi = (uint8_t)(th - d_bug);
+                    diff_hi = hi;
+                    diff_lo = lo;
+                }
+            }
+        }
+
+        /* divideLoop: compute step_int (quotient+1) and remainder. */
+        {
+            uint8_t b = 0;
+            uint8_t dh = diff_hi;
+            uint8_t el = diff_lo;
+            for (;;) {
+                b++;
+                if (el >= divisor) {
+                    el = (uint8_t)(el - divisor);
+                    continue;
+                }
+                if (dh == 0) break;
+                dh--;
+                continue;
+            }
+            seq->slide_step_int = b;
+            seq->slide_step_frac = el;
+            seq->slide_cur_frac = el;
+        }
+    }
 }
 
 /* Advance vibrato oscillator for channel c by one frame.
@@ -114,7 +202,141 @@ static void tick_vibrato(int c, ch_seq_t *seq) {
     Audio_WriteReg(c, 4, (uint8_t)((af >> 8) & 0x07));  /* no trigger bit */
 }
 
+static void tick_pitch_slide(int c, ch_seq_t *seq) {
+    if (!seq->slide_active) return;
+    {
+        uint8_t d = seq->slide_cur_hi;
+        uint8_t e = seq->slide_cur_lo;
+        uint8_t th = seq->slide_target_hi;
+        uint8_t tl = seq->slide_target_lo;
+        int reached = 0;
+
+        if (!seq->slide_decreasing) {
+            /* Increasing path from Audio3_ApplyPitchSlide. */
+            {
+                uint16_t v = (((uint16_t)d << 8) | e) + seq->slide_step_int;
+                d = (uint8_t)(v >> 8);
+                e = (uint8_t)v;
+            }
+            {
+                uint16_t s = (uint16_t)seq->slide_step_frac + (uint16_t)seq->slide_cur_frac;
+                seq->slide_cur_frac = (uint8_t)s;
+                if (s > 0xFF) {
+                    uint16_t v = (((uint16_t)d << 8) | e) + 1;
+                    d = (uint8_t)(v >> 8);
+                    e = (uint8_t)v;
+                }
+            }
+            if (d > th || (d == th && e > tl))
+                reached = 1;
+        } else {
+            /* Decreasing path from Audio3_ApplyPitchSlide. */
+            {
+                uint16_t cur = ((uint16_t)d << 8) | e;
+                cur = (uint16_t)(cur - seq->slide_step_int);
+                d = (uint8_t)(cur >> 8);
+                e = (uint8_t)cur;
+            }
+            {
+                /* Engine mutates step_frac with add a each frame, then subtracts carry. */
+                uint16_t dbl = (uint16_t)seq->slide_step_frac << 1;
+                seq->slide_step_frac = (uint8_t)dbl;
+                if (dbl > 0xFF) {
+                    uint16_t cur = ((uint16_t)d << 8) | e;
+                    cur = (uint16_t)(cur - 1);
+                    d = (uint8_t)(cur >> 8);
+                    e = (uint8_t)cur;
+                }
+            }
+            if (d < th || (d == th && e < tl))
+                reached = 1;
+        }
+
+        if (reached) {
+            seq->slide_active = 0;
+            d = th;
+            e = tl;
+        }
+
+        seq->slide_cur_hi = d;
+        seq->slide_cur_lo = e;
+    }
+
+    uint16_t f = (((uint16_t)seq->slide_cur_hi << 8) | seq->slide_cur_lo) & 0x07FFu;
+    seq->vib_base_freq = f;
+    if (g_suspend_count[c] > 0) return;
+    Audio_WriteReg(c, 3, (uint8_t)(f & 0xFF));
+    Audio_WriteReg(c, 4, (uint8_t)((f >> 8) & 0x07));  /* no trigger bit */
+}
+
+static void drum_fire_step(int c, ch_seq_t *seq) {
+    if (!seq->drum_inst) return;
+    if (seq->drum_step < 0 || seq->drum_step >= seq->drum_inst->count) return;
+    const drum_step_t *st = &seq->drum_inst->steps[seq->drum_step];
+    if (g_suspend_count[c] > 0) {
+        seq->drum_timer = st->frames;
+        return;
+    }
+    Audio_WriteReg(3, 2, st->env_byte);
+    Audio_WriteReg(3, 3, st->nr43);
+    Audio_WriteReg(3, 4, 0x80);
+    seq->drum_timer = st->frames;
+}
+
+static void drum_start(ch_seq_t *seq, int inst_id) {
+    seq->drum_inst = NULL;
+    seq->drum_step = -1;
+    seq->drum_timer = 0;
+    if (inst_id <= 0 || inst_id >= 20) return;
+    if (kDrumInst[inst_id].count == 0) return;
+    seq->drum_inst = &kDrumInst[inst_id];
+    seq->drum_step = 0;
+}
+
+static void tick_drum(int c, ch_seq_t *seq) {
+    if (!seq->drum_inst) return;
+    if (seq->drum_step < 0 || seq->drum_step >= seq->drum_inst->count) {
+        seq->drum_inst = NULL;
+        seq->drum_step = -1;
+        seq->drum_timer = 0;
+        return;
+    }
+    if (seq->drum_timer <= 0) {
+        drum_fire_step(c, seq);
+        return;
+    }
+    if (--seq->drum_timer <= 0) {
+        seq->drum_step++;
+        if (seq->drum_step >= seq->drum_inst->count) {
+            seq->drum_inst = NULL;
+            seq->drum_step = -1;
+            seq->drum_timer = 0;
+        }
+    }
+}
+
+static void reset_drum(int c, ch_seq_t *seq, const note_evt_t *n) {
+    drum_start(seq, n->duty);
+    if (!seq->drum_inst) return;
+    /* Trigger first drum step immediately on note start, then continue with
+     * remaining steps during subsequent Music_Update ticks.
+     */
+    const drum_step_t *st0 = &seq->drum_inst->steps[0];
+    if (g_suspend_count[c] == 0) {
+        Audio_WriteReg(3, 2, st0->env_byte);
+        Audio_WriteReg(3, 3, st0->nr43);
+        Audio_WriteReg(3, 4, 0x80);
+    }
+    seq->drum_timer = st0->frames;
+    seq->drum_step = 1;
+}
+
 static void fire_note(int ch, const note_evt_t *n) {
+    if (ch == 3) {
+        /* CH4 uses reset_drum/tick_drum path. */
+        return;
+    }
+
     if (n->freq > 0) {
         /* Ch3 (wave channel): load correct wave pattern before triggering */
         if (ch == 2) Audio_SetWaveInstrument(n->duty);
@@ -142,7 +364,7 @@ void Music_Play(uint8_t music_id) {
     gCurrentMusic = music_id;
     const song_t *s = &kSongs[music_id];
 
-    for (int c = 0; c < 3; c++) {
+    for (int c = 0; c < 4; c++) {
         const ch_data_t *d = s->ch[c];
         if (!d || d->count == 0) {
             gSeq[c].data = NULL;
@@ -154,6 +376,8 @@ void Music_Play(uint8_t music_id) {
         /* Fire first note immediately */
         fire_note(c, &d->notes[gSeq[c].pos]);
         reset_vib(&gSeq[c], &d->notes[gSeq[c].pos]);
+        reset_slide(&gSeq[c], &d->notes[gSeq[c].pos]);
+        if (c == 3) reset_drum(c, &gSeq[c], &d->notes[gSeq[c].pos]);
         gSeq[c].delay = d->notes[gSeq[c].pos].frames;
     }
     /* Prevent Music_Update from consuming a frame on the same tick as Music_Play.
@@ -171,7 +395,7 @@ void Music_PlayFromLoop(uint8_t music_id) {
     gCurrentMusic = music_id;
     const song_t *s = &kSongs[music_id];
 
-    for (int c = 0; c < 3; c++) {
+    for (int c = 0; c < 4; c++) {
         const ch_data_t *d = s->ch[c];
         if (!d || d->count == 0) {
             gSeq[c].data = NULL;
@@ -182,6 +406,8 @@ void Music_PlayFromLoop(uint8_t music_id) {
         gSeq[c].delay = 0;
         fire_note(c, &d->notes[gSeq[c].pos]);
         reset_vib(&gSeq[c], &d->notes[gSeq[c].pos]);
+        reset_slide(&gSeq[c], &d->notes[gSeq[c].pos]);
+        if (c == 3) reset_drum(c, &gSeq[c], &d->notes[gSeq[c].pos]);
         gSeq[c].delay = d->notes[gSeq[c].pos].frames;
     }
     g_skip_update = 1;
@@ -193,8 +419,12 @@ void Music_Stop(void) {
     g_suspend_count[0] = 0;
     g_suspend_count[1] = 0;
     g_suspend_count[2] = 0;
-    for (int c = 0; c < 3; c++) {
+    g_suspend_count[3] = 0;
+    for (int c = 0; c < 4; c++) {
         gSeq[c].data = NULL;
+        gSeq[c].drum_inst = NULL;
+        gSeq[c].drum_step = -1;
+        gSeq[c].drum_timer = 0;
         Audio_WriteReg(c, 2, 0x00);  /* mute */
         Audio_WriteReg(c, 4, 0x00);
     }
@@ -204,11 +434,15 @@ void Music_Update(void) {
     /* Skip the first update after Music_Play to avoid a same-frame early advance */
     if (g_skip_update) { g_skip_update = 0; return; }
 
-    for (int c = 0; c < 3; c++) {
+    for (int c = 0; c < 4; c++) {
         ch_seq_t *seq = &gSeq[c];
         if (!seq->data) continue;
 
-        tick_vibrato(c, seq);
+        tick_pitch_slide(c, seq);
+        if (c == 3) tick_drum(c, seq);
+        /* GB engine gives pitch slide priority over vibrato while active. */
+        if (c != 3 && !seq->slide_active)
+            tick_vibrato(c, seq);
 
         if (--seq->delay > 0) continue;
 
@@ -228,15 +462,17 @@ void Music_Update(void) {
         const note_evt_t *n = &seq->data->notes[seq->pos];
         seq->delay = n->frames;
         reset_vib(seq, n);
+        reset_slide(seq, n);
+        if (c == 3) reset_drum(c, seq, n);
         /* Only write to hardware if channel is not owned by SFX.
          * Advancing pos/delay keeps this channel in sync with others. */
-        if (g_suspend_count[c] == 0)
+        if (g_suspend_count[c] == 0 && c != 3)
             fire_note(c, n);
     }
 }
 
 void Music_SuspendChannel(int c) {
-    if (c < 0 || c >= 3) return;
+    if (c < 0 || c >= 4) return;
     if (g_suspend_count[c] < 0xFF) g_suspend_count[c]++;
     /* Immediately silence the hardware channel so currently ringing music
      * notes do not bleed under higher-priority SFX like Pokémon cries. */
@@ -245,20 +481,23 @@ void Music_SuspendChannel(int c) {
 }
 
 void Music_ResumeChannel(int c) {
-    if (c < 0 || c >= 3) return;
+    if (c < 0 || c >= 4) return;
     if (g_suspend_count[c] == 0) return;
     g_suspend_count[c]--;
     if (g_suspend_count[c] > 0) return;
-    if (gSeq[c].data)
+    if (gSeq[c].data) {
         /* Re-fire the current note so music resumes seamlessly */
-        fire_note(c, &gSeq[c].data->notes[gSeq[c].pos]);
-    else
+        if (c == 3)
+            reset_drum(c, &gSeq[c], &gSeq[c].data->notes[gSeq[c].pos]);
+        else
+            fire_note(c, &gSeq[c].data->notes[gSeq[c].pos]);
+    } else
         /* No music on this channel — mute so the SFX note doesn't ring out */
         Audio_WriteReg(c, 2, 0x00);
 }
 
 int Music_IsPlaying(void) {
-    for (int c = 0; c < 3; c++)
+    for (int c = 0; c < 4; c++)
         if (gSeq[c].data) return 1;
     return 0;
 }

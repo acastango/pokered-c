@@ -1,0 +1,41 @@
+[trainer] Trainer 2 (class 3, no 1) spotted player at (14,9)
+[trainer] Enemy sent out new Pok├⌐mon (party slot 0).
+[BATTLE] --- Turn: WARTORTLE Lv25 65/65 HP vs PIDGEY Lv9 27/27 HP
+[BATTLE]     Player -> WATER GUN    | Enemy -> GUST
+[DBG] PlayerAtk: offense(atk)=38 defense(def)=12 power=40 level=25 crit=0
+[BATTLE]   WARTORTLE used WATER GUN
+[BATTLE]   PIDGEY took 27 dmg -> 0/27 HP
+[BATTLE]   PIDGEY fainted!
+[trainer] Enemy sent out new Pok├⌐mon (party slot 1).
+[BATTLE] --- Turn: WARTORTLE Lv25 65/65 HP vs PIDGEY Lv9 27/27 HP
+[BATTLE]     Player -> WATER GUN    | Enemy -> GUST
+[DBG] PlayerAtk: offense(atk)=38 defense(def)=12 power=40 level=25 crit=0
+[BATTLE]   WARTORTLE used WATER GUN
+[BATTLE]   PIDGEY took 27 dmg -> 0/27 HP
+[BATTLE]   PIDGEY fainted!
+[trainer] All enemy Pok├⌐mon fainted. Player wins!
+[battle end] result=2 engaged=(class=3 no=1) gymleader=0 flags: gym=0 route22=0 cerulean_rival=0 cerulean_rocket=0 route24_rocket=0 ssanne=0
+[event] EVENT_BEAT_CERULEAN_RIVAL (#152) -> 1 map=14 pos=(14,9)
+^^^ triggering event_beat_cerulean_rival in a normal trainer battle?
+
+
+[warp_check] map=51 pos=(1,18) facing=1 edge=0 warps=6
+[warp_check]   warp[0]=(1,0) match=0
+[warp_check]   warp[1]=(2,0) match=0
+[warp_check]   warp[2]=(15,47) match=0
+[warp_check]   warp[3]=(16,47) match=0
+[warp_check]   warp[4]=(17,47) match=0
+[warp_check]   warp[5]=(18,47) match=0
+[trainer] Trainer 2 (class 2, no 3) spotted player at (1,18)
+[trainer] Enemy sent out new Pok├⌐mon (party slot 0).
+[BATTLE] --- Turn: WARTORTLE Lv24 62/62 HP vs WEEDLE Lv9 27/27 HP
+[BATTLE]     Player -> WATER GUN    | Enemy -> POISON STING
+[DBG] PlayerAtk: offense(atk)=36 defense(def)=10 power=40 level=24 crit=0
+[BATTLE]   WARTORTLE used WATER GUN
+[BATTLE]   WEEDLE took 27 dmg -> 0/27 HP
+[BATTLE]   WEEDLE fainted!
+[trainer] All enemy Pok├⌐mon fainted. Player wins!
+[battle end] result=2 engaged=(class=2 no=3) gymleader=0 flags: gym=0 route22=0 cerulean_rival=0 cerulean_rocket=0 route24_rocket=0 ssanne=0
+[event] EVENT_BEAT_LT_SURGE (#359) -> 1 map=51 pos=(1,18)
+^^^ event beat LT surge triggering on another regular trainer battle
+

@@ -28,6 +28,7 @@
 #include "inventory.h"
 #include "pokedex.h"
 #include "trainer_sight.h"
+#include "naming_screen.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -117,6 +118,9 @@ typedef enum {
     OLS_BALL_DECLINED_WAIT,
     OLS_BALL_ENERGETIC,     /* "It's energetic!" text */
     OLS_BALL_ENERGETIC_WAIT,
+    OLS_BALL_NICK_PROMPT,   /* ask whether to nickname starter */
+    OLS_BALL_NICK_YESNO,    /* yes/no cursor for starter nickname */
+    OLS_BALL_NICK_WAIT,     /* naming screen active */
     OLS_BALL_RECEIVED,      /* "You received X!" text */
     OLS_BALL_RECEIVED_WAIT,
 
@@ -335,6 +339,9 @@ static uint8_t gConfirmText[80];   /* pokered-encoded: "So! You want the fire #M
 static uint8_t gEnergeticText[80]; /* pokered-encoded: "This #MON is really energetic!" */
 static uint8_t gPlayerRcvdText[80];/* pokered-encoded: "{PLAYER} received a CHARMANDER!" */
 static uint8_t gRivalRcvdText[80]; /* pokered-encoded: "{RIVAL} received a SQUIRTLE!" */
+static uint8_t gNickPromptText[96];/* pokered-encoded: "Do you want to give a nickname to X?" */
+static int gStarterPartySlot = -1;
+static int gYesNoWaitForTextClose = 0;
 
 /* ---- YES/NO box ----------------------------------------------------------- */
 /* Identical layout to pokecenter's YesNoChoicePokeCenter.
@@ -402,6 +409,20 @@ static void yesno_clear(void) {
             yesno_set_tile(YESNO_COL + c, YESNO_ROW + r, (uint8_t)Font_CharToTile(BC_SP));
 }
 
+static int prompt_requires_scroll(const char *s) {
+    int lines = 1;
+    if (!s) return 0;
+    while (*s) {
+        if (*s == '\f') return 1;
+        if (*s == '\n') {
+            lines++;
+            if (lines > 2) return 1;
+        }
+        s++;
+    }
+    return 0;
+}
+
 /* ---- Pathfinding helper --------------------------------------------------- */
 /* Mirrors FindPathToPlayer (engine/overworld/pathfinding.asm).
  * Generates a direction list from (from_x,from_y) toward one step
@@ -447,7 +468,10 @@ int OaksLabScripts_IsActive(void) {
 }
 
 void OaksLabScripts_PostRender(void) {
-    if (gState == OLS_BALL_YESNO) yesno_draw();
+    if (gState == OLS_BALL_YESNO || gState == OLS_BALL_NICK_YESNO) {
+        if (!gYesNoWaitForTextClose || !Text_IsOpen())
+            yesno_draw();
+    }
 }
 
 int OaksLabScripts_GetPendingBattle(uint8_t *class_out, uint8_t *no_out) {
@@ -499,6 +523,9 @@ static void ball_callback(uint8_t player_species, uint8_t rival_species,
     /* "This #MON is really energetic!" */
     snprintf((char*)gEnergeticText, sizeof(gEnergeticText),
              "This #MON is\nreally energetic!");
+    snprintf((char*)gNickPromptText, sizeof(gNickPromptText),
+             "Do you want to\ngive a nickname\nto %s?", Pokemon_GetName(p_dex));
+    gStarterPartySlot = -1;
 
     /* Oak / rival face into the interaction (ASM: OaksLabShowPokeBallPokemonScript) */
     NPC_SetFacing(OAKSLAB_OAK1_IDX,  DIR_DOWN);
@@ -771,8 +798,10 @@ void OaksLabScripts_Tick(void) {
         }
         /* Now show confirm text */
         Text_KeepTilesOnClose();
+        gYesNoCursor = 0;
+        gYesNoWaitForTextClose = prompt_requires_scroll((const char*)gConfirmText);
         Text_ShowASCII((char*)gConfirmText);
-        gState = OLS_BALL_CONFIRM;
+        gState = OLS_BALL_YESNO;
         return;
 
     /* ---- Ball: confirm text shown ------------------------------------- */
@@ -792,6 +821,7 @@ void OaksLabScripts_Tick(void) {
 
     /* ---- YES/NO cursor ------------------------------------------------ */
     case OLS_BALL_YESNO:
+        if (gYesNoWaitForTextClose && Text_IsOpen()) return;
         if (hJoyPressed & PAD_UP) {
             if (gYesNoCursor > 0) { gYesNoCursor--; yesno_draw(); }
         }
@@ -800,14 +830,16 @@ void OaksLabScripts_Tick(void) {
         }
         if (hJoyPressed & (PAD_A | PAD_B)) {
             yesno_clear();
+            gYesNoWaitForTextClose = 0;
             Map_BuildScrollView();  /* restore map tiles under box */
             if ((hJoyPressed & PAD_A) && gYesNoCursor == 0) {
                 /* YES — give starter */
                 NPC_HideSprite(gSelectedBallIdx);
                 set_ball_toggle(gSelectedBallIdx);
                 Pokemon_AddToParty(gSelectedSpecies, 5);
+                gStarterPartySlot = (int)wPartyCount - 1;
                 Pokedex_SetOwned(gSelectedSpecies);
-                Text_ShowASCII(gEnergeticText);
+                Text_ShowASCII((char*)gEnergeticText);
                 gState = OLS_BALL_ENERGETIC;
             } else {
                 /* NO or B — Oak says "take your time" and return to picking */
@@ -842,6 +874,44 @@ void OaksLabScripts_Tick(void) {
 
     case OLS_BALL_ENERGETIC_WAIT:
         if (Text_IsOpen()) return;
+        gYesNoCursor = 0;
+        Text_KeepTilesOnClose();
+        gYesNoWaitForTextClose = prompt_requires_scroll((const char*)gNickPromptText);
+        Text_ShowASCII((char*)gNickPromptText);
+        gState = OLS_BALL_NICK_YESNO;
+        return;
+
+    case OLS_BALL_NICK_PROMPT:
+        if (Text_IsOpen()) return;
+        yesno_draw();
+        gState = OLS_BALL_NICK_YESNO;
+        return;
+
+    case OLS_BALL_NICK_YESNO:
+        if (gYesNoWaitForTextClose && Text_IsOpen()) return;
+        if (hJoyPressed & PAD_UP) {
+            if (gYesNoCursor > 0) { gYesNoCursor--; yesno_draw(); }
+        }
+        if (hJoyPressed & PAD_DOWN) {
+            if (gYesNoCursor < 1) { gYesNoCursor++; yesno_draw(); }
+        }
+        if (hJoyPressed & (PAD_A | PAD_B)) {
+            int chose_yes = (hJoyPressed & PAD_A) && gYesNoCursor == 0;
+            yesno_clear();
+            gYesNoWaitForTextClose = 0;
+            Map_BuildScrollView();  /* restore map tiles under box */
+            if (chose_yes &&
+                gStarterPartySlot >= 0 && gStarterPartySlot < PARTY_LENGTH) {
+                NamingScreen_Open(NAME_MON_SCREEN, gSelectedSpecies, wPartyMonNicks[gStarterPartySlot]);
+                gState = OLS_BALL_NICK_WAIT;
+            } else {
+                gState = OLS_BALL_RECEIVED;
+            }
+        }
+        return;
+
+    case OLS_BALL_NICK_WAIT:
+        if (NamingScreen_IsOpen()) return;
         gState = OLS_BALL_RECEIVED;
         return;
 

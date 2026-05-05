@@ -285,6 +285,7 @@ extern uint8_t  wMoveMissed;
 extern uint8_t  wPlayerSelectedMove;
 extern uint8_t  wEnemySelectedMove;
 extern uint8_t  wRepelRemainingSteps;
+extern uint8_t  wOptions;              /* options flags (bit 7: battle animations off) */
 
 /* ---- WRAM: Extended battle state (Phase 5 turn execution) ---------- */
 /* wActionResultOrTookBattleTurn — non-zero if the player's turn was already
