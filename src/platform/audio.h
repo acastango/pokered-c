@@ -83,6 +83,16 @@ void Audio_PlaySFX_Run(void);
 
 /* Cut field move — mirrors SFX_CUT (audio/sfx/cut_1.asm, noise channel Ch8). */
 void Audio_PlaySFX_Cut(void);
+void Audio_PlaySFX_Battle24(void);
+void Audio_PlaySFX_Battle28(void);
+void Audio_PlaySFX_Battle29(void);
+void Audio_PlaySFX_Battle2A(void);
+void Audio_PlaySFX_Battle0D(void);
+void Audio_PlaySFX_FaintFallOnly(void);
+int  Audio_PlayMoveSFXBySymbol(const char *symbol);
+int  Audio_PlayMoveSFXBySymbolModified(const char *symbol, int8_t pitch_add, uint8_t tempo_mod);
+void Audio_SetMoveSfxDebug(int on);
+int  Audio_IsMoveSfxDebug(void);
 
 /* Gym trash-can switch click — mirrors SFX_SWITCH (audio/sfx/switch_1.asm, Ch5).
  * Two-tone two-click sequence; ~15 frames. */
@@ -91,6 +101,14 @@ void Audio_PlaySFX_Switch(void);
 /* Denied / wrong-answer buzz — mirrors SFX_DENIED (audio/sfx/denied_1.asm, Ch5+Ch6).
  * Two-channel alternating buzz; ~24 frames. */
 void Audio_PlaySFX_Denied(void);
+
+/* Intro battle cinematic SFX (engine/movie/intro.asm): */
+void Audio_PlaySFX_ShootingStar(void);
+void Audio_PlaySFX_IntroHip(void);
+void Audio_PlaySFX_IntroHop(void);
+void Audio_PlaySFX_IntroRaise(void);
+void Audio_PlaySFX_IntroCrash(void);
+void Audio_PlaySFX_IntroLunge(void);
 
 /* Level-up jingle — mirrors SFX_LEVEL_UP (audio/sfx/level_up.asm).
  * Plays on Ch5 (ch[0]) and Ch6 (ch[1]) simultaneously. ~132 frames. */
@@ -129,4 +147,5 @@ void Audio_PlaySFX_Purchase(void);
  * Looks up CryData for pitch/tempo modifiers, plays 3-channel cry.
  * Suspends all music channels while active, then resumes them when done. */
 void Audio_PlayCry(uint8_t species);
+void Audio_PlayCryModified(uint8_t species, int8_t pitch_add, uint8_t tempo_add);
 int  Audio_IsCryPlaying(void);

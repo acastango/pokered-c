@@ -24,6 +24,9 @@ void Display_LoadMapPalette(void);
  * Matches the GB window-register offset used by PlayApplyingAttackAnimation.
  * Call Display_SetShakeOffset(0,0) to clear. */
 void Display_SetShakeOffset(int ox, int oy);
+/* Battle wavy-screen effect: per-row horizontal wobble phase.
+ * enabled=0 disables; enabled=1 applies GB-like per-line offset pattern. */
+void Display_SetWavyPhase(int enabled, int phase);
 /* Per-band horizontal pixel offset: shift a contiguous range of screen rows
  * by px pixels in X during Display_RenderScrolled.  Mirrors the GB raster
  * trick (mid-frame SCX change) used by VermilionDock_SyncScrollWithLY to make
@@ -31,6 +34,10 @@ void Display_SetShakeOffset(int ox, int oy);
  * departure.  Negative px shifts the band LEFT (ship departs left).
  * Call with row_start=-1 to clear. */
 void Display_SetBandXPx(int row_start, int num_rows, int px);
+/* Controls window layering relative to sprites in the renderer.
+ * on=1: window in front of sprites (UI/textbox behavior)
+ * on=0: window behind sprites (needed for title slam split behavior) */
+void Display_SetWindowOverSprites(int on);
 /* Save current framebuffer as a BMP file.  Returns 0 on success, -1 on error. */
 int  Display_SaveScreenshot(const char *path);
 

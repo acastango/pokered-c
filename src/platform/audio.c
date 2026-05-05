@@ -10,10 +10,12 @@
 #include "audio.h"
 #include "../game/music.h"
 #include "../data/cry_data.h"
+#include "../data/move_sfx_structs.h"
 #include "hardware.h"
 #include <SDL2/SDL.h>
 #include <string.h>
 #include <stdint.h>
+#include <ctype.h>
 
 /* ---- Per-channel synthesis state ---------------------------------- */
 typedef struct {
@@ -33,6 +35,7 @@ typedef struct {
     /* CH4 noise LFSR */
     uint16_t lfsr;
     int      lfsr_narrow;
+    uint16_t ch4_attack_boost; /* short post-trigger accent window (samples) */
 
     /* Stored freq register (11-bit) built from NRx3 + NRx4 writes */
     uint16_t freq_reg;    /* 11-bit GB frequency register value */
@@ -55,6 +58,25 @@ static SDL_AudioDeviceID audio_dev  = 0;
 static SDL_mutex        *audio_mutex = NULL;
 static int               s_cry_mix_boost = 0;  /* 1 while a cry is active */
 static int               s_pc_sfx_mix_boost = 0; /* 1 while PC SFX is active */
+typedef struct {
+    uint8_t active;
+    uint16_t cmd_pos;
+    int timer;
+    uint8_t rotate_duty;
+    uint8_t duty_state;
+    uint8_t fixed_duty;
+    uint8_t sweep_reg;
+    int8_t loop_rem[64];
+    const move_sfx_channel_def_t *def;
+} move_sfx_chan_rt_t;
+static struct {
+    uint8_t active;
+    uint8_t suspended[4];
+    int8_t pitch_add;
+    uint16_t tempo;
+    move_sfx_chan_rt_t ch[4];
+} sMoveSfx = {0};
+static int sMoveSfxDebug = 0;
 
 /* ---- Frequency → phase_inc --------------------------------------- */
 /* hz = base / (2048 - gb_freq11)   base=131072 square, base=65536 wave
@@ -68,15 +90,15 @@ static uint32_t freq_to_phase_inc(uint16_t gb_freq, int is_wave) {
 }
 
 /* GB noise channel (NR43) LFSR clock rate:
- *   r=0: 1048576 / 2^shift  Hz  (special case: divisor = 0.5)
- *   r>0: 524288  / r / 2^shift  Hz
+ *   r=0: 1048576 / 2^(shift+1)  Hz  (special case: divisor = 0.5)
+ *   r>0: 524288  / r / 2^(shift+1)  Hz
  * Mirrors Pan Docs CH4 polynomial counter clock frequency formula. */
 static uint32_t noise_freq_to_phase_inc(uint8_t nr43) {
     uint32_t shift = (nr43 >> 4) & 0xF;
     uint32_t r     = nr43 & 7;
-    if (shift >= 14) return 0;
-    uint64_t hz = (r == 0) ? ((uint64_t)1048576 >> shift)
-                           : ((uint64_t)524288 / r >> shift);
+    if (shift >= 15) return 0;
+    uint64_t hz = (r == 0) ? ((uint64_t)1048576 >> (shift + 1))
+                           : ((uint64_t)524288 / r >> (shift + 1));
     if (hz == 0) return 0;
     return (uint32_t)(hz * (1u << 24) / AUDIO_SAMPLE_RATE);
 }
@@ -194,8 +216,11 @@ static void audio_callback(void *userdata, uint8_t *stream, int len) {
          * (Unipolar, same as pulse channels on real hardware.) */
         if (ch[3].enabled) {
             ch[3].phase += ch[3].phase_inc;
-            if (ch[3].phase >= (1u << 24)) {
-                ch[3].phase -= (1u << 24);
+            /* Allow multiple LFSR clocks in one host sample at high NR43 rates.
+             * Single-step capping dulls CH4 transients and makes drums sound muffled. */
+            uint32_t lfsr_clocks = ch[3].phase >> 24;
+            ch[3].phase &= 0xFFFFFFu;
+            while (lfsr_clocks--) {
                 int xb = (ch[3].lfsr ^ (ch[3].lfsr >> 1)) & 1;
                 ch[3].lfsr = (uint16_t)((ch[3].lfsr >> 1) |
                              (xb << (ch[3].lfsr_narrow ? 6 : 14)));
@@ -211,7 +236,12 @@ static void audio_callback(void *userdata, uint8_t *stream, int len) {
                     }
                 }
             }
-            int32_t raw = (ch[3].lfsr & 1) ? (int32_t)ch[3].volume * 400 : 0;
+            int32_t raw = (ch[3].lfsr & 1) ? (int32_t)ch[3].volume * 460 : 0;
+            if (ch[3].ch4_attack_boost > 0) {
+                /* Slight transient lift to better match DMG drum "snap". */
+                raw = (raw * 6) / 5;
+                ch[3].ch4_attack_boost--;
+            }
             if (s_cry_mix_boost) raw = (raw * 4) / 3;
             /* DC-blocking HPF (fc ≈ 5 Hz) */
             static int32_t ns_hp_xprev = 0, ns_hp_yprev = 0;
@@ -376,7 +406,10 @@ void Audio_WriteReg(int channel, int reg, uint8_t value) {
                     ch[channel].volume      = ch[channel].env_initial;
                     ch[channel].env_counter = 0;
                 }
-                if (channel == 3) ch[channel].lfsr = 0x7FFF;
+                if (channel == 3) {
+                    ch[channel].lfsr = 0x7FFF;
+                    ch[channel].ch4_attack_boost = (uint16_t)(AUDIO_SAMPLE_RATE / 125); /* ~8ms */
+                }
                 /* CH0 sweep: on trigger, copy freq to shadow register,
                  * reset timer, set enabled flag.  If shift is non-zero,
                  * perform an immediate frequency calculation + overflow
@@ -420,6 +453,216 @@ typedef struct { uint16_t freq; uint8_t env_byte; uint8_t frames; } sfx_note_t;
 /* In the original engine (Audio1_note_length), the command length nybble is
  * incremented before becoming a delay, so square/noise SFX lengths are len+1. */
 static int sfx_cmd_len_frames(uint8_t len_field) { return (int)len_field + 1; }
+static int sfx_cmd_len_frames_tempo(uint8_t len_field, uint16_t tempo) {
+    int raw = (int)len_field + 1;
+    int frames = (int)(((uint32_t)raw * (uint32_t)tempo) >> 8);
+    return (frames > 0) ? frames : 1;
+}
+
+static uint8_t move_sfx_env_byte(int vol, int fade) {
+    uint8_t nib = (fade < 0) ? (uint8_t)(0x8 | ((-fade) & 0x7)) : (uint8_t)(fade & 0x7);
+    return (uint8_t)(((vol & 0xF) << 4) | nib);
+}
+
+static uint8_t move_sfx_sweep_byte(int pace, int slope) {
+    uint8_t p = (uint8_t)(pace & 0xF);
+    uint8_t s = (uint8_t)(slope < 0 ? (-slope) : slope) & 0x7;
+    uint8_t d = (slope < 0) ? 0x8 : 0x0;
+    return (uint8_t)((p << 4) | d | s);
+}
+
+static void move_sfx_channel_silence(uint8_t hw) {
+    if (hw >= 4) return;
+    if (hw == 0) Audio_WriteReg(0, 0, 0x08);
+    Audio_WriteReg(hw, 2, 0x00);
+    Audio_WriteReg(hw, 4, 0x00);
+}
+
+static void move_sfx_fire_square(uint8_t hw, move_sfx_chan_rt_t *st, const move_sfx_cmd_t *cmd) {
+    int len = cmd->p0;
+    int vol = cmd->p1;
+    int fade = cmd->p2;
+    uint16_t base_freq = (uint16_t)(cmd->p3 & 0x7FF);
+    uint8_t lo = (uint8_t)(base_freq & 0xFFu);
+    uint8_t hi = (uint8_t)((base_freq >> 8) & 0x07u);
+    uint16_t lo_sum = (uint16_t)lo + (uint8_t)sMoveSfx.pitch_add;
+    /* ASM parity (Audio2_ApplyFrequencyModifier): add wFrequencyModifier to
+     * frequency low byte and carry into high byte. */
+    lo = (uint8_t)(lo_sum & 0xFFu);
+    if (lo_sum > 0xFFu) hi = (uint8_t)(hi + 1u);
+    uint8_t duty = st->rotate_duty ? (uint8_t)((st->duty_state >> 6) & 0x3) : st->fixed_duty;
+    if (hw == 0) Audio_WriteReg(0, 0, st->sweep_reg);
+    Audio_WriteReg(hw, 1, (uint8_t)((duty << 6) | 0x3F));
+    Audio_WriteReg(hw, 2, move_sfx_env_byte(vol, fade));
+    Audio_WriteReg(hw, 3, lo);
+    Audio_WriteReg(hw, 4, (uint8_t)((hi & 0x07u) | 0x80u));
+    st->timer = sfx_cmd_len_frames_tempo((uint8_t)len, sMoveSfx.tempo);
+}
+
+static void move_sfx_fire_noise(move_sfx_chan_rt_t *st, const move_sfx_cmd_t *cmd) {
+    int len = cmd->p0;
+    int vol = cmd->p1;
+    int fade = cmd->p2;
+    int nr43 = cmd->p3;
+    Audio_WriteReg(3, 2, move_sfx_env_byte(vol, fade));
+    Audio_WriteReg(3, 3, (uint8_t)nr43);
+    Audio_WriteReg(3, 4, 0x80);
+    st->timer = sfx_cmd_len_frames_tempo((uint8_t)len, sMoveSfx.tempo);
+}
+
+static void move_sfx_advance_channel(uint8_t hw) {
+    move_sfx_chan_rt_t *st;
+    if (hw >= 4) return;
+    st = &sMoveSfx.ch[hw];
+    if (!st->active || !st->def) return;
+
+    while (st->cmd_pos < st->def->cmd_count) {
+        const move_sfx_cmd_t *cmd = &st->def->cmds[st->cmd_pos];
+        switch (cmd->type) {
+            case MOVE_SFX_CMD_DUTY_CYCLE:
+                st->fixed_duty = (uint8_t)(cmd->p0 & 0x3);
+                st->rotate_duty = 0;
+                st->cmd_pos++;
+                continue;
+            case MOVE_SFX_CMD_DUTY_CYCLE_PATTERN:
+                st->duty_state = (uint8_t)(((cmd->p0 & 0x3) << 6) |
+                                           ((cmd->p1 & 0x3) << 4) |
+                                           ((cmd->p2 & 0x3) << 2) |
+                                           (cmd->p3 & 0x3));
+                st->rotate_duty = 1;
+                st->cmd_pos++;
+                continue;
+            case MOVE_SFX_CMD_PITCH_SWEEP:
+                if (hw == 0) {
+                    st->sweep_reg = move_sfx_sweep_byte(cmd->p0, cmd->p1);
+                    Audio_WriteReg(0, 0, st->sweep_reg);
+                }
+                st->cmd_pos++;
+                continue;
+            case MOVE_SFX_CMD_SQUARE_NOTE:
+                if (hw == 0 || hw == 1) {
+                    move_sfx_fire_square(hw, st, cmd);
+                }
+                st->cmd_pos++;
+                return;
+            case MOVE_SFX_CMD_NOISE_NOTE:
+                if (hw == 3) {
+                    move_sfx_fire_noise(st, cmd);
+                }
+                st->cmd_pos++;
+                return;
+            case MOVE_SFX_CMD_SOUND_LOOP: {
+                int count = cmd->p0;
+                int target = cmd->p1;
+                if (count == 0) {
+                    st->cmd_pos = (uint16_t)((target >= 0) ? target : 0);
+                    continue;
+                }
+                if (st->cmd_pos < 64u && st->loop_rem[st->cmd_pos] < 0) {
+                    st->loop_rem[st->cmd_pos] = (int8_t)(count - 1);
+                }
+                if (st->cmd_pos < 64u && st->loop_rem[st->cmd_pos] > 0) {
+                    st->loop_rem[st->cmd_pos]--;
+                    st->cmd_pos = (uint16_t)((target >= 0) ? target : 0);
+                    continue;
+                }
+                if (st->cmd_pos < 64u) st->loop_rem[st->cmd_pos] = -1;
+                st->cmd_pos++;
+                continue;
+            }
+            case MOVE_SFX_CMD_SOUND_RET:
+            default:
+                st->active = 0;
+                st->timer = 0;
+                move_sfx_channel_silence(hw);
+                return;
+        }
+    }
+
+    st->active = 0;
+    st->timer = 0;
+    move_sfx_channel_silence(hw);
+}
+
+int Audio_PlayMoveSFXBySymbol(const char *symbol) {
+    return Audio_PlayMoveSFXBySymbolModified(symbol, 0, 0x80);
+}
+
+void Audio_SetMoveSfxDebug(int on) {
+    sMoveSfxDebug = on ? 1 : 0;
+}
+
+int Audio_IsMoveSfxDebug(void) {
+    return sMoveSfxDebug;
+}
+
+int Audio_PlayMoveSFXBySymbolModified(const char *symbol, int8_t pitch_add, uint8_t tempo_mod) {
+    uint16_t i;
+    uint16_t c;
+    if (!symbol || !*symbol) return 0;
+
+    if (sMoveSfx.active) {
+        for (c = 0; c < 4; c++) {
+            sMoveSfx.ch[c].active = 0;
+            sMoveSfx.ch[c].def = NULL;
+            move_sfx_channel_silence((uint8_t)c);
+            if (sMoveSfx.suspended[c]) {
+                Music_ResumeChannel((uint8_t)c);
+                sMoveSfx.suspended[c] = 0;
+            }
+        }
+        sMoveSfx.active = 0;
+    }
+
+    for (i = 0; i < gMoveSfxStructCount; i++) {
+        const move_sfx_def_t *def = &gMoveSfxStructs[i];
+        {
+            const unsigned char *a = (const unsigned char *)def->symbol;
+            const unsigned char *b = (const unsigned char *)symbol;
+            int eq = 1;
+            while (*a || *b) {
+                if (toupper(*a) != toupper(*b)) {
+                    eq = 0;
+                    break;
+                }
+                if (*a) a++;
+                if (*b) b++;
+            }
+            if (!eq) continue;
+        }
+
+        memset(&sMoveSfx, 0, sizeof(sMoveSfx));
+        sMoveSfx.active = 1;
+        sMoveSfx.pitch_add = pitch_add;
+        sMoveSfx.tempo = (uint16_t)tempo_mod + 0x80u;
+        if (sMoveSfxDebug) {
+            printf("[SFXDBG] resolve sym=%s -> def[%u]=%s channels=%u pitch_add=%d tempo_mod=0x%02X\n",
+                   symbol, (unsigned)i, def->symbol ? def->symbol : "(null)",
+                   (unsigned)def->channel_count, (int)pitch_add, (unsigned)tempo_mod);
+        }
+
+        for (c = 0; c < def->channel_count; c++) {
+            const move_sfx_channel_def_t *chd = &def->channels[c];
+            uint8_t hw = (uint8_t)(chd->hw_channel - 5u);
+            if (chd->hw_channel == 8u) hw = 3u;
+            if (hw > 3u) continue;
+            sMoveSfx.ch[hw].active = 1;
+            sMoveSfx.ch[hw].def = chd;
+            sMoveSfx.ch[hw].cmd_pos = 0;
+            sMoveSfx.ch[hw].timer = 0;
+            sMoveSfx.ch[hw].fixed_duty = 2u;
+            sMoveSfx.ch[hw].sweep_reg = 0x08u;
+            memset(sMoveSfx.ch[hw].loop_rem, -1, sizeof(sMoveSfx.ch[hw].loop_rem));
+            if (!sMoveSfx.suspended[hw]) {
+                Music_SuspendChannel(hw);
+                sMoveSfx.suspended[hw] = 1;
+            }
+            move_sfx_advance_channel(hw);
+        }
+        return 1;
+    }
+    return 0;
+}
 
 static const sfx_note_t kPressAB[] = {
     { 1984, 0x91,  1 },   /* vol=9,  dec, pace=1 — 1 frame, barely fades */
@@ -549,6 +792,7 @@ static const noise_note_t *noise_sfx_seq   = NULL;
 static int                 noise_sfx_count = 0;
 static int                 noise_sfx_step  = -1;
 static int                 noise_sfx_timer = 0;
+static int                 noise_music_suspended = 0;
 
 static void noise_sfx_fire(int step) {
     const noise_note_t *n = &noise_sfx_seq[step];
@@ -559,6 +803,10 @@ static void noise_sfx_fire(int step) {
 }
 
 static void play_noise_sfx(const noise_note_t *seq, int count) {
+    if (!noise_music_suspended) {
+        Music_SuspendChannel(3);
+        noise_music_suspended = 1;
+    }
     noise_sfx_seq   = seq;
     noise_sfx_count = count;
     noise_sfx_step  = 0;
@@ -720,6 +968,201 @@ void Audio_PlaySFX_BallPoof(void) {
     play_noise_sfx(kBallPoof, 1);
 }
 
+/* ---- Imported move SFX (direct ASM ports) ---------------------------
+ * SFX_Battle_24 (Absorb / Leech Life family):
+ *   Ch5: duty 1, pitch_sweep 9,7, square_note 15,15,2,1792
+ *   Ch8: noise_note 15,3,-7,34 ; noise_note 15,15,2,33
+ */
+static const noise_note_t kBattle24Noise[] = {
+    { 0x22, 0x3F, 15 },
+    { 0x21, 0xF2, 15 },
+};
+static int battle24_timer = 0;
+void Audio_PlaySFX_Battle24(void) {
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0x97);
+    Audio_WriteReg(0, 1, (1 << 6) | 0x3F);
+    Audio_WriteReg(0, 2, 0xF2);
+    Audio_WriteReg(0, 3, (uint8_t)(1792 & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((1792 >> 8) & 0x07) | 0x80));
+    battle24_timer = sfx_cmd_len_frames(15);
+    play_noise_sfx(kBattle24Noise, 2);
+}
+
+/* SFX_Battle_28 (Aurora Beam / Ice Beam family)
+ * audio/sfx/battle_28.asm:
+ *   Ch5: duty 0, (1984,1792) loop x12
+ *   Ch6: duty pattern 2,3,0,3, (1985,1793) loop x12
+ *   Ch8: noise (73,41) loop x6
+ */
+static const noise_note_t kBattle28Noise[] = {
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+    { 73, 0xD1, 1 }, { 41, 0xD1, 1 },
+};
+static int battle28_step = -1;
+static int battle28_timer = 0;
+static int battle28_active = 0;
+static int battle28_music_suspended = 0;
+
+static void battle28_ch1_fire(int step) {
+    uint16_t freq = (step & 1) ? 1792u : 1984u;
+    Audio_WriteReg(0, 0, 0x08);
+    Audio_WriteReg(0, 1, (0u << 6) | 0x3Fu);
+    Audio_WriteReg(0, 2, 0xF1);
+    Audio_WriteReg(0, 3, (uint8_t)(freq & 0xFFu));
+    Audio_WriteReg(0, 4, (uint8_t)(((freq >> 8) & 0x07u) | 0x80u));
+}
+
+static void battle28_ch2_fire(int step) {
+    static const uint8_t duty_pattern[4] = { 2u, 3u, 0u, 3u };
+    uint16_t freq = (step & 1) ? 1793u : 1985u;
+    uint8_t duty = duty_pattern[(uint8_t)step & 3u];
+    Audio_WriteReg(1, 1, (uint8_t)((duty << 6) | 0x3Fu));
+    Audio_WriteReg(1, 2, 0xE1);
+    Audio_WriteReg(1, 3, (uint8_t)(freq & 0xFFu));
+    Audio_WriteReg(1, 4, (uint8_t)(((freq >> 8) & 0x07u) | 0x80u));
+}
+
+void Audio_PlaySFX_Battle28(void) {
+    if (!battle28_music_suspended) {
+        Music_SuspendChannel(0);
+        Music_SuspendChannel(1);
+        battle28_music_suspended = 1;
+    }
+    battle28_step = 0;
+    battle28_timer = sfx_cmd_len_frames(1);
+    battle28_active = 1;
+    battle28_ch1_fire(0);
+    battle28_ch2_fire(0);
+    play_noise_sfx(kBattle28Noise, (int)(sizeof(kBattle28Noise) / sizeof(kBattle28Noise[0])));
+}
+
+/* SFX_Battle_29 (Blizzard / Dragon Rage family)
+ * audio/sfx/battle_29.asm:
+ *   Ch5: duty pattern 3,0,2,1
+ *        (11,15,3,288) (9,13,3,336) loop x5
+ *        then (8,14,3,304) (15,12,2,272)
+ *   Ch8: (10,15,3,53) (14,15,6,69) loop x4
+ *        then (12,15,4,188) (12,15,5,156) (15,15,4,172)
+ */
+typedef struct { uint8_t duty; uint16_t freq; uint8_t env; uint8_t frames; } battle29_sq_note_t;
+static const battle29_sq_note_t kBattle29Ch1[] = {
+    { 3, 288, 0xF3, 11 }, { 0, 336, 0xD3, 9 },
+    { 2, 288, 0xF3, 11 }, { 1, 336, 0xD3, 9 },
+    { 3, 288, 0xF3, 11 }, { 0, 336, 0xD3, 9 },
+    { 2, 288, 0xF3, 11 }, { 1, 336, 0xD3, 9 },
+    { 3, 288, 0xF3, 11 }, { 0, 336, 0xD3, 9 },
+    { 2, 304, 0xE3, 8 },  { 1, 272, 0xC2, 15 },
+};
+static const noise_note_t kBattle29Noise[] = {
+    { 53, 0xF3, 10 }, { 69, 0xF6, 14 },
+    { 53, 0xF3, 10 }, { 69, 0xF6, 14 },
+    { 53, 0xF3, 10 }, { 69, 0xF6, 14 },
+    { 53, 0xF3, 10 }, { 69, 0xF6, 14 },
+    { 188, 0xF4, 12 }, { 156, 0xF5, 12 }, { 172, 0xF4, 15 },
+};
+static int battle29_step = -1;
+static int battle29_timer = 0;
+static int battle29_active = 0;
+static int battle29_music_suspended = 0;
+
+static void battle29_ch1_fire(int step) {
+    const battle29_sq_note_t *n = &kBattle29Ch1[step];
+    Audio_WriteReg(0, 0, 0x08);
+    Audio_WriteReg(0, 1, (uint8_t)((n->duty << 6) | 0x3Fu));
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFFu));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07u) | 0x80u));
+    battle29_timer = sfx_cmd_len_frames(n->frames);
+}
+
+void Audio_PlaySFX_Battle29(void) {
+    if (!battle29_music_suspended) {
+        Music_SuspendChannel(0);
+        battle29_music_suspended = 1;
+    }
+    battle29_step = 0;
+    battle29_active = 1;
+    battle29_ch1_fire(0);
+    play_noise_sfx(kBattle29Noise, (int)(sizeof(kBattle29Noise) / sizeof(kBattle29Noise[0])));
+}
+
+/* SFX_Battle_2A (Acid / Hydro Pump family) */
+typedef struct { uint8_t duty; uint16_t freq; uint8_t env; uint8_t frames; } battle_sq_note_t;
+static const battle_sq_note_t kBattle2ACh1[] = {
+    { 0, 1536, 0xF4, 4 }, { 3, 1280, 0xC4, 3 }, { 2, 1536, 0xB5, 5 }, { 1, 1728, 0xE2, 13 },
+    { 0, 1536, 0xF4, 4 }, { 3, 1280, 0xC4, 3 }, { 2, 1536, 0xB5, 5 }, { 1, 1728, 0xE2, 13 },
+    { 0, 1536, 0xF4, 4 }, { 3, 1280, 0xC4, 3 }, { 2, 1536, 0xB5, 5 }, { 1, 1728, 0xE2, 13 },
+    { 0, 1536, 0xD1, 8 },
+};
+static const battle_sq_note_t kBattle2ACh2[] = {
+    { 2, 1504, 0xE4, 5 }, { 0, 1248, 0xB4, 4 }, { 3, 1512, 0xA5, 6 }, { 1, 1696, 0xD1, 14 },
+    { 2, 1504, 0xE4, 5 }, { 0, 1248, 0xB4, 4 }, { 3, 1512, 0xA5, 6 }, { 1, 1696, 0xD1, 14 },
+    { 2, 1504, 0xE4, 5 }, { 0, 1248, 0xB4, 4 }, { 3, 1512, 0xA5, 6 }, { 1, 1696, 0xD1, 14 },
+};
+static const noise_note_t kBattle2ANoise[] = {
+    { 0x33, 0xC3, 5 }, { 0x43, 0x92, 3 }, { 0x33, 0xB5, 10 }, { 0x32, 0xC3, 15 },
+    { 0x33, 0xC3, 5 }, { 0x43, 0x92, 3 }, { 0x33, 0xB5, 10 }, { 0x32, 0xC3, 15 },
+};
+static int battle2a_ch1_step = -1, battle2a_ch1_timer = 0;
+static int battle2a_ch2_step = -1, battle2a_ch2_timer = 0;
+static int battle2a_active = 0;
+static int battle2a_music_suspended = 0;
+static void battle2a_ch1_fire(int step) {
+    const battle_sq_note_t *n = &kBattle2ACh1[step];
+    Audio_WriteReg(0, 0, 0x08);
+    Audio_WriteReg(0, 1, (uint8_t)((n->duty << 6) | 0x3F));
+    Audio_WriteReg(0, 2, n->env);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    battle2a_ch1_timer = sfx_cmd_len_frames(n->frames);
+}
+static void battle2a_ch2_fire(int step) {
+    const battle_sq_note_t *n = &kBattle2ACh2[step];
+    Audio_WriteReg(1, 1, (uint8_t)((n->duty << 6) | 0x3F));
+    Audio_WriteReg(1, 2, n->env);
+    Audio_WriteReg(1, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(1, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    battle2a_ch2_timer = sfx_cmd_len_frames(n->frames);
+}
+void Audio_PlaySFX_Battle2A(void) {
+    if (!battle2a_music_suspended) {
+        Music_SuspendChannel(0);
+        Music_SuspendChannel(1);
+        battle2a_music_suspended = 1;
+    }
+    battle2a_ch1_step = 0;
+    battle2a_ch2_step = 0;
+    battle2a_active = 1;
+    battle2a_ch1_fire(0);
+    battle2a_ch2_fire(0);
+    play_noise_sfx(kBattle2ANoise, (int)(sizeof(kBattle2ANoise) / sizeof(kBattle2ANoise[0])));
+}
+
+/* SFX_Battle_0D (Acid Armor) */
+static const noise_note_t kBattle0DNoise[] = {
+    { 0x34, 0x8F, 15 }, { 0x35, 0xF2, 8 }, { 0x55, 0xF1, 10 },
+};
+void Audio_PlaySFX_Battle0D(void) {
+    play_noise_sfx(kBattle0DNoise, (int)(sizeof(kBattle0DNoise) / sizeof(kBattle0DNoise[0])));
+}
+
+/* SFX_Faint_Fall only (used by Agility), without thud tail. */
+static int faint_fall_only_timer = 0;
+void Audio_PlaySFX_FaintFallOnly(void) {
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0xAF);
+    Audio_WriteReg(0, 1, (1 << 6) | 0x3F);
+    Audio_WriteReg(0, 2, 0xF2);
+    Audio_WriteReg(0, 3, (uint8_t)(1920 & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((1920 >> 8) & 0x07) | 0x80));
+    faint_fall_only_timer = sfx_cmd_len_frames(15);
+}
+
 /* ---- Ball toss SFX (SFX_BALL_TOSS) --------------------------------
  * audio/sfx/ball_toss.asm
  *
@@ -743,6 +1186,8 @@ void Audio_PlaySFX_BallToss(void) {
     ball_poof_timer     = 0;
     Music_SuspendChannel(0);
     Music_SuspendChannel(1);
+    Music_SuspendChannel(2);
+    Music_SuspendChannel(3);
     Audio_WriteReg(0, 0, 0x2F);
     Audio_WriteReg(0, 1, (2 << 6) | 0x3F);
     Audio_WriteReg(0, 2, 0xF2);
@@ -1300,6 +1745,104 @@ void Audio_PlaySFX_Denied(void) {
     denied_ch2_fire(0);
 }
 
+/* ---- Shooting star SFX (SFX_SHOOTING_STAR → audio/sfx/shooting_star.asm) --
+ * Ch5 sequence:
+ *   duty_cycle_pattern 3,2,1,0
+ *   pitch_sweep 2,-7
+ *   square_note 4, 4,0,2016
+ *   square_note 4, 6,0,2016
+ *   square_note 4, 8,0,2016
+ *   square_note 8,10,0,2016
+ *   square_note 8,10,0,2016
+ *   square_note 8, 8,0,2016
+ *   square_note 8, 6,0,2016
+ *   square_note 8, 3,0,2016
+ *   square_note 15,1,2,2016
+ *   pitch_sweep 0,8
+ */
+typedef struct {
+    uint8_t  duty;
+    uint16_t freq;
+    uint8_t  env_byte;
+    uint8_t  frames;
+} shooting_star_note_t;
+
+static const shooting_star_note_t kShootingStarSFX[] = {
+    { 3, 2016, 0x40,  4 },
+    { 2, 2016, 0x60,  4 },
+    { 1, 2016, 0x80,  4 },
+    { 0, 2016, 0xA0,  8 },
+    { 3, 2016, 0xA0,  8 },
+    { 2, 2016, 0x80,  8 },
+    { 1, 2016, 0x60,  8 },
+    { 0, 2016, 0x30,  8 },
+    { 3, 2016, 0x12, 15 },
+};
+#define SHOOTING_STAR_NOTES ((int)(sizeof(kShootingStarSFX) / sizeof(kShootingStarSFX[0])))
+
+static int shooting_star_step  = -1;
+static int shooting_star_timer = 0;
+
+static void shooting_star_fire(int step) {
+    const shooting_star_note_t *n = &kShootingStarSFX[step];
+    Audio_WriteReg(0, 1, (uint8_t)((n->duty << 6) | 0x3F));
+    Audio_WriteReg(0, 2, n->env_byte);
+    Audio_WriteReg(0, 3, (uint8_t)(n->freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((n->freq >> 8) & 0x07) | 0x80));
+    shooting_star_timer = sfx_cmd_len_frames(n->frames);
+}
+
+void Audio_PlaySFX_ShootingStar(void) {
+    cancel_pressab_sfx();
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0x2F); /* pitch_sweep 2, -7 */
+    shooting_star_step = 0;
+    shooting_star_fire(0);
+}
+
+/* ---- Intro cinematic SFX (engine/movie/intro.asm) -----------------
+ * SFX_Intro_Hip / SFX_Intro_Hop: one square note on Ch5 with sweep.
+ * SFX_Intro_Raise / Crash / Lunge: noise-channel bursts on Ch8.
+ */
+static int intro_sq_timer = 0;
+
+static void play_intro_sq(uint16_t freq) {
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0x26);                 /* pitch_sweep 2, +6 */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);      /* duty_cycle 2 */
+    Audio_WriteReg(0, 2, 0xC2);                 /* square_note *,12,2 */
+    Audio_WriteReg(0, 3, (uint8_t)(freq & 0xFF));
+    Audio_WriteReg(0, 4, (uint8_t)(((freq >> 8) & 0x07) | 0x80));
+    intro_sq_timer = sfx_cmd_len_frames(12);
+}
+
+void Audio_PlaySFX_IntroHip(void) { play_intro_sq(1856); }
+void Audio_PlaySFX_IntroHop(void) { play_intro_sq(1664); }
+
+static const noise_note_t kIntroRaise[] = {
+    { 0x21, 0x67,  2 },   /* noise_note 2,  6, -7, 33 */
+    { 0x31, 0xA7,  2 },   /* noise_note 2, 10, -7, 49 */
+    { 0x41, 0xF2, 15 },   /* noise_note 15,15,  2, 65 */
+};
+static const noise_note_t kIntroCrash[] = {
+    { 0x32, 0xD2,  2 },   /* noise_note 2,13,2,50 */
+    { 0x43, 0xF2, 15 },   /* noise_note 15,15,2,67 */
+};
+static const noise_note_t kIntroLunge[] = {
+    { 0x10, 0x20,  6 },   /* noise_note 6, 2, 0,16 */
+    { 0x40, 0x27,  6 },   /* noise_note 6, 2,-7,64 */
+    { 0x41, 0x47,  6 },   /* noise_note 6, 4,-7,65 */
+    { 0x41, 0x87,  6 },   /* noise_note 6, 8,-7,65 */
+    { 0x42, 0xC7,  6 },   /* noise_note 6,12,-7,66 */
+    { 0x42, 0xD7,  8 },   /* noise_note 8,13, 7,66 */
+    { 0x43, 0xE7, 15 },   /* noise_note 15,14,7,67 */
+    { 0x43, 0xF2, 15 },   /* noise_note 15,15,2,67 */
+};
+
+void Audio_PlaySFX_IntroRaise(void) { play_noise_sfx(kIntroRaise, 3); }
+void Audio_PlaySFX_IntroCrash(void) { play_noise_sfx(kIntroCrash, 2); }
+void Audio_PlaySFX_IntroLunge(void) { play_noise_sfx(kIntroLunge, 8); }
+
 /* Forward declaration — defined below with note tables */
 static int get_item1_active = 0;
 
@@ -1322,6 +1865,7 @@ int Audio_IsSFXPlaying(void) {
         || get_key_active
         || get_item1_active
         || switch_sfx_step >= 0
+        || shooting_star_step >= 0
         || denied_active;
 }
 
@@ -1545,15 +2089,23 @@ static void cry_noise_fire(cry_ch_t *st, const cry_noise_ch_t *def) {
     st->timer = cry_frames(n->len);
 }
 
-void Audio_PlayCry(uint8_t species) {
+void Audio_PlayCryModified(uint8_t species, int8_t pitch_add, uint8_t tempo_add) {
     /* species: 1-based internal ID; CryData table is 0-based */
     if (species == 0 || species > NUM_POKEMON_CRIES) return;
     const pokemon_cry_t *pc = &g_pokemon_cries[species - 1];
     if (pc->base_cry >= NUM_BASE_CRIES) return;
 
+    {
+        uint8_t base_pitch = (uint8_t)pc->pitch_mod;
+        uint8_t base_tempo = pc->tempo_mod;
+        uint8_t add_pitch = (uint8_t)pitch_add;
+        uint8_t pitch_u = (uint8_t)(base_pitch + add_pitch);
+        uint8_t tempo_u = (uint8_t)(base_tempo + tempo_add);
+        cry_pitch = (int8_t)pitch_u;
+        cry_tempo = (uint16_t)((uint16_t)tempo_u + 0x80u);
+    }
+
     cry_cur   = &g_cry_defs[pc->base_cry];
-    cry_pitch = pc->pitch_mod;
-    cry_tempo = (uint16_t)((uint16_t)pc->tempo_mod + 0x80u);
     s_cry_mix_boost = 1;
 
     Music_SuspendChannel(0);
@@ -1579,6 +2131,10 @@ void Audio_PlayCry(uint8_t species) {
     } else { cry_ch8_s.step = -1; }
 }
 
+void Audio_PlayCry(uint8_t species) {
+    Audio_PlayCryModified(species, 0, 0);
+}
+
 int Audio_IsCryPlaying(void) {
     return cry_cur != NULL;
 }
@@ -1587,6 +2143,33 @@ int Audio_IsCryPlaying(void) {
 void Audio_Update(void) {
     /* Advance music sequencer */
     Music_Update();
+
+    /* Advance generic move-SFX runtime from imported ASM command streams. */
+    if (sMoveSfx.active) {
+        uint8_t hw;
+        uint8_t any_active = 0;
+        for (hw = 0; hw < 4; hw++) {
+            move_sfx_chan_rt_t *st = &sMoveSfx.ch[hw];
+            if (!st->active) continue;
+            any_active = 1;
+            if (st->rotate_duty && st->timer > 0 && (hw == 0 || hw == 1)) {
+                st->duty_state = (uint8_t)((st->duty_state << 2) | (st->duty_state >> 6));
+                Audio_WriteReg(hw, 1, (uint8_t)((((st->duty_state >> 6) & 0x3) << 6) | 0x3F));
+            }
+            if (--st->timer <= 0) {
+                move_sfx_advance_channel(hw);
+            }
+        }
+        if (!any_active) {
+            for (hw = 0; hw < 4; hw++) {
+                if (sMoveSfx.suspended[hw]) {
+                    Music_ResumeChannel(hw);
+                    sMoveSfx.suspended[hw] = 0;
+                }
+            }
+            sMoveSfx.active = 0;
+        }
+    }
 
     /* Advance text-beep SFX */
     if (sfx_step >= 0) {
@@ -1620,10 +2203,124 @@ void Audio_Update(void) {
         }
     }
 
+    /* Advance intro hip/hop square note */
+    if (intro_sq_timer > 0) {
+        if (--intro_sq_timer <= 0) {
+            Audio_WriteReg(0, 0, 0x08);  /* pitch_sweep 0,8 */
+            Music_ResumeChannel(0);
+        }
+    }
+
+    /* Advance shooting-star Ch5 SFX */
+    if (shooting_star_step >= 0) {
+        if (--shooting_star_timer <= 0) {
+            shooting_star_step++;
+            if (shooting_star_step >= SHOOTING_STAR_NOTES) {
+                shooting_star_step = -1;
+                Audio_WriteReg(0, 0, 0x08); /* pitch_sweep 0,8 */
+                Music_ResumeChannel(0);
+            } else {
+                shooting_star_fire(shooting_star_step);
+            }
+        }
+    }
+
     /* Advance ball-poof square SFX */
     if (ball_poof_timer > 0) {
         if (--ball_poof_timer <= 0) {
             Audio_WriteReg(0, 0, 0x08);  /* NR10: disable sweep */
+            Music_ResumeChannel(0);
+        }
+    }
+
+    /* Advance SFX_Battle_24 (Absorb family), then restore CH1 sweep/music. */
+    if (battle24_timer > 0) {
+        if (--battle24_timer <= 0) {
+            Audio_WriteReg(0, 0, 0x08);
+            Music_ResumeChannel(0);
+        }
+    }
+
+    /* Advance SFX_Battle_28 dual-square loop and restore channels. */
+    if (battle28_active) {
+        if (--battle28_timer <= 0) {
+            battle28_step++;
+            if (battle28_step >= 24) {
+                battle28_active = 0;
+                battle28_step = -1;
+                Audio_WriteReg(0, 2, 0x00);
+                Audio_WriteReg(0, 4, 0x00);
+                Audio_WriteReg(1, 2, 0x00);
+                Audio_WriteReg(1, 4, 0x00);
+                if (battle28_music_suspended) {
+                    Music_ResumeChannel(0);
+                    Music_ResumeChannel(1);
+                    battle28_music_suspended = 0;
+                }
+            } else {
+                battle28_ch1_fire(battle28_step);
+                battle28_ch2_fire(battle28_step);
+                battle28_timer = sfx_cmd_len_frames(1);
+            }
+        }
+    }
+
+    /* Advance SFX_Battle_29 Ch5 sequence and restore channel. */
+    if (battle29_active) {
+        if (--battle29_timer <= 0) {
+            battle29_step++;
+            if (battle29_step >= (int)(sizeof(kBattle29Ch1) / sizeof(kBattle29Ch1[0]))) {
+                battle29_active = 0;
+                battle29_step = -1;
+                Audio_WriteReg(0, 2, 0x00);
+                Audio_WriteReg(0, 4, 0x00);
+                if (battle29_music_suspended) {
+                    Music_ResumeChannel(0);
+                    battle29_music_suspended = 0;
+                }
+            } else {
+                battle29_ch1_fire(battle29_step);
+            }
+        }
+    }
+
+    /* Advance SFX_Battle_2A dual-square sequencer and restore channels. */
+    if (battle2a_active) {
+        if (battle2a_ch1_step >= 0 && --battle2a_ch1_timer <= 0) {
+            battle2a_ch1_step++;
+            if (battle2a_ch1_step >= (int)(sizeof(kBattle2ACh1) / sizeof(kBattle2ACh1[0]))) {
+                battle2a_ch1_step = -1;
+                Audio_WriteReg(0, 0, 0x08);
+                Audio_WriteReg(0, 2, 0x00);
+                Audio_WriteReg(0, 4, 0x00);
+            } else {
+                battle2a_ch1_fire(battle2a_ch1_step);
+            }
+        }
+        if (battle2a_ch2_step >= 0 && --battle2a_ch2_timer <= 0) {
+            battle2a_ch2_step++;
+            if (battle2a_ch2_step >= (int)(sizeof(kBattle2ACh2) / sizeof(kBattle2ACh2[0]))) {
+                battle2a_ch2_step = -1;
+                Audio_WriteReg(1, 2, 0x00);
+                Audio_WriteReg(1, 4, 0x00);
+            } else {
+                battle2a_ch2_fire(battle2a_ch2_step);
+            }
+        }
+        if (battle2a_ch1_step < 0 && battle2a_ch2_step < 0) {
+            battle2a_active = 0;
+            if (battle2a_music_suspended) {
+                Music_ResumeChannel(0);
+                Music_ResumeChannel(1);
+                battle2a_music_suspended = 0;
+            }
+        }
+    }
+
+    /* Advance SFX_Faint_Fall (fall-only variant), then restore CH1. */
+    if (faint_fall_only_timer > 0) {
+        if (--faint_fall_only_timer <= 0) {
+            Audio_WriteReg(0, 0, 0x08);
             Music_ResumeChannel(0);
         }
     }
@@ -1720,6 +2417,10 @@ void Audio_Update(void) {
             noise_sfx_step++;
             if (noise_sfx_step >= noise_sfx_count) {
                 noise_sfx_step = -1;
+                if (noise_music_suspended) {
+                    Music_ResumeChannel(3);
+                    noise_music_suspended = 0;
+                }
             } else {
                 noise_sfx_fire(noise_sfx_step);
             }
@@ -1959,6 +2660,7 @@ void Audio_Update(void) {
             Music_ResumeChannel(0);
             Music_ResumeChannel(1);
             Music_ResumeChannel(2);
+            Music_ResumeChannel(3);
         }
     }
 }

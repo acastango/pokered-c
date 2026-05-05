@@ -55,11 +55,19 @@ set(SOURCES
     src/data/map_data.c
     src/data/event_data.c
     src/data/wild_data.c
+    src/data/move_anim_scripts.c
+    src/data/move_anim_subanims.c
+    src/data/move_anim_frameblocks.c
+    src/data/move_anim_basecoords.c
+    src/data/move_anim_tiles.c
+    src/data/move_sfx_data.c
+    src/data/move_sfx_structs.c
     src/data/connection_data.c
     src/game/warp.c
     src/game/anim.c
     src/game/npc.c
     src/game/text.c
+    src/game/naming_screen.c
     src/game/menu.c
     src/game/inventory.c
     src/game/pokemon.c
@@ -75,6 +83,7 @@ set(SOURCES
     src/game/battle/battle_init.c
     src/game/battle/battle_exp.c
     src/game/battle/battle_driver.c
+    src/game/battle/move_anim.c
     src/game/battle/battle_catch.c
     src/game/battle/battle_items.c
     src/game/battle/battle_switch.c
@@ -85,6 +94,8 @@ set(SOURCES
     src/game/badge.c
     src/game/gate_scripts.c
     src/game/pokedex.c
+    src/game/town_map.c
+    src/game/title_screen.c
     src/game/main_menu.c
     src/game/intro.c
     src/game/pallet_scripts.c
@@ -100,6 +111,7 @@ set(SOURCES
     src/game/route2gate_scripts.c
     src/game/ss_anne_scripts.c
     src/game/vermilion_gym_scripts.c
+    src/game/name_rater_scripts.c
     src/game/yesno.c
     src/game/tmhm.c
     src/game/field_moves.c
@@ -115,6 +127,10 @@ set(SOURCES
     src/data/party_icon_data.c
     src/data/font_data.c
     src/data/pokedex_tiles.c
+    src/data/town_map_data.c
+    src/data/title_screen_data.c
+    src/data/splash_screen_data.c
+    src/data/intro_scene_data.c
     src/data/player_sprite.c
     src/data/pokemon_sprites.c
     src/data/cry_data.c
@@ -166,6 +182,7 @@ set(TEST_GAME_SOURCES
     src/game/music.c
     src/game/npc.c
     src/game/text.c
+    src/game/naming_screen.c
     src/game/inventory.c
     src/game/party_menu.c
     src/game/summary_screen.c
@@ -179,6 +196,13 @@ set(TEST_GAME_SOURCES
     src/data/map_data.c
     src/data/event_data.c
     src/data/wild_data.c
+    src/data/move_anim_scripts.c
+    src/data/move_anim_subanims.c
+    src/data/move_anim_frameblocks.c
+    src/data/move_anim_basecoords.c
+    src/data/move_anim_tiles.c
+    src/data/move_sfx_data.c
+    src/data/move_sfx_structs.c
     src/data/connection_data.c
     src/data/sprite_data.c
     src/data/font_data.c
@@ -191,6 +215,7 @@ set(TEST_GAME_SOURCES
     src/game/battle/battle_loop.c
     src/game/battle/battle_exp.c
     src/game/battle/battle_init.c
+    src/game/battle/move_anim.c
     src/game/battle/battle_catch.c
     src/game/battle/battle_items.c
     src/game/battle/battle_switch.c
@@ -210,6 +235,7 @@ set(TEST_GAME_SOURCES
     src/game/route2gate_scripts.c
     src/game/ss_anne_scripts.c
     src/game/vermilion_gym_scripts.c
+    src/game/name_rater_scripts.c
     src/game/yesno.c
     src/game/tmhm.c
     src/game/field_moves.c
@@ -241,6 +267,7 @@ set(TEST_SOURCES
     tests/test_battle_switch.c
     tests/test_battle_trainer.c
     tests/test_battle_init.c
+    tests/test_move_anim.c
     tests/test_pokemon_storage.c
 )
 add_executable(pokered_tests ${TEST_GAME_SOURCES} ${TEST_SOURCES})

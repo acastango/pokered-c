@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 /* battle_ui.h — Non-blocking battle scene controller.
  *
  * Call BattleUI_Enter() immediately after Battle_Start() to hand
@@ -34,3 +35,19 @@ int BattleUI_GetState(void);
 void BattleUI_SetBadgeRecvText(const char *text);
 /* Badge info pages shown after the received text is dismissed. */
 void BattleUI_SetBadgeInfoText(const char *text);
+
+/* OAM ownership contract used by move animation runtime.
+ * Animation scripts own a transient OAM window; persistent battle scene
+ * sprites (enemy sprite block + party balls) are outside that window. */
+uint16_t BattleUI_GetAnimOAMStart(void);
+uint16_t BattleUI_GetAnimOAMEnd(void);
+
+/* Enemy battle sprite OAM range in steady-state battle scene. */
+uint16_t BattleUI_GetEnemyOAMStart(void);
+uint16_t BattleUI_GetEnemyOAMEnd(void);
+
+/* Enemy sprite operations for move animation runtime. */
+void BattleUI_EnemySpriteCaptureState(void);
+void BattleUI_EnemySpriteSetVisible(uint8_t visible);
+uint8_t BattleUI_IsEnemySpriteVisible(void);
+void BattleUI_EnemySpriteOffsetY(int8_t delta);

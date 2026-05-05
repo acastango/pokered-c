@@ -2,6 +2,13 @@
  * Allows game logic to be tested without a display or audio device. */
 #include <stdint.h>
 
+/* Test instrumentation for display palette calls. */
+uint8_t gTestDisplayLastBGP = 0;
+uint8_t gTestDisplayLastOBP0 = 0;
+uint8_t gTestDisplayLastOBP1 = 0;
+uint8_t gTestDisplayBGPHistory[256];
+int gTestDisplayBGPHistoryCount = 0;
+
 /* display.h stubs */
 int  Display_Init(void)  { return 0; }
 void Display_Quit(void)  {}
@@ -9,7 +16,11 @@ void Display_Render(void) {}
 void Display_LoadTileset(const uint8_t *g, int n) { (void)g; (void)n; }
 void Display_LoadTile(uint8_t id, const uint8_t *g) { (void)id; (void)g; }
 void Display_LoadSpriteTile(uint8_t id, const uint8_t *g) { (void)id; (void)g; }
-void Display_SetPalette(uint8_t a, uint8_t b, uint8_t c) { (void)a;(void)b;(void)c; }
+void Display_SetPalette(uint8_t a, uint8_t b, uint8_t c) {
+    gTestDisplayLastBGP = a;
+    gTestDisplayLastOBP0 = b;
+    gTestDisplayLastOBP1 = c;
+}
 void Display_GetTile(uint8_t id, uint8_t out[16]) { (void)id; (void)out; }
 void Display_RenderScrolled(int px, int py, const uint8_t *m, int s) { (void)px;(void)py;(void)m;(void)s; }
 void Display_SetOverlayEnabled(int on) { (void)on; }
@@ -17,9 +28,15 @@ void Display_ClearOverlay(void) {}
 void Display_SetOverlayTile(int tx, int ty, uint32_t rgba) { (void)tx;(void)ty;(void)rgba; }
 void Display_SetShakeOffset(int ox, int oy) { (void)ox;(void)oy; }
 int  Display_SaveScreenshot(const char *path) { (void)path; return 0; }
-void Display_SetBGP(uint8_t bgp) { (void)bgp; }
+void Display_SetBGP(uint8_t bgp) {
+    gTestDisplayLastBGP = bgp;
+    if (gTestDisplayBGPHistoryCount < (int)sizeof(gTestDisplayBGPHistory)) {
+        gTestDisplayBGPHistory[gTestDisplayBGPHistoryCount++] = bgp;
+    }
+}
 void Display_LoadMapPalette(void) {}
 void Display_SetBandXPx(int row_start, int num_rows, int px) { (void)row_start;(void)num_rows;(void)px; }
+void Display_SetWavyPhase(int enabled, int phase) { (void)enabled; (void)phase; }
 void Display_SetOBP1(uint8_t obp1) { (void)obp1; }
 
 void Display_SetWindowTile(int col, int row, uint8_t tile) { (void)col;(void)row;(void)tile; }
@@ -39,6 +56,18 @@ void Audio_PlaySFX_TurnOnPC(void) {}
 void Audio_PlaySFX_EnterPC(void) {}
 void Audio_PlaySFX_TurnOffPC(void) {}
 void Audio_PlaySFX_BattleHit(uint8_t dmg_mult) { (void)dmg_mult; }
+void Audio_PlaySFX_Battle24(void) {}
+void Audio_PlaySFX_Battle28(void) {}
+void Audio_PlaySFX_Battle29(void) {}
+void Audio_PlaySFX_Battle2A(void) {}
+void Audio_PlaySFX_Battle0D(void) {}
+void Audio_PlaySFX_FaintFallOnly(void) {}
+int Audio_PlayMoveSFXBySymbol(const char *symbol) { (void)symbol; return 0; }
+int Audio_PlayMoveSFXBySymbolModified(const char *symbol, int8_t pitch_add, uint8_t tempo_mod) {
+    (void)symbol; (void)pitch_add; (void)tempo_mod; return 0;
+}
+void Audio_SetMoveSfxDebug(int on) { (void)on; }
+int  Audio_IsMoveSfxDebug(void) { return 0; }
 void Audio_PlaySFX_BallPoof(void) {}
 void Audio_PlaySFX_Faint(void) {}
 void Audio_PlaySFX_Run(void) {}
@@ -55,6 +84,11 @@ void Audio_PlaySFX_SSAnneHorn(void) {}
 int  Audio_IsSFXPlaying_SSAnneHorn(void) { return 0; }
 int  Audio_IsSFXPlaying(void)            { return 0; }
 void Audio_PlayCry(uint8_t species) { (void)species; }
+void Audio_PlayCryModified(uint8_t species, int8_t pitch_add, uint8_t tempo_add) {
+    (void)species;
+    (void)pitch_add;
+    (void)tempo_add;
+}
 int  Audio_IsCryPlaying(void) { return 0; }
 
 /* save.h stubs */
@@ -72,6 +106,14 @@ void Audio_PlaySFX_GetItem1(void) {}
 /* battle_ui.h stubs */
 void BattleUI_SetBadgeRecvText(const char *text) { (void)text; }
 void BattleUI_SetBadgeInfoText(const char *text) { (void)text; }
+uint16_t BattleUI_GetAnimOAMStart(void) { return 0u; }
+uint16_t BattleUI_GetAnimOAMEnd(void) { return 52u; }
+uint16_t BattleUI_GetEnemyOAMStart(void) { return 53u; }
+uint16_t BattleUI_GetEnemyOAMEnd(void) { return 101u; }
+void BattleUI_EnemySpriteCaptureState(void) {}
+void BattleUI_EnemySpriteSetVisible(uint8_t visible) { (void)visible; }
+uint8_t BattleUI_IsEnemySpriteVisible(void) { return 1u; }
+void BattleUI_EnemySpriteOffsetY(int8_t delta) { (void)delta; }
 
 /* block-ID overlay stubs */
 void Display_SetBlockIDOverlay(int e) { (void)e; }

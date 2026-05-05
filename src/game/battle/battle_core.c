@@ -34,6 +34,12 @@
 #include "battle_loop.h"
 #include "../../platform/hardware.h"
 
+/* constants/move_constants.asm:
+ *   ABSORB = $47
+ *   BURN_PSN_ANIM = $BA */
+#define MOVE_ANIM_ABSORB_ID   0x47u
+#define MOVE_ANIM_BURN_PSN_ID 0xBAu
+
 /* ============================================================
  * Effect dispatch arrays — exact copies of data/battle/*.asm
  *
@@ -152,6 +158,13 @@ static const uint8_t kSpecialEffects[] = {
     0xFF
 };
 
+/* Event queue helpers used across damage/status execution paths. */
+static void battle_event_push_hit_sfx(uint8_t dmg_mult);
+static void battle_event_push_hp_target(uint8_t target_side);
+static void battle_event_push_move_result(uint8_t result);
+static void battle_event_push_residual_msg(uint8_t side, uint8_t msg);
+static uint8_t battle_classify_move_failure_result(void);
+
 /* Combat log sink — set by debug_overlay.c when logging is enabled. */
 void (*gCombatLogSink)(const char *line) = NULL;
 
@@ -242,6 +255,7 @@ static void apply_damage_to_enemy_pokemon(void) {
     } else {
         wEnemyMon.hp -= wDamage;
     }
+    battle_event_push_hp_target(0u);
     BLOG("  %s took %d dmg -> %d/%d HP", BMON_E(), wDamage, wEnemyMon.hp, wEnemyMon.max_hp);
 }
 
@@ -262,6 +276,7 @@ static void apply_damage_to_player_pokemon(void) {
     } else {
         wBattleMon.hp -= wDamage;
     }
+    battle_event_push_hp_target(1u);
     BLOG("  %s took %d dmg -> %d/%d HP", BMON_P(), wDamage, wBattleMon.hp, wBattleMon.max_hp);
 }
 
@@ -447,6 +462,20 @@ static void handle_self_confusion_damage(void) {
 }
 
 /* ============================================================
+ * print_move_is_disabled side effect parity (core.asm:3650)
+ *
+ * PrintMoveIsDisabledText clears CHARGING_UP on the acting side before
+ * printing "move is disabled!". It intentionally does not clear
+ * INVULNERABLE here.
+ * ============================================================ */
+static void clear_charging_up_for_disabled_move(uint8_t side) {
+    if (side == 0u)
+        wPlayerBattleStatus1 &= ~(1u << BSTAT1_CHARGING_UP);
+    else
+        wEnemyBattleStatus1 &= ~(1u << BSTAT1_CHARGING_UP);
+}
+
+/* ============================================================
  * handle_counter_move — HandleCounterMove (core.asm:4547)
  *
  * Returns 0 if the current move IS Counter (caller must jump to
@@ -507,12 +536,95 @@ static int handle_counter_move(void) {
 #define PSTAT_GET_ANIM    4   /* GetPlayerAnimationType — Trapping continuation */
 #define PSTAT_RAGE        5   /* PlayerCanExecuteMove — Rage (effect already 0) */
 
+#define BATTLE_EVENTQ_MAX 24
+static battle_event_t s_battle_event_q[BATTLE_EVENTQ_MAX];
+static uint8_t s_battle_event_q_head = 0;
+static uint8_t s_battle_event_q_tail = 0;
+static uint8_t s_battle_event_q_count = 0;
+
+void BattleEvent_ResetTurnQueue(void) {
+    s_battle_event_q_head = 0;
+    s_battle_event_q_tail = 0;
+    s_battle_event_q_count = 0;
+}
+
+static void battle_event_push(uint8_t type, uint8_t arg0, uint8_t arg1, uint8_t arg2) {
+    if (s_battle_event_q_count >= BATTLE_EVENTQ_MAX) return;
+    s_battle_event_q[s_battle_event_q_head].type = type;
+    s_battle_event_q[s_battle_event_q_head].arg0 = arg0;
+    s_battle_event_q[s_battle_event_q_head].arg1 = arg1;
+    s_battle_event_q[s_battle_event_q_head].arg2 = arg2;
+    s_battle_event_q_head = (uint8_t)((s_battle_event_q_head + 1u) % BATTLE_EVENTQ_MAX);
+    s_battle_event_q_count++;
+}
+
+static void battle_event_push_status_msg(uint8_t side, uint8_t is_pre, battle_status_msg_t msg) {
+    if (msg == BSTAT_MSG_NONE) return;
+    battle_event_push(BATTLE_EVENT_STATUS_MSG, (uint8_t)msg, is_pre ? 1u : 0u, side);
+}
+
+static void battle_event_push_hit_sfx(uint8_t dmg_mult) {
+    if (dmg_mult == 0u) return;
+    battle_event_push(BATTLE_EVENT_HIT_SFX, (uint8_t)(dmg_mult & 0x7Fu), 0u, 0u);
+}
+
+static void battle_event_push_hp_target(uint8_t target_side) {
+    if (target_side > 1u) return;
+    battle_event_push(BATTLE_EVENT_HP_TARGET, target_side, 0u, 0u);
+}
+
+static void battle_event_push_move_result(uint8_t result) {
+    if (result == BATTLE_MOVE_RESULT_NONE) return;
+    battle_event_push(BATTLE_EVENT_MOVE_RESULT, result, 0u, 0u);
+}
+
+static void battle_event_push_residual_msg(uint8_t side, uint8_t msg) {
+    if (msg == BATTLE_RESIDUAL_MSG_NONE) return;
+    if (side > 1u) return;
+    battle_event_push(BATTLE_EVENT_RESIDUAL_MSG, msg, side, 0u);
+}
+
+static uint8_t battle_classify_move_failure_result(void) {
+    if ((wDamageMultipliers & 0x7Fu) == 0u)
+        return BATTLE_MOVE_RESULT_NO_EFFECT;
+    if (wCriticalHitOrOHKO == 0xFFu)
+        return BATTLE_MOVE_RESULT_UNAFFECTED;
+    return BATTLE_MOVE_RESULT_MISS;
+}
+
+int BattleEvent_Pop(battle_event_t *out) {
+    if (!out || s_battle_event_q_count == 0) return 0;
+    *out = s_battle_event_q[s_battle_event_q_tail];
+    s_battle_event_q_tail = (uint8_t)((s_battle_event_q_tail + 1u) % BATTLE_EVENTQ_MAX);
+    s_battle_event_q_count--;
+    return 1;
+}
+
+int BattleEvent_HasPending(void) {
+    return s_battle_event_q_count != 0;
+}
+
 /* Status message tracking — set by check_*_status_conditions,
  * read by battle_ui.c via Battle_Get*StatusMsg(). */
 static battle_status_msg_t s_player_status_msg = BSTAT_MSG_NONE;
 static battle_status_msg_t s_player_pre_msg    = BSTAT_MSG_NONE;
 static battle_status_msg_t s_enemy_status_msg  = BSTAT_MSG_NONE;
 static battle_status_msg_t s_enemy_pre_msg     = BSTAT_MSG_NONE;
+static uint8_t s_player_status_affected_anim_pending = 0;
+static uint8_t s_enemy_status_affected_anim_pending  = 0;
+static uint8_t s_player_status_anim_id = 0;
+static uint8_t s_enemy_status_anim_id  = 0;
+static uint8_t s_player_confusion_selfhit_anim_pending = 0;
+static uint8_t s_enemy_confusion_selfhit_anim_pending  = 0;
+static uint8_t  s_last_player_hit_count = 1;
+static uint16_t s_last_player_first_target_hp = 0;
+static uint8_t  s_last_enemy_hit_count = 1;
+static uint16_t s_last_enemy_first_target_hp = 0;
+
+#define STATUS_ANIM_SLP_PLAYER 188u
+#define STATUS_ANIM_SLP_ENEMY  189u
+#define STATUS_ANIM_CONF_PLAYER 190u
+#define STATUS_ANIM_CONF_ENEMY  191u
 
 /* ============================================================
  * check_player_status_conditions — CheckPlayerStatusConditions (core.asm:3328)
@@ -527,6 +639,11 @@ static int check_player_status_conditions(void) {
         slp--;
         wBattleMon.status = (uint8_t)((wBattleMon.status & ~STATUS_SLP_MASK) | slp);
         s_player_status_msg = (slp == 0) ? BSTAT_MSG_WOKE_UP : BSTAT_MSG_FAST_ASLEEP;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
+        if (slp != 0) {
+            s_player_status_anim_id = STATUS_ANIM_SLP_PLAYER;
+            battle_event_push(BATTLE_EVENT_PLAY_ANIM, STATUS_ANIM_SLP_PLAYER, 0u, 0u);
+        }
         wPlayerUsedMove = 0;
         return PSTAT_DONE;
     }
@@ -534,6 +651,7 @@ static int check_player_status_conditions(void) {
     /* --- Frozen (core.asm:3355-3363) --- */
     if (wBattleMon.status & STATUS_FRZ) {
         s_player_status_msg = BSTAT_MSG_FROZEN;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
         wPlayerUsedMove = 0;
         return PSTAT_DONE;
     }
@@ -541,6 +659,7 @@ static int check_player_status_conditions(void) {
     /* --- HeldInPlace by enemy trapping move (core.asm:3365-3372) --- */
     if (wEnemyBattleStatus1 & (1u << BSTAT1_USING_TRAPPING)) {
         s_player_status_msg = BSTAT_MSG_CANT_MOVE;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
         return PSTAT_DONE;
     }
 
@@ -548,6 +667,7 @@ static int check_player_status_conditions(void) {
     if (wPlayerBattleStatus1 & (1u << BSTAT1_FLINCHED)) {
         wPlayerBattleStatus1 &= ~(1u << BSTAT1_FLINCHED);
         s_player_status_msg = BSTAT_MSG_FLINCHED;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
         return PSTAT_DONE;
     }
 
@@ -555,6 +675,7 @@ static int check_player_status_conditions(void) {
     if (wPlayerBattleStatus2 & (1u << BSTAT2_NEEDS_TO_RECHARGE)) {
         wPlayerBattleStatus2 &= ~(1u << BSTAT2_NEEDS_TO_RECHARGE);
         s_player_status_msg = BSTAT_MSG_MUST_RECHARGE;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
         return PSTAT_DONE;
     }
 
@@ -565,6 +686,7 @@ static int check_player_status_conditions(void) {
             wPlayerDisabledMove = 0;
             wPlayerDisabledMoveNumber = 0;
             s_player_pre_msg = BSTAT_MSG_DISABLED_NO_MORE;
+            battle_event_push_status_msg(0u, 1u, s_player_pre_msg);
         }
     }
 
@@ -574,29 +696,42 @@ static int check_player_status_conditions(void) {
         if (wPlayerConfusedCounter == 0) {
             wPlayerBattleStatus1 &= ~(1u << BSTAT1_CONFUSED);
             s_player_pre_msg = BSTAT_MSG_CONFUSED_NO_MORE;
+            battle_event_push_status_msg(0u, 1u, s_player_pre_msg);
         } else {
+            s_player_status_anim_id = STATUS_ANIM_CONF_PLAYER;
+            battle_event_push(BATTLE_EVENT_PLAY_ANIM, STATUS_ANIM_CONF_PLAYER, 0u, 0u);
             /* 50% chance to hurt self (cp 50 percent + 1 = cp 128) */
             if (BattleRandom() >= 128) {
                 /* Hurt self: keep only CONFUSED bit, apply self-damage */
                 wPlayerBattleStatus1 &= (1u << BSTAT1_CONFUSED);
                 handle_self_confusion_damage();
+                s_player_confusion_selfhit_anim_pending = 1u;
+                battle_event_push(BATTLE_EVENT_PLAY_ANIM, 1u /* POUND */, 1u, 0u);
                 s_player_status_msg = BSTAT_MSG_HURT_ITSELF;
+                battle_event_push_status_msg(0u, 0u, s_player_status_msg);
                 goto mon_hurt_itself;
             }
             s_player_pre_msg = BSTAT_MSG_IS_CONFUSED;
+            battle_event_push_status_msg(0u, 1u, s_player_pre_msg);
         }
     }
 
     /* --- Tried to use disabled move (core.asm:3437-3447) --- */
     if (wPlayerDisabledMoveNumber &&
         wPlayerDisabledMoveNumber == wPlayerSelectedMove) {
+        clear_charging_up_for_disabled_move(0u);
+        s_player_status_msg = BSTAT_MSG_MOVE_DISABLED;
+        battle_event_push_status_msg(0u, 0u, s_player_status_msg);
         return PSTAT_DONE;
     }
 
     /* --- Paralysis (core.asm:3449-3457) --- */
     if (wBattleMon.status & STATUS_PAR) {
-        if (BattleRandom() < 64) {   /* 25 percent = 63: jr nc → skip if >= 63 */
+        /* ASM uses `cp 25 percent` where 25 percent = 63; jr nc skips when >=63.
+         * So full paralysis triggers only on 0..62 (63/256), not 64/256. */
+        if (BattleRandom() < 63) {
             s_player_status_msg = BSTAT_MSG_FULLY_PARALYZED;
+            battle_event_push_status_msg(0u, 0u, s_player_status_msg);
             goto mon_hurt_itself;
         }
     }
@@ -651,6 +786,11 @@ mon_hurt_itself:
                                (1u << BSTAT1_THRASHING_ABOUT) |
                                (1u << BSTAT1_CHARGING_UP) |
                                (1u << BSTAT1_USING_TRAPPING));
+    /* core.asm:3465-3476 checks wPlayerMoveEffect directly. */
+    if (wPlayerMoveEffect == EFFECT_FLY || wPlayerMoveEffect == EFFECT_CHARGE) {
+        s_player_status_affected_anim_pending = 1u;
+        battle_event_push(BATTLE_EVENT_PLAY_ANIM, 167u /* STATUS_AFFECTED_ANIM */, 0u, 0u);
+    }
     /* Note: INVULNERABLE is intentionally NOT cleared here (Gen 1 bug:
      * fully-paralyzed/confused mon during Fly/Dig stays invulnerable). */
     return PSTAT_DONE;
@@ -669,6 +809,11 @@ static int check_enemy_status_conditions(void) {
         slp--;
         wEnemyMon.status = (uint8_t)((wEnemyMon.status & ~STATUS_SLP_MASK) | slp);
         s_enemy_status_msg = (slp == 0) ? BSTAT_MSG_WOKE_UP : BSTAT_MSG_FAST_ASLEEP;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
+        if (slp != 0) {
+            s_enemy_status_anim_id = STATUS_ANIM_SLP_ENEMY;
+            battle_event_push(BATTLE_EVENT_PLAY_ANIM, STATUS_ANIM_SLP_ENEMY, 1u, 0u);
+        }
         wEnemyUsedMove = 0;
         return PSTAT_DONE;
     }
@@ -676,6 +821,7 @@ static int check_enemy_status_conditions(void) {
     /* --- Frozen (core.asm:5705-5713) --- */
     if (wEnemyMon.status & STATUS_FRZ) {
         s_enemy_status_msg = BSTAT_MSG_FROZEN;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
         wEnemyUsedMove = 0;
         return PSTAT_DONE;
     }
@@ -683,6 +829,7 @@ static int check_enemy_status_conditions(void) {
     /* --- HeldInPlace by player trapping (core.asm:5715-5723) --- */
     if (wPlayerBattleStatus1 & (1u << BSTAT1_USING_TRAPPING)) {
         s_enemy_status_msg = BSTAT_MSG_CANT_MOVE;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
         return PSTAT_DONE;
     }
 
@@ -690,6 +837,7 @@ static int check_enemy_status_conditions(void) {
     if (wEnemyBattleStatus1 & (1u << BSTAT1_FLINCHED)) {
         wEnemyBattleStatus1 &= ~(1u << BSTAT1_FLINCHED);
         s_enemy_status_msg = BSTAT_MSG_FLINCHED;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
         return PSTAT_DONE;
     }
 
@@ -697,6 +845,7 @@ static int check_enemy_status_conditions(void) {
     if (wEnemyBattleStatus2 & (1u << BSTAT2_NEEDS_TO_RECHARGE)) {
         wEnemyBattleStatus2 &= ~(1u << BSTAT2_NEEDS_TO_RECHARGE);
         s_enemy_status_msg = BSTAT_MSG_MUST_RECHARGE;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
         return PSTAT_DONE;
     }
 
@@ -707,6 +856,7 @@ static int check_enemy_status_conditions(void) {
             wEnemyDisabledMove = 0;
             wEnemyDisabledMoveNumber = 0;
             s_enemy_pre_msg = BSTAT_MSG_DISABLED_NO_MORE;
+            battle_event_push_status_msg(1u, 1u, s_enemy_pre_msg);
         }
     }
 
@@ -716,7 +866,10 @@ static int check_enemy_status_conditions(void) {
         if (wEnemyConfusedCounter == 0) {
             wEnemyBattleStatus1 &= ~(1u << BSTAT1_CONFUSED);
             s_enemy_pre_msg = BSTAT_MSG_CONFUSED_NO_MORE;
+            battle_event_push_status_msg(1u, 1u, s_enemy_pre_msg);
         } else {
+            s_enemy_status_anim_id = STATUS_ANIM_CONF_ENEMY;
+            battle_event_push(BATTLE_EVENT_PLAY_ANIM, STATUS_ANIM_CONF_ENEMY, 1u, 0u);
             /* Enemy uses cp $80 = 128 threshold (core.asm:5784) */
             if (BattleRandom() >= 0x80) {
                 /* Hurt self: keep only CONFUSED bit */
@@ -740,23 +893,32 @@ static int check_enemy_status_conditions(void) {
                 wEnemyMoveType   = saved_type;
                 wBattleMon.def = saved_player_def;
                 apply_damage_to_enemy_pokemon();
+                s_enemy_confusion_selfhit_anim_pending = 1u;
+                battle_event_push(BATTLE_EVENT_PLAY_ANIM, 1u /* POUND */, 0u, 0u);
                 s_enemy_status_msg = BSTAT_MSG_HURT_ITSELF;
+                battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
                 goto enemy_hurt_itself;
             }
             s_enemy_pre_msg = BSTAT_MSG_IS_CONFUSED;
+            battle_event_push_status_msg(1u, 1u, s_enemy_pre_msg);
         }
     }
 
     /* --- Tried to use disabled move (core.asm:5802-5814) --- */
     if (wEnemyDisabledMoveNumber &&
         wEnemyDisabledMoveNumber == wEnemySelectedMove) {
+        clear_charging_up_for_disabled_move(1u);
+        s_enemy_status_msg = BSTAT_MSG_MOVE_DISABLED;
+        battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
         return PSTAT_DONE;
     }
 
     /* --- Paralysis (core.asm:5816-5826) --- */
     if (wEnemyMon.status & STATUS_PAR) {
-        if (BattleRandom() < 64) {
+        /* Same 63/256 threshold as player path (core.asm:5816-5836). */
+        if (BattleRandom() < 63) {
             s_enemy_status_msg = BSTAT_MSG_FULLY_PARALYZED;
+            battle_event_push_status_msg(1u, 0u, s_enemy_status_msg);
             goto enemy_hurt_itself;
         }
     }
@@ -807,6 +969,11 @@ enemy_hurt_itself:
                               (1u << BSTAT1_THRASHING_ABOUT) |
                               (1u << BSTAT1_CHARGING_UP) |
                               (1u << BSTAT1_USING_TRAPPING));
+    /* core.asm:5842-5852 checks wEnemyMoveEffect directly. */
+    if (wEnemyMoveEffect == EFFECT_FLY || wEnemyMoveEffect == EFFECT_CHARGE) {
+        s_enemy_status_affected_anim_pending = 1u;
+        battle_event_push(BATTLE_EVENT_PLAY_ANIM, 167u /* STATUS_AFFECTED_ANIM */, 1u, 0u);
+    }
     return PSTAT_DONE;
 }
 
@@ -920,19 +1087,33 @@ static void get_current_move(void) {
  * Never call for STRUGGLE — caller must guard with a move-ID check.
  * ============================================================ */
 static void decrement_pp(void) {
-    uint8_t  slot;
-    uint8_t *pp;
-    if (hWhoseTurn == 0) {
-        /* Player: wPlayerMoveListIndex is set by DisplayBattleMenu (UI).
-         * Until UI is implemented it defaults to 0, so pp[0] is decremented. */
-        slot = wPlayerMoveListIndex;
-        pp   = wBattleMon.pp;
-    } else {
-        slot = wEnemyMoveListIndex;   /* set by Battle_SelectEnemyMove */
-        pp   = wEnemyMon.pp;
+    /* ASM parity: DecrementPP is player-side only and returns early for:
+     * - Struggle
+     * - storing energy / thrashing / attacking multiple
+     * - using Rage
+     * Then decrements both battle PP and party PP unless transformed. */
+    uint8_t move = wPlayerSelectedMove;
+    if (move == MOVE_STRUGGLE) return;
+
+    if (wPlayerBattleStatus1 & ((1u << BSTAT1_STORING_ENERGY) |
+                                (1u << BSTAT1_THRASHING_ABOUT) |
+                                (1u << BSTAT1_ATTACKING_MULTIPLE))) {
+        return;
     }
-    if (slot < 4 && (pp[slot] & 0x3F) > 0)
-        pp[slot]--;
+    if (wPlayerBattleStatus2 & (1u << BSTAT2_USING_RAGE)) return;
+
+    {
+        uint8_t slot = wPlayerMoveListIndex;
+        if (slot >= 4) return;
+
+        /* Battle copy */
+        wBattleMon.pp[slot]--;
+
+        /* Party copy (skipped when transformed) */
+        if (!(wPlayerBattleStatus3 & (1u << BSTAT3_TRANSFORMED))) {
+            wPartyMons[wPlayerMonNumber].base.pp[slot]--;
+        }
+    }
 }
 
 /* ============================================================
@@ -951,6 +1132,12 @@ static void decrement_pp(void) {
  * ============================================================ */
 void Battle_ExecutePlayerMove(void) {
     hWhoseTurn = 0;
+    BattleEvent_ResetTurnQueue();
+    s_player_status_affected_anim_pending = 0;
+    s_player_status_anim_id = 0;
+    s_player_confusion_selfhit_anim_pending = 0;
+    s_last_player_hit_count = 1;
+    s_last_player_first_target_hp = 0;
 
     /* CANNOT_MOVE: wPlayerSelectedMove == 0xFF (core.asm:3077-3079) */
     if (wPlayerSelectedMove == CANNOT_MOVE) goto execute_done;
@@ -990,10 +1177,6 @@ void Battle_ExecutePlayerMove(void) {
         goto player_can_execute_move;
     }
 
-    /* DecrementPP (core.asm:3133) — not called for Struggle or charging 2nd turn */
-    if (wPlayerSelectedMove != MOVE_STRUGGLE)
-        decrement_pp();
-
     /* CheckForDisobedience (core.asm:3099-3100) */
     if (!check_for_disobedience()) goto execute_done;
 
@@ -1005,6 +1188,9 @@ check_charge:
     }
 
 player_can_execute_move:
+    /* DecrementPP (core.asm:3119-3122) */
+    decrement_pp();
+
     /* ResidualEffects1 (core.asm:3123-3127) */
     if (is_in_array(wPlayerMoveEffect, kResidualEffects1)) {
         Battle_JumpMoveEffect();
@@ -1079,11 +1265,14 @@ player_mirror_move_check:
 
     /* core.asm:3218 wMoveMissed re-check */
     if (wMoveMissed) {
+        battle_event_push_move_result(battle_classify_move_failure_result());
         BLOG("  %s used %s -- missed!", BMON_P(), BMOVE(wPlayerMoveNum));
         if (wPlayerMoveEffect != EFFECT_EXPLODE) goto execute_done;
     } else {
         BLOG("  %s used %s", BMON_P(), BMOVE(wPlayerMoveNum));
         wPlayerUsedMove = wPlayerMoveNum;  /* DisplayUsedMoveText (used_move_text.asm) */
+        if (wPlayerMovePower != 0u)
+            battle_event_push_hit_sfx((uint8_t)(wDamageMultipliers & 0x7Fu));
         /* Move hit: apply attack (core.asm:3226-3231) */
         apply_attack_to_enemy_pokemon();
         wMoveDidntMiss = 1;
@@ -1108,6 +1297,12 @@ execute_after_apply:
     if (wPlayerBattleStatus1 & (1u << BSTAT1_ATTACKING_MULTIPLE)) {
         wPlayerNumAttacksLeft--;
         if (wPlayerNumAttacksLeft > 0) {
+            if (s_last_player_hit_count < 2) {
+                s_last_player_hit_count = 2;
+                s_last_player_first_target_hp = wEnemyMon.hp;
+            }
+            if (wPlayerMovePower != 0u)
+                battle_event_push_hit_sfx((uint8_t)(wDamageMultipliers & 0x7Fu));
             apply_attack_to_enemy_pokemon();
             if (wEnemyMon.hp == 0) {
                 wPlayerBattleStatus1 &= ~(1u << BSTAT1_ATTACKING_MULTIPLE);
@@ -1122,7 +1317,9 @@ execute_after_apply:
 
     if (wPlayerMoveEffect == 0) goto execute_done;
 
-    /* SpecialEffects — final effect call (core.asm:3262-3266) */
+    /* SpecialEffects — final effect call (core.asm:3262-3266):
+     * ASM does `call nc, JumpMoveEffect` after IsInArray, i.e. call only
+     * when the effect is NOT in SpecialEffects. */
     if (!is_in_array(wPlayerMoveEffect, kSpecialEffects)) {
         Battle_JumpMoveEffect();
     }
@@ -1146,6 +1343,12 @@ execute_done:
  *   All paths arrive at EnemyCheckIfMirrorMoveEffect (5600) with levels unswapped.
  * ============================================================ */
 void Battle_ExecuteEnemyMove(void) {
+    BattleEvent_ResetTurnQueue();
+    s_enemy_status_affected_anim_pending = 0;
+    s_enemy_status_anim_id = 0;
+    s_enemy_confusion_selfhit_anim_pending = 0;
+    s_last_enemy_hit_count = 1;
+    s_last_enemy_first_target_hp = 0;
     if (wEnemySelectedMove == CANNOT_MOVE) goto enemy_execute_done;
 
     wMoveMissed    = 0;
@@ -1177,11 +1380,6 @@ void Battle_ExecuteEnemyMove(void) {
     }
 
     get_current_move();   /* fills wEnemyMove* from wEnemySelectedMove */
-
-    /* DecrementPP (core.asm:5540) — not called for Struggle or charging 2nd turn
-     * (CHARGING_UP path jumps over get_current_move + this block entirely). */
-    if (wEnemySelectedMove != MOVE_STRUGGLE)
-        decrement_pp();
 
     /* CheckIfEnemyNeedsToChargeUp (core.asm:5490-5496) */
 enemy_check_charge:
@@ -1279,11 +1477,14 @@ enemy_mirror_move_check:
 
     /* core.asm:5618 wMoveMissed re-check */
     if (wMoveMissed) {
+        battle_event_push_move_result(battle_classify_move_failure_result());
         BLOG("  %s used %s -- missed!", BMON_E(), BMOVE(wEnemyMoveNum));
         if (wEnemyMoveEffect != EFFECT_EXPLODE) goto enemy_execute_done;
     } else {
         BLOG("  %s used %s", BMON_E(), BMOVE(wEnemyMoveNum));
         wEnemyUsedMove = wEnemyMoveNum;  /* DisplayUsedMoveText (used_move_text.asm) */
+        if (wEnemyMovePower != 0u)
+            battle_event_push_hit_sfx((uint8_t)(wDamageMultipliers & 0x7Fu));
         /* Move hit: apply attack to player (core.asm:5627-5631) */
         apply_attack_to_player_pokemon();
         wMoveDidntMiss = 1;
@@ -1305,6 +1506,12 @@ enemy_after_apply:
     if (wEnemyBattleStatus1 & (1u << BSTAT1_ATTACKING_MULTIPLE)) {
         wEnemyNumAttacksLeft--;
         if (wEnemyNumAttacksLeft > 0) {
+            if (s_last_enemy_hit_count < 2) {
+                s_last_enemy_hit_count = 2;
+                s_last_enemy_first_target_hp = wBattleMon.hp;
+            }
+            if (wEnemyMovePower != 0u)
+                battle_event_push_hit_sfx((uint8_t)(wDamageMultipliers & 0x7Fu));
             apply_attack_to_player_pokemon();
             if (wBattleMon.hp == 0) {
                 wEnemyBattleStatus1 &= ~(1u << BSTAT1_ATTACKING_MULTIPLE);
@@ -1319,7 +1526,9 @@ enemy_after_apply:
 
     if (wEnemyMoveEffect == 0) goto enemy_execute_done;
 
-    /* SpecialEffects (core.asm:5661-5664) */
+    /* SpecialEffects (core.asm:5661-5664):
+     * ASM does `call nc, JumpMoveEffect` after IsInArray, i.e. call only
+     * when the effect is NOT in SpecialEffects. */
     if (!is_in_array(wEnemyMoveEffect, kSpecialEffects)) {
         Battle_JumpMoveEffect();
     }
@@ -1373,11 +1582,13 @@ static uint16_t poison_decrease_own_hp(battle_mon_t *mon) {
  * Adds damage to the opposing mon's HP, capped at max_hp.
  * Opposing mon is: hWhoseTurn==0 → wEnemyMon, hWhoseTurn!=0 → wBattleMon.
  * ============================================================ */
-static void poison_increase_enemy_hp(uint16_t damage) {
+static uint16_t poison_increase_enemy_hp(uint16_t damage) {
     battle_mon_t *opp = (hWhoseTurn == 0) ? &wEnemyMon : &wBattleMon;
+    uint16_t old_hp = opp->hp;
     uint16_t new_hp = opp->hp + damage;
     if (new_hp > opp->max_hp) new_hp = opp->max_hp;
     opp->hp = new_hp;
+    return (uint16_t)(new_hp - old_hp);
 }
 
 /* ============================================================
@@ -1385,17 +1596,32 @@ static void poison_increase_enemy_hp(uint16_t damage) {
  * ============================================================ */
 int Battle_HandlePoisonBurnLeechSeed(void) {
     battle_mon_t *mon = (hWhoseTurn == 0) ? &wBattleMon : &wEnemyMon;
+    uint8_t side = hWhoseTurn ? 1u : 0u;
+    uint8_t opp_side = (uint8_t)(side ^ 1u);
 
     /* Burn / Poison (core.asm:479-495) */
     if (mon->status & (STATUS_BRN | STATUS_PSN)) {
-        poison_decrease_own_hp(mon);
+        uint16_t dmg = poison_decrease_own_hp(mon);
+        if (dmg > 0u) {
+            if (mon->status & STATUS_BRN)
+                battle_event_push_residual_msg(side, BATTLE_RESIDUAL_MSG_BURN);
+            else
+                battle_event_push_residual_msg(side, BATTLE_RESIDUAL_MSG_POISON);
+            battle_event_push(BATTLE_EVENT_PLAY_ANIM, MOVE_ANIM_BURN_PSN_ID, side, 0u);
+            battle_event_push_hp_target(side);
+        }
     }
 
     /* Leech Seed (core.asm:497-523): SEEDED bit is bit 7 of bstat2 */
     uint8_t bstat2 = (hWhoseTurn == 0) ? wPlayerBattleStatus2 : wEnemyBattleStatus2;
     if (bstat2 & (1u << BSTAT2_SEEDED)) {
+        /* core.asm:507-516 toggles hWhoseTurn and plays ABSORB from opposing side. */
+        battle_event_push(BATTLE_EVENT_PLAY_ANIM, MOVE_ANIM_ABSORB_ID, opp_side, 0u);
         uint16_t dmg = poison_decrease_own_hp(mon);
-        poison_increase_enemy_hp(dmg);
+        uint16_t healed = poison_increase_enemy_hp(dmg);
+        if (dmg > 0u) battle_event_push_hp_target(side);
+        if (healed > 0u) battle_event_push_hp_target(opp_side);
+        battle_event_push_residual_msg(side, BATTLE_RESIDUAL_MSG_LEECH_SEED);
     }
 
     /* Return 0 if mon fainted (core.asm:525-527) */
@@ -1515,6 +1741,16 @@ battle_status_msg_t Battle_GetPlayerStatusMsg(void)    { return s_player_status_
 battle_status_msg_t Battle_GetPlayerPreStatusMsg(void) { return s_player_pre_msg;    }
 battle_status_msg_t Battle_GetEnemyStatusMsg(void)     { return s_enemy_status_msg;  }
 battle_status_msg_t Battle_GetEnemyPreStatusMsg(void)  { return s_enemy_pre_msg;     }
+uint8_t  Battle_GetLastPlayerHitCount(void)            { return s_last_player_hit_count; }
+uint16_t Battle_GetLastPlayerFirstTargetHP(void)       { return s_last_player_first_target_hp; }
+uint8_t  Battle_GetLastEnemyHitCount(void)             { return s_last_enemy_hit_count; }
+uint16_t Battle_GetLastEnemyFirstTargetHP(void)        { return s_last_enemy_first_target_hp; }
+uint8_t Battle_GetPlayerStatusAffectedAnimPending(void){ return s_player_status_affected_anim_pending; }
+uint8_t Battle_GetEnemyStatusAffectedAnimPending(void) { return s_enemy_status_affected_anim_pending;  }
+uint8_t Battle_GetPlayerStatusAnimId(void)             { return s_player_status_anim_id; }
+uint8_t Battle_GetEnemyStatusAnimId(void)              { return s_enemy_status_anim_id;  }
+uint8_t Battle_GetPlayerConfusionSelfHitAnimPending(void){ return s_player_confusion_selfhit_anim_pending; }
+uint8_t Battle_GetEnemyConfusionSelfHitAnimPending(void) { return s_enemy_confusion_selfhit_anim_pending;  }
 
 /* ============================================================
  * Battle_HandlePlayerMonFainted — core.asm:969

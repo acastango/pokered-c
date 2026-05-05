@@ -25,13 +25,12 @@
 int gDebugExpRate = 100;
 
 /* ---- Pending text queue (drained by battle_ui.c BUI_EXP_DRAIN) ---- */
-#define EXP_QUEUE_MAX 20
+#define EXP_QUEUE_MAX 32
 #define EXP_TEXT_LEN  80
 
-static char           s_exp_queue[EXP_QUEUE_MAX][EXP_TEXT_LEN];
-static levelup_stats_t s_exp_stats[EXP_QUEUE_MAX];
-static int            s_exp_queue_count = 0;
-static int            s_exp_queue_idx   = 0;
+static battleexp_event_t s_exp_queue[EXP_QUEUE_MAX];
+static int               s_exp_queue_count = 0;
+static int               s_exp_queue_idx   = 0;
 
 static void exp_queue_clear(void) {
     s_exp_queue_count = 0;
@@ -40,9 +39,12 @@ static void exp_queue_clear(void) {
 
 static void exp_queue_push(const char *text) {
     if (s_exp_queue_count < EXP_QUEUE_MAX) {
-        strncpy(s_exp_queue[s_exp_queue_count], text, EXP_TEXT_LEN - 1);
-        s_exp_queue[s_exp_queue_count][EXP_TEXT_LEN - 1] = '\0';
-        s_exp_stats[s_exp_queue_count].valid = 0;
+        battleexp_event_t *e = &s_exp_queue[s_exp_queue_count];
+        memset(e, 0, sizeof(*e));
+        e->type = BEXP_EVENT_TEXT;
+        strncpy(e->text, text, EXP_TEXT_LEN - 1);
+        e->text[EXP_TEXT_LEN - 1] = '\0';
+        e->stats.valid = 0;
         s_exp_queue_count++;
     }
 }
@@ -50,18 +52,32 @@ static void exp_queue_push(const char *text) {
 static void exp_queue_push_levelup(const char *text, uint16_t atk, uint16_t def,
                                    uint16_t spd, uint16_t spc) {
     if (s_exp_queue_count < EXP_QUEUE_MAX) {
-        strncpy(s_exp_queue[s_exp_queue_count], text, EXP_TEXT_LEN - 1);
-        s_exp_queue[s_exp_queue_count][EXP_TEXT_LEN - 1] = '\0';
-        s_exp_stats[s_exp_queue_count] = (levelup_stats_t){ 1, atk, def, spd, spc };
+        battleexp_event_t *e = &s_exp_queue[s_exp_queue_count];
+        memset(e, 0, sizeof(*e));
+        e->type = BEXP_EVENT_TEXT;
+        strncpy(e->text, text, EXP_TEXT_LEN - 1);
+        e->text[EXP_TEXT_LEN - 1] = '\0';
+        e->stats = (levelup_stats_t){ 1, atk, def, spd, spc };
         s_exp_queue_count++;
     }
 }
 
-const char *BattleExp_TakeNextText(levelup_stats_t *stats_out) {
-    if (s_exp_queue_idx >= s_exp_queue_count) return NULL;
-    int idx = s_exp_queue_idx++;
-    if (stats_out) *stats_out = s_exp_stats[idx];
-    return s_exp_queue[idx];
+static void exp_queue_push_learn_move(uint8_t slot, uint8_t move_id) {
+    if (s_exp_queue_count < EXP_QUEUE_MAX) {
+        battleexp_event_t *e = &s_exp_queue[s_exp_queue_count];
+        memset(e, 0, sizeof(*e));
+        e->type = BEXP_EVENT_LEARN_MOVE;
+        e->slot = slot;
+        e->move_id = move_id;
+        s_exp_queue_count++;
+    }
+}
+
+int BattleExp_TakeNextEvent(battleexp_event_t *out) {
+    if (!out) return 0;
+    if (s_exp_queue_idx >= s_exp_queue_count) return 0;
+    *out = s_exp_queue[s_exp_queue_idx++];
+    return 1;
 }
 
 /* ============================================================
@@ -121,8 +137,10 @@ void Battle_LearnMoveFromLevelUp(uint8_t slot, uint8_t new_level) {
             if (moves[i] == 0) { learn_slot = i; break; }
         }
         if (learn_slot < 0) {
-            /* All slots full — replace last slot (no UI in smoke-test) */
-            learn_slot = NUM_MOVES - 1;
+            /* All slots full: queue battle UI learn-move flow instead of
+             * auto-overwriting slot 4. */
+            exp_queue_push_learn_move(slot, move_id);
+            return;
         }
 
         moves[learn_slot] = move_id;

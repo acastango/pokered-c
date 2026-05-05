@@ -427,7 +427,7 @@ void Text_Update(void) {
             return;
         }
 
-        if (!(hJoyPressed & PAD_A)) return;
+        if (!(hJoyPressed & (PAD_A | PAD_B))) return;
         Audio_PlaySFX_PressAB();
 
         /* End of text: normal close path waits for A release. */

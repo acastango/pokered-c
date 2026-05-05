@@ -3,6 +3,7 @@
 #include "../data/event_flag_names.h"
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 /* ---- HRAM ------------------------------------------------ */
 uint8_t hJoyInput       = 0;
@@ -186,6 +187,7 @@ uint8_t  wMoveMissed            = 0;
 uint8_t  wPlayerSelectedMove    = 0;
 uint8_t  wEnemySelectedMove     = 0;
 uint8_t  wRepelRemainingSteps   = 0;
+uint8_t  wOptions               = 0;
 
 /* ---- Extended battle state (Phase 4 effects engine) -------------- */
 uint8_t  wActionResultOrTookBattleTurn = 0; /* non-zero = turn already consumed (item/run/switch) */
@@ -299,12 +301,34 @@ void Debug_LogEventFlagChange(uint16_t n, int new_value) {
            (int)wYCoord);
 }
 
-/* Simple PRNG matching GB engine (hRandomAdd/hRandomSub updated by platform) */
+/* Approximate GB rDIV register (increments at 16384 Hz).
+ * We derive an 8-bit divider from wall-clock time so successive RNG calls
+ * during battle don't collapse into deterministic fixed-step patterns. */
+static uint8_t read_div_approx(void) {
+    clock_t c = clock();
+    if (c <= 0) return (uint8_t)(hFrameCounter ^ hRandomAdd ^ hRandomSub);
+    uint64_t ticks = (uint64_t)c;
+    uint64_t hz = (uint64_t)CLOCKS_PER_SEC;
+    return (uint8_t)(((ticks * 16384ull) / hz) & 0xFFu);
+}
+
+/* BattleRandom — mirror Random_/Random path used by asm battle code.
+ * Random_:
+ *   hRandomAdd = hRandomAdd + rDIV (+ carry in)
+ *   hRandomSub = hRandomSub - rDIV (- carry from adc via sbc)
+ * Random returns hRandomAdd in A.
+ */
 uint8_t BattleRandom(void) {
-    /* On GB: rDIV provides entropy; here we just use the state directly */
-    hRandomAdd += 0x05;
-    hRandomSub -= 0x03;
-    return hRandomAdd ^ hRandomSub;
+    uint8_t div1 = read_div_approx();
+    uint16_t add = (uint16_t)hRandomAdd + (uint16_t)div1;
+    hRandomAdd = (uint8_t)add;
+    uint8_t carry = (add > 0xFFu) ? 1u : 0u; /* carry flag result from adc */
+
+    uint8_t div2 = read_div_approx();
+    uint16_t sub = (uint16_t)hRandomSub - (uint16_t)div2 - (uint16_t)carry; /* sbc */
+    hRandomSub = (uint8_t)sub;
+
+    return hRandomAdd;
 }
 
 void WRAMClear(void) {
@@ -354,6 +378,7 @@ void WRAMClear(void) {
     wDamage = 0;
     wMoveMissed = 0;
     wCriticalHitOrOHKO = 0;
+    wOptions = 0;
     wIsInBattle = 0;
     wBattleType = 0;
     wLoneAttackNo = 0;

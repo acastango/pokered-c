@@ -36,6 +36,8 @@ static uint32_t fb[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
 /* Screen-shake pixel offset (set by Display_SetShakeOffset, applied post-render) */
 static int g_shake_ox = 0;
 static int g_shake_oy = 0;
+static int g_wavy_enabled = 0;
+static int g_wavy_phase = 0;
 
 /* Per-band horizontal pixel offset: applied in Display_RenderScrolled to a
  * contiguous range of screen rows.  Mirrors the GB raster trick (SCX change
@@ -43,6 +45,12 @@ static int g_shake_oy = 0;
 static int g_band_row_start = -1;
 static int g_band_num_rows  =  0;
 static int g_band_px        =  0;
+static int g_window_over_sprites = 1;
+
+/* Forward declaration: used by draw_window_layer before the full definition. */
+static void blit_tile(int px, int py, uint8_t tile_id,
+                      const SDL_Color pal[4], int flip_x, int flip_y,
+                      int behind_bg);
 
 /* Debug tile overlay: per-screen-tile RGBA tint blended after rendering. */
 static uint32_t s_tile_ov[SCREEN_HEIGHT * SCREEN_WIDTH];
@@ -164,21 +172,50 @@ void Display_SetShakeOffset(int ox, int oy) {
     g_shake_oy = oy;
 }
 
+void Display_SetWavyPhase(int enabled, int phase) {
+    g_wavy_enabled = enabled ? 1 : 0;
+    g_wavy_phase = phase & 31;
+}
+
 void Display_SetBandXPx(int row_start, int num_rows, int px) {
     g_band_row_start = row_start;
     g_band_num_rows  = num_rows;
     g_band_px        = px;
 }
 
+void Display_SetWindowOverSprites(int on) {
+    g_window_over_sprites = on ? 1 : 0;
+}
+
+static void draw_window_layer(void) {
+    if (hWY >= SCREEN_HEIGHT_PX) return;
+    int win_row_start = hWY / TILE_PX;
+    for (int wy = win_row_start; wy < SCREEN_HEIGHT; wy++) {
+        for (int wx = 0; wx < SCREEN_WIDTH; wx++) {
+            uint8_t tid = gWindowTileMap[wy][wx];
+            if (tid == 0) continue;
+            blit_tile(wx * TILE_PX, wy * TILE_PX, tid, bg_palette, 0, 0, 0);
+        }
+    }
+}
+
 /* Apply g_shake_ox/g_shake_oy by physically shifting the framebuffer.
  * Matches the GB window-layer shift from rWX/rWY used in battle animations.
  * Called after all BG and sprite rendering, before SDL_UpdateTexture. */
 static void apply_shake_to_fb(void) {
-    if (g_shake_ox == 0 && g_shake_oy == 0) return;
+    static const int8_t kWavyOffsets[32] = {
+        0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 1, 1, 1,
+        0, 0, 0, 0, 0,-1,-1,-1,-2,-2,-2,-2,-2,-1,-1,-1
+    };
+    if (g_shake_ox == 0 && g_shake_oy == 0 && !g_wavy_enabled) return;
     static uint32_t tmp[SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX];
     for (int y = 0; y < SCREEN_HEIGHT_PX; y++) {
+        int wave = 0;
+        if (g_wavy_enabled) {
+            wave = (int)kWavyOffsets[(g_wavy_phase + y) & 31];
+        }
         for (int x = 0; x < SCREEN_WIDTH_PX; x++) {
-            int sx = x - g_shake_ox;
+            int sx = x - g_shake_ox - wave;
             int sy = y - g_shake_oy;
             tmp[y * SCREEN_WIDTH_PX + x] =
                 (sx >= 0 && sx < SCREEN_WIDTH_PX && sy >= 0 && sy < SCREEN_HEIGHT_PX)
@@ -274,6 +311,17 @@ void Display_Render(void) {
 }
 
 void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride) {
+    /* Clear frame first. Title-screen slam uses large SCY-equivalent offsets and
+     * can leave areas undrawn by the scrolled tile pass; without this clear,
+     * stale pixels appear as black holes/artifacts. */
+    SDL_Color c0 = bg_palette[0];
+    uint32_t clear_px = ((uint32_t)c0.r << 24) | ((uint32_t)c0.g << 16) |
+                        ((uint32_t)c0.b <<  8) | 0xFF;
+    for (int i = 0; i < SCREEN_WIDTH_PX * SCREEN_HEIGHT_PX; i++) {
+        fb[i] = clear_px;
+        bg_idx[i] = 0;
+    }
+
     /* Draw background: tile_map is (SCREEN_WIDTH+4) x (SCREEN_HEIGHT+4).
      * Buffer tile (bx,by) renders at screen pixel (bx*8 - 16 + px, by*8 - 16 + py).
      * At px=0,py=0: buffer tile (2,2) -> pixel (0,0) — normal 20x18 view.
@@ -301,6 +349,9 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
             blit_tile(sx, sy, tid, bg_palette, 0, 0, 0);
         }
     }
+
+    if (!g_window_over_sprites)
+        draw_window_layer();
 
     /* Draw sprites — same as Display_Render, reads sprite_tile_gfx */
     for (int i = MAX_SPRITES - 1; i >= 0; i--) {
@@ -334,20 +385,9 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
         }
     }
 
-    /* Window layer: mirrors GB Window layer (hWY register).
-     * Drawn after sprites — always in front, simulating how Gen 1 renders
-     * text boxes and UI overlays (YES/NO box, etc.) in front of OBJ sprites.
-     * Tile ID 0 = transparent (passes through to BG/sprites below). */
-    if (hWY < SCREEN_HEIGHT_PX) {
-        int win_row_start = hWY / TILE_PX;
-        for (int wy = win_row_start; wy < SCREEN_HEIGHT; wy++) {
-            for (int wx = 0; wx < SCREEN_WIDTH; wx++) {
-                uint8_t tid = gWindowTileMap[wy][wx];
-                if (tid == 0) continue;
-                blit_tile(wx * TILE_PX, wy * TILE_PX, tid, bg_palette, 0, 0, 0);
-            }
-        }
-    }
+    /* Window layer (default: in front, for textbox/UI behavior). */
+    if (g_window_over_sprites)
+        draw_window_layer();
 
     apply_shake_to_fb();
     apply_tile_overlay();

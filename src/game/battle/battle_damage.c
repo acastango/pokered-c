@@ -14,10 +14,33 @@
 #define BATTLE_DEBUG 1
 #include "battle.h"
 #include "../../data/base_stats.h"
+#include <string.h>
 #if BATTLE_DEBUG
 #include <stdio.h>
 #endif
 #include "../../data/type_chart.h"
+
+static battle_hittrace_t s_last_hittrace = {.enabled = 1};
+static uint32_t s_hittrace_seq = 0;
+
+void Battle_HitTraceEnable(uint8_t enable) {
+    s_last_hittrace.enabled = enable ? 1u : 0u;
+}
+
+uint8_t Battle_HitTraceIsEnabled(void) {
+    return s_last_hittrace.enabled;
+}
+
+void Battle_HitTraceReset(void) {
+    uint8_t en = s_last_hittrace.enabled;
+    memset(&s_last_hittrace, 0, sizeof(s_last_hittrace));
+    s_last_hittrace.enabled = en;
+    s_hittrace_seq = 0;
+}
+
+battle_hittrace_t Battle_GetLastHitTrace(void) {
+    return s_last_hittrace;
+}
 
 /* StatModifierRatios — data/battle/stat_modifiers.asm
  * {numerator, denominator} for stages 1–13 (index = stage - 1).
@@ -285,14 +308,24 @@ void Battle_MoveHitTest(void) {
     uint8_t tgt_bstat1  = player_turn ? wEnemyBattleStatus1 : wPlayerBattleStatus1;
     uint8_t tgt_bstat2  = player_turn ? wEnemyBattleStatus2 : wPlayerBattleStatus2;
     uint8_t att_bstat2  = player_turn ? wPlayerBattleStatus2 : wEnemyBattleStatus2;
+    uint8_t base_acc    = player_turn ? wPlayerMoveAccuracy : wEnemyMoveAccuracy;
+    uint8_t move_num    = player_turn ? wPlayerMoveNum : wEnemyMoveNum;
+    uint8_t roll        = 0;
+    uint8_t reason      = BHTR_HIT;
 
     /* 1. Dream Eater: target must be asleep (core.asm:5240-5246) */
     if (move_effect == EFFECT_DREAM_EATER) {
-        if (!(tgt_status & STATUS_SLP_MASK)) goto move_missed;
+        if (!(tgt_status & STATUS_SLP_MASK)) {
+            reason = BHTR_MISS_DREAM_EATER;
+            goto move_missed;
+        }
     }
 
     /* 2. Swift always hits (core.asm:5247-5250) */
-    if (move_effect == EFFECT_SWIFT) return;
+    if (move_effect == EFFECT_SWIFT) {
+        reason = BHTR_HIT_SWIFT;
+        goto move_hit;
+    }
 
     /* 3. CheckTargetSubstitute (core.asm:5251-5258).
      *
@@ -311,7 +344,10 @@ void Battle_MoveHitTest(void) {
     }
 
     /* 4. INVULNERABLE bit set (target using Fly/Dig) — always miss (core.asm:5260) */
-    if (tgt_bstat1 & (1 << BSTAT1_INVULNERABLE)) goto move_missed;
+    if (tgt_bstat1 & (1 << BSTAT1_INVULNERABLE)) {
+        reason = BHTR_MISS_INVULNERABLE;
+        goto move_missed;
+    }
 
     /* 5. Mist check (core.asm:5265-5311).
      * Stat-lowering effects blocked by Mist: [0x12,0x19] and [0x3A,0x41]. */
@@ -321,20 +357,46 @@ void Battle_MoveHitTest(void) {
                            (move_effect >= EFFECT_ATTACK_DOWN2 &&
                             move_effect <= EFFECT_REFLECT);
         if (mist_blocked && (tgt_bstat2 & (1 << BSTAT2_PROTECTED_BY_MIST))) {
+            reason = BHTR_MISS_MIST;
             goto move_missed;
         }
     }
 
     /* 6. X-Accuracy: bypass accuracy roll entirely (core.asm:5288-5311) */
-    if (att_bstat2 & (1 << BSTAT2_USING_X_ACCURACY)) return;
+    if (att_bstat2 & (1 << BSTAT2_USING_X_ACCURACY)) {
+        reason = BHTR_HIT_XACCURACY;
+        goto move_hit;
+    }
 
     /* 7. Scale accuracy then roll (core.asm:5312-5326).
      * CalcHitChance writes back to wPlayerMoveAccuracy/wEnemyMoveAccuracy. */
     Battle_CalcHitChance();
     {
         uint8_t acc  = player_turn ? wPlayerMoveAccuracy : wEnemyMoveAccuracy;
-        uint8_t roll = BattleRandom();
-        if (roll >= acc) goto move_missed;   /* miss if roll >= scaled accuracy */
+        roll = BattleRandom();
+        if (roll >= acc) {
+            reason = BHTR_MISS_ACCURACY_ROLL;
+            goto move_missed;   /* miss if roll >= scaled accuracy */
+        }
+    }
+move_hit:
+    if (s_last_hittrace.enabled) {
+        s_last_hittrace.seq = ++s_hittrace_seq;
+        s_last_hittrace.player_turn = player_turn ? 1u : 0u;
+        s_last_hittrace.move_num = move_num;
+        s_last_hittrace.move_effect = move_effect;
+        s_last_hittrace.base_acc = base_acc;
+        s_last_hittrace.scaled_acc = player_turn ? wPlayerMoveAccuracy : wEnemyMoveAccuracy;
+        s_last_hittrace.roll = roll;
+        s_last_hittrace.missed = 0;
+        s_last_hittrace.reason = reason;
+        BLOG("  HITTRACE seq=%lu turn=%s move=%s(0x%02X) eff=0x%02X base_acc=%u scaled_acc=%u roll=%u missed=0 reason=%u",
+             (unsigned long)s_last_hittrace.seq,
+             s_last_hittrace.player_turn ? "player" : "enemy",
+             BMOVE(s_last_hittrace.move_num), s_last_hittrace.move_num,
+             s_last_hittrace.move_effect,
+             s_last_hittrace.base_acc, s_last_hittrace.scaled_acc,
+             s_last_hittrace.roll, s_last_hittrace.reason);
     }
     return;
 
@@ -346,6 +408,24 @@ move_missed:
         wPlayerBattleStatus1 &= (uint8_t)~(1 << BSTAT1_USING_TRAPPING);
     } else {
         wEnemyBattleStatus1  &= (uint8_t)~(1 << BSTAT1_USING_TRAPPING);
+    }
+    if (s_last_hittrace.enabled) {
+        s_last_hittrace.seq = ++s_hittrace_seq;
+        s_last_hittrace.player_turn = player_turn ? 1u : 0u;
+        s_last_hittrace.move_num = move_num;
+        s_last_hittrace.move_effect = move_effect;
+        s_last_hittrace.base_acc = base_acc;
+        s_last_hittrace.scaled_acc = player_turn ? wPlayerMoveAccuracy : wEnemyMoveAccuracy;
+        s_last_hittrace.roll = roll;
+        s_last_hittrace.missed = 1;
+        s_last_hittrace.reason = reason;
+        BLOG("  HITTRACE seq=%lu turn=%s move=%s(0x%02X) eff=0x%02X base_acc=%u scaled_acc=%u roll=%u missed=1 reason=%u",
+             (unsigned long)s_last_hittrace.seq,
+             s_last_hittrace.player_turn ? "player" : "enemy",
+             BMOVE(s_last_hittrace.move_num), s_last_hittrace.move_num,
+             s_last_hittrace.move_effect,
+             s_last_hittrace.base_acc, s_last_hittrace.scaled_acc,
+             s_last_hittrace.roll, s_last_hittrace.reason);
     }
 }
 

@@ -95,6 +95,7 @@ static void pack_save(void) {
     memcpy(save.bag_items,      wBagItems,       sizeof(wBagItems));
     memcpy(save.player_money,   wPlayerMoney,    3);
     memcpy(save.rival_name,     wRivalName,      NAME_LENGTH);
+    save.options    = wOptions;
     save.badges     = wObtainedBadges;
     save.player_id  = wPlayerID;
     save.cur_map    = wCurMap;
@@ -127,6 +128,7 @@ static void unpack_save(void) {
     memcpy(wBagItems,      save.bag_items,     sizeof(wBagItems));
     memcpy(wPlayerMoney,   save.player_money,  3);
     memcpy(wRivalName,     save.rival_name,    NAME_LENGTH);
+    wOptions       = save.options;
     wObtainedBadges = save.badges;
     wPlayerID       = save.player_id;
     wCurMap         = save.cur_map;

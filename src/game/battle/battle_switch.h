@@ -83,3 +83,9 @@ void Battle_SwitchPlayerMon(uint8_t new_slot);
  * Does NOT set wActionResultOrTookBattleTurn (ChooseNextMon sets it
  * only for link battles; skipped here). */
 void Battle_ChooseNextMon(uint8_t new_slot);
+
+/* Battle_ApplyBadgeStatBoosts — ApplyBadgeStatBoosts (core.asm:6454).
+ *
+ * Applies player badge stat boosts (ATK/DEF/SPD/SPC) to wBattleMon.
+ * No-op in link battles. */
+void Battle_ApplyBadgeStatBoosts(void);

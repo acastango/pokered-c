@@ -13,6 +13,7 @@
 #include "../game/gate_scripts.h"
 #include "../game/ss_anne_scripts.h"
 #include "../game/vermilion_gym_scripts.h"
+#include "../game/name_rater_scripts.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {   5,   5, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -24,6 +25,13 @@ static const npc_event_t kNpcs_PalletTown[] = {
     {   8,   5, 0x03, 0, "OAK: Hey! Wait!\nDon't go out!@", NULL },  /* SPRITE_OAK, STAY, TEXT_PALLETTOWN_OAK */
     {   3,   8, 0x0d, 1, "I'm raising\nPOKEMON too!\fWhen they get\nstrong, they can\nprotect me!", NULL },  /* SPRITE_GIRL, WALK, TEXT_PALLETTOWN_GIRL */
     {  11,  14, 0x2f, 1, "Technology is\nincredible!\fYou can now store\nand recall items\nand POKEMON as\ndata via PC!", NULL },  /* SPRITE_FISHER, WALK, TEXT_PALLETTOWN_FISHER */
+    {  14,  15, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TRAINER: animation test */
+};
+
+static const map_trainer_t kTrainers_PalletTown[] = {
+    /* npc 3 */ { 3, 0, 27, 255, 2, EVENT_BEAT_PALLET_TEST_TRAINER,
+        "Animation lab battle?\nLet's test your\nmove effects.",
+        "Good run. Talk to me\nagain any time to\ntest more moves." },
 };
 
 static const sign_event_t kSigns_PalletTown[] = {
@@ -3707,7 +3715,7 @@ static const map_warp_t kWarps_NameRatersHouse[] = {
 };
 
 static const npc_event_t kNpcs_NameRatersHouse[] = {
-    {   5,   3, 0x2b, 0, "Hello, hello!\nI am the official\nNAME RATER!\fWant me to rate\nthe nicknames of\nyour POKEMON?", NULL },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_NAMERATERSHOUSE_NAME_RATER */
+    {   5,   3, 0x2b, 0, NULL, NameRater_Start },  /* SPRITE_SILPH_PRESIDENT, STAY, TEXT_NAMERATERSHOUSE_NAME_RATER */
 };
 
 static const map_warp_t kWarps_CeruleanBadgeHouse[] = {
@@ -3840,7 +3848,7 @@ static const npc_event_t kNpcs_AgathasRoom[] = {
 };
 
 const map_events_t gMapEvents[NUM_MAPS] = {
-    [0x00] = { kWarps_PalletTown, 3, kNpcs_PalletTown, 3, kSigns_PalletTown, 4, NULL, 0, 0x0b },
+    [0x00] = { kWarps_PalletTown, 3, kNpcs_PalletTown, 4, kSigns_PalletTown, 4, NULL, 0, 0x0b, kTrainers_PalletTown, 1 },
     [0x01] = { kWarps_ViridianCity, 5, kNpcs_ViridianCity, 7, kSigns_ViridianCity, 6, NULL, 0, 0x0f },
     [0x02] = { kWarps_PewterCity, 7, kNpcs_PewterCity, 5, kSigns_PewterCity, 7, NULL, 0, 0x0a },
     [0x03] = { kWarps_CeruleanCity, 10, kNpcs_CeruleanCity, 11, kSigns_CeruleanCity, 6, NULL, 0, 0x0f },

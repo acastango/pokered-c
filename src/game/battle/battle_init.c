@@ -187,6 +187,26 @@ static void add_enemy_mon_to_party(uint8_t slot, uint8_t species, uint8_t level)
     m->spc             = CalcStat(b->spc, dv_spc, 0, level, 0);
 }
 
+static void build_pallet_test_trainer_party(void) {
+    static const uint8_t kTestSpecies[PARTY_LENGTH] = {
+        SPECIES_CHANSEY, SPECIES_SNORLAX, SPECIES_CLOYSTER,
+        SPECIES_MUK, SPECIES_WEEZING, SPECIES_TANGELA
+    };
+    static const uint8_t kTestMoves[4] = {
+        MOVE_REST, MOVE_REST, MOVE_REST, MOVE_REST
+    };
+
+    wEnemyPartyCount = PARTY_LENGTH;
+    for (uint8_t i = 0; i < PARTY_LENGTH; i++) {
+        add_enemy_mon_to_party(i, kTestSpecies[i], 100);
+        for (uint8_t j = 0; j < 4; j++) {
+            uint8_t move = kTestMoves[j];
+            wEnemyMons[i].base.moves[j] = move;
+            wEnemyMons[i].base.pp[j] = (move && move < NUM_MOVE_DEFS) ? gMoves[move].pp : 0;
+        }
+    }
+}
+
 /* ---- Battle_ReadTrainer ------------------------------------------------- *
  * Port of ReadTrainer (engine/battle/read_trainer_party.asm).                *
  *                                                                             *
@@ -198,6 +218,13 @@ static void add_enemy_mon_to_party(uint8_t slot, uint8_t species, uint8_t level)
 void Battle_ReadTrainer(uint8_t trainer_class, uint8_t trainer_no) {
     if (trainer_class < 1 || trainer_class > NUM_TRAINERS) return;
     if (trainer_no < 1) return;
+
+    /* Dedicated Pallet Town move-animation test trainer. */
+    if (trainer_class == 27 && trainer_no == 255) {
+        build_pallet_test_trainer_party();
+        wAmountMoneyWon = 0;
+        return;
+    }
 
     const uint8_t *data = gTrainerPartyData[trainer_class - 1];
 

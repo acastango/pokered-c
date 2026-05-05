@@ -60,11 +60,19 @@ typedef struct {
     uint16_t atk, def, spd, spc;
 } levelup_stats_t;
 
-/* BattleExp_TakeNextText — returns the next pending exp / level-up text string,
- * or NULL when the queue is empty.  Each call advances the queue by one.
- * The queue is populated during Battle_GainExperience() and drained by battle_ui.c
- * via the BUI_EXP_DRAIN state.  Strings are valid until the next
- * Battle_GainExperience() call.
- * If stats_out is non-NULL, it is filled with level-up stat data (valid==1)
- * or zeroed (valid==0) for non-level-up entries. */
-const char *BattleExp_TakeNextText(levelup_stats_t *stats_out);
+typedef enum {
+    BEXP_EVENT_TEXT = 0,
+    BEXP_EVENT_LEARN_MOVE = 1
+} battleexp_event_type_t;
+
+typedef struct {
+    battleexp_event_type_t type;
+    char                   text[80];   /* valid when type == BEXP_EVENT_TEXT */
+    levelup_stats_t        stats;      /* level-up snapshot for text entries */
+    uint8_t                slot;       /* valid when type == BEXP_EVENT_LEARN_MOVE */
+    uint8_t                move_id;    /* valid when type == BEXP_EVENT_LEARN_MOVE */
+} battleexp_event_t;
+
+/* BattleExp_TakeNextEvent — pop the next queued EXP/level-up event.
+ * Returns 1 and fills *out when an event is available, or 0 when empty. */
+int BattleExp_TakeNextEvent(battleexp_event_t *out);
