@@ -31,6 +31,7 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - **Route 22 / Cerulean / Route 24-25** — rival/event flows, Nugget Bridge chain, trainers, Bill's House sequence
 - **S.S. Anne chapter** — rival battle and captain/HM01 Cut sequence integrated with associated trainer/event scripting
 - **Vermilion Gym script path** — gym-specific script module and puzzle/event scaffolding integrated
+- **Celadon Gym / Erika battle and TM sequence**  — Gym leader Erika is fully battleable with event flag set up, TM given after victory. 
 - **Celadon / Rocket Hideout** — Game Corner poster Rocket encounter + switch, staircase reveal behavior, spinner movement/animation/SFX flow, Lift Key drop sequence, elevator panel flow, Giovanni encounter + Silph Scope drop sequence
 - **Lavender / Pokémon Tower** — 2F rival sequence, 5F purified-zone behavior, 6F ghost Marowak reveal + battle flow, 7F Rocket encounters + Mr. Fuji rescue/warp chain, Mr. Fuji house Poké Flute reward flow
 - **Event flags** — persistent across save/load; completed events stay completed
