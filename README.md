@@ -1,7 +1,9 @@
 
 
 # pokered-c
-[![Gameplay Showcase](thumbnail.png)](https://www.youtube.com/watch?v=9b1up4gAVDE)
+[![Gameplay Showcase Video (Click)](thumbnail.png)](https://www.youtube.com/watch?v=9b1up4gAVDE)
+
+
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
 **Status:** Playable from intro through Vermilion/SS Anne, Celadon Rocket Game Corner/Hideout, and Lavender/Pokémon Tower core sequences (including rival + Marowak + Mr. Fuji rescue flow). Core Gen 1 battle flow, Pokédex/PC systems, TM/HM teaching, and ongoing ASM-fidelity polish are integrated.
