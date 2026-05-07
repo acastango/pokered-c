@@ -50,6 +50,7 @@ void NPC_HideOverUITiles(void);
 /* Change the facing direction of NPC i (0=down 1=up 2=left 3=right).
  * Reloads sprite tiles and OAM flags immediately. */
 void NPC_SetFacing(int i, int facing);
+int  NPC_GetFacing(int i);
 
 /* Returns the index of the NPC most recently passed to NPC_FacePlayer,
  * or -1 if no interaction has occurred since map load.

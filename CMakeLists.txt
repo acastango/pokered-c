@@ -91,6 +91,7 @@ set(SOURCES
     src/game/battle/battle_ui.c
     src/game/battle_transition.c
     src/game/trainer_sight.c
+    src/game/rival_starter.c
     src/game/badge.c
     src/game/gate_scripts.c
     src/game/pokedex.c
@@ -116,6 +117,16 @@ set(SOURCES
     src/game/tmhm.c
     src/game/field_moves.c
     src/game/pokeflute.c
+    src/game/rockethideout_b4f_scripts.c
+    src/game/rockethideout_scripts.c
+    src/game/game_corner_scripts.c
+    src/game/pokemontower2f_scripts.c
+    src/game/pokemontower5f_scripts.c
+    src/game/pokemontower6f_scripts.c
+    src/game/pokemontower7f_scripts.c
+    src/game/mrfujis_house_scripts.c
+    src/game/saffron_city_scripts.c
+    src/game/elevator_menu.c
     src/data/tmhm_data.c
     src/data/dex_data.c
     src/game/debug_overlay.c
@@ -133,6 +144,7 @@ set(SOURCES
     src/data/intro_scene_data.c
     src/data/player_sprite.c
     src/data/pokemon_sprites.c
+    src/data/ghost_front_sprite.c
     src/data/cry_data.c
     src/game/music.c
 )
@@ -221,6 +233,7 @@ set(TEST_GAME_SOURCES
     src/game/battle/battle_switch.c
     src/game/battle/battle_trainer.c
     src/game/trainer_sight.c
+    src/game/rival_starter.c
     src/game/badge.c
     src/game/gate_scripts.c
     src/game/gym_scripts.c
@@ -240,6 +253,15 @@ set(TEST_GAME_SOURCES
     src/game/tmhm.c
     src/game/field_moves.c
     src/game/pokeflute.c
+    src/game/rockethideout_b4f_scripts.c
+    src/game/rockethideout_scripts.c
+    src/game/game_corner_scripts.c
+    src/game/pokemontower2f_scripts.c
+    src/game/pokemontower5f_scripts.c
+    src/game/pokemontower6f_scripts.c
+    src/game/pokemontower7f_scripts.c
+    src/game/mrfujis_house_scripts.c
+    src/game/saffron_city_scripts.c
     src/data/tmhm_data.c
     src/game/pokedex.c
     src/game/pallet_scripts.c

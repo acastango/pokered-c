@@ -17,6 +17,7 @@
 #include "music.h"
 #include "inventory.h"
 #include "trainer_sight.h"
+#include "rival_starter.h"
 #include "../platform/hardware.h"
 #include "../platform/audio.h"
 #include "../data/event_constants.h"
@@ -241,7 +242,9 @@ void CeruleanScripts_StepCheck(void) {
     g_state = CS_WALK_IN;
 }
 
-int CeruleanScripts_IsActive(void) { return g_state != CS_IDLE; }
+int CeruleanScripts_IsActive(void) {
+    return wCurMap == MAP_CERULEAN_CITY && g_state != CS_IDLE;
+}
 
 int CeruleanScripts_GetPendingBattle(uint8_t *class_out, uint8_t *no_out) {
     if (!g_pending_battle) return 0;
@@ -344,9 +347,12 @@ void CeruleanScripts_Tick(void) {
     case CS_PRE_BATTLE_TEXT:
         if (Text_IsOpen()) { Text_Update(); return; }
         /* Text dismissed — select party based on rival's starter */
-        if      (wRivalStarter == STARTER2) g_rival_tr_no = 7;  /* rival has Squirtle */
-        else if (wRivalStarter == STARTER3) g_rival_tr_no = 8;  /* rival has Bulbasaur */
+        {
+        uint8_t rival_starter = RivalStarter_Get();
+        if      (rival_starter == STARTER2) g_rival_tr_no = 7;  /* rival has Squirtle */
+        else if (rival_starter == STARTER3) g_rival_tr_no = 8;  /* rival has Bulbasaur */
         else                                g_rival_tr_no = 9;  /* rival has Charmander */
+        }
         /* SaveEndBattleTextPointers in the original Cerulean script:
          * after "PLAYER defeated RIVAL!" the battle scene shows the short
          * defeat quote before the overworld "I went to Bill's" sequence. */

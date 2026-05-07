@@ -14,6 +14,11 @@
 #include "../game/ss_anne_scripts.h"
 #include "../game/vermilion_gym_scripts.h"
 #include "../game/name_rater_scripts.h"
+#include "../game/rockethideout_b4f_scripts.h"
+#include "../game/game_corner_scripts.h"
+#include "../game/pokemontower2f_scripts.h"
+#include "../game/pokemontower7f_scripts.h"
+#include "../game/mrfujis_house_scripts.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {   5,   5, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -1978,7 +1983,7 @@ static const npc_event_t kNpcs_SSAnneB1FRooms[] = {
     {   0,   2, 0x13, 0, NULL, NULL },  /* SPRITE_SAILOR, STAY, TEXT_SSANNEB1FROOMS_SAILOR5 */
     {   0,   4, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_SSANNEB1FROOMS_FISHER */
     {  10,  13, 0x0c, 0, "My buddy, MACHOKE,\nis super strong!\fHe has enough\nSTRENGTH to move\nbig rocks!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_SSANNEB1FROOMS_SUPER_NERD */
-    {  11,  12, 0x05, 0, "MACHOKE: Gwoh!\nGoggoh!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_SSANNEB1FROOMS_MACHOKE */
+    {  11,  12, 0x05, 0, NULL, SSAnne_B1FRoomsMachokeScript },  /* SPRITE_MONSTER, STAY, TEXT_SSANNEB1FROOMS_MACHOKE */
 };
 
 static const item_event_t kItems_SSAnneB1FRooms[] = {
@@ -2345,11 +2350,15 @@ static const npc_event_t kNpcs_GameCorner[] = {
     {  11,  15, 0x0b, 0, "Games are scary!\nIt's so easy to\nget hooked!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_GAMECORNER_GAMBLER */
     {  14,  11, 0x26, 0, "What's up? Want\nsome coins?", NULL },  /* SPRITE_CLERK, STAY, TEXT_GAMECORNER_CLERK2 */
     {  17,  13, 0x10, 0, "Hey, what? You're\nthrowing me off!\nHere are some\ncoins, shoo!", NULL },  /* SPRITE_GENTLEMAN, STAY, TEXT_GAMECORNER_GENTLEMAN */
-    {   9,   5, 0x18, 0, "I'm guarding this\nposter!\nGo away, or else!", NULL },  /* SPRITE_ROCKET, STAY, TEXT_GAMECORNER_ROCKET */
+    {   9,   5, 0x18, 0, NULL, GameCorner_RocketScript },  /* SPRITE_ROCKET, STAY, TEXT_GAMECORNER_ROCKET */
 };
 
 static const sign_event_t kSigns_GameCorner[] = {
     {   9,   4, "Hey!\fA switch behind\nthe poster!?\nLet's push it!@" },  /* TEXT_GAMECORNER_POSTER */
+};
+
+static const hidden_event_t kHiddenEvents_GameCorner[] = {
+    { 9, 4, NULL, GameCorner_PosterScript },
 };
 
 static const map_warp_t kWarps_CeladonMart5F[] = {
@@ -2452,7 +2461,7 @@ static const map_warp_t kWarps_PokemonTower2F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower2F[] = {
-    {  14,   5, 0x02, 0, "{RIVAL}: Hey,\n{PLAYER}! What\nbrings you here?\nYour POKEMON\ndon't look dead!\fI can at least\nmake them faint!\nLet's go, pal!", NULL },  /* SPRITE_BLUE, STAY, TEXT_POKEMONTOWER2F_RIVAL */
+    {  14,   5, 0x02, 0, NULL, PokemonTower2F_RivalScript },  /* SPRITE_BLUE, STAY, TEXT_POKEMONTOWER2F_RIVAL */
     {   3,   7, 0x19, 0, "Even we could not\nidentify the\nwayward GHOSTs!\fA SILPH SCOPE\nmight be able to\nunmask them.", NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER2F_CHANNELER */
 };
 
@@ -2526,10 +2535,10 @@ static const map_warp_t kWarps_PokemonTower7F[] = {
 };
 
 static const npc_event_t kNpcs_PokemonTower7F[] = {
-    {   9,  11, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET1 */
-    {  12,   9, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET2 */
-    {   9,   7, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET3 */
-    {  10,   3, 0x16, 0, "MR.FUJI: Heh? You\ncame to save me?\fThank you. But, I\ncame here of my\nown free will.\fI came to calm\nthe soul of\nCUBONE's mother.\fI think MAROWAK's\nspirit has gone\nto the afterlife.\fI must thank you\nfor your kind\nconcern!\fFollow me to my\nhome, POKEMON\nHOUSE at the foot\nof this tower.", NULL },  /* SPRITE_MR_FUJI, STAY, TEXT_POKEMONTOWER7F_MR_FUJI */
+    {   9,  11, 0x18, 0, NULL, PokemonTower7F_Rocket1Script },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET1 */
+    {  12,   9, 0x18, 0, NULL, PokemonTower7F_Rocket2Script },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET2 */
+    {   9,   7, 0x18, 0, NULL, PokemonTower7F_Rocket3Script },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET3 */
+    {  10,   3, 0x16, 0, NULL, PokemonTower7F_MrFujiScript },  /* SPRITE_MR_FUJI, STAY, TEXT_POKEMONTOWER7F_MR_FUJI */
 };
 
 static const map_warp_t kWarps_MrFujisHouse[] = {
@@ -2538,11 +2547,11 @@ static const map_warp_t kWarps_MrFujisHouse[] = {
 };
 
 static const npc_event_t kNpcs_MrFujisHouse[] = {
-    {   3,   5, 0x0c, 0, "That's odd, MR.FUJI\nisn't here.\nWhere'd he go?", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_MRFUJISHOUSE_SUPER_NERD */
-    {   6,   3, 0x08, 0, "This is really\nMR.FUJI's house.\fHe's really kind!\fHe looks after\nabandoned and\norphaned POKEMON!", NULL },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_MRFUJISHOUSE_LITTLE_GIRL */
+    {   3,   5, 0x0c, 0, NULL, MrFujisHouse_SuperNerdScript },  /* SPRITE_SUPER_NERD, STAY, TEXT_MRFUJISHOUSE_SUPER_NERD */
+    {   6,   3, 0x08, 0, NULL, MrFujisHouse_LittleGirlScript },  /* SPRITE_LITTLE_GIRL, STAY, TEXT_MRFUJISHOUSE_LITTLE_GIRL */
     {   6,   4, 0x05, 0, "PSYDUCK: Gwappa!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_PSYDUCK */
     {   1,   3, 0x05, 0, "NIDORINO: Gaoo!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_MRFUJISHOUSE_NIDORINO */
-    {   3,   1, 0x16, 0, "MR.FUJI: {PLAYER}.\fYour POKEDEX quest\nmay fail without\nlove for your\nPOKEMON.\fI think this may\nhelp your quest.", NULL },  /* SPRITE_MR_FUJI, STAY, TEXT_MRFUJISHOUSE_MR_FUJI */
+    {   3,   1, 0x16, 0, NULL, MrFujisHouse_MrFujiScript },  /* SPRITE_MR_FUJI, STAY, TEXT_MRFUJISHOUSE_MR_FUJI */
     {   3,   3, 0x41, 0, "POKEMON Monthly\nGrand Prize\nDrawing!\fThe application\nform is...\fGone! It's been\nclipped out!", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_MRFUJISHOUSE_POKEDEX */
 };
 
@@ -3240,6 +3249,29 @@ static const npc_event_t kNpcs_RocketHideoutB1F[] = {
     {  28,  18, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB1F_ROCKET5 */
 };
 
+static const map_trainer_t kTrainers_RocketHideoutB1F[] = {
+    { 0, 2, 30, 8, 3, EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_0,
+      "Who are you? How\ndid you get here?",
+      "Are you dissing\nTEAM ROCKET?",
+      "Oww!\nBeaten!" },
+    { 1, 3, 30, 9, 2, EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_1,
+      "You broke into\nour operation?",
+      "You're not going\nto get away with\nthis, brat!",
+      "Burnt!" },
+    { 2, 0, 30, 10, 2, EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_2,
+      "Intruder alert!",
+      "SILPH SCOPE?\nI don't know\nwhere it is!",
+      "I\ncan't do it!" },
+    { 3, 3, 30, 11, 3, EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_3,
+      "Why did you come\nhere?",
+      "OK, I'll talk!\nTake the elevator\nto see my BOSS!",
+      "This\nwon't do!" },
+    { 4, 2, 30, 12, 3, EVENT_BEAT_ROCKET_HIDEOUT_1_TRAINER_4,
+      "Are you lost, you\nlittle rat?",
+      "Uh-oh, that fight\nopened the door!",
+      "Why...?" },
+};
+
 static const item_event_t kItems_RocketHideoutB1F[] = {
     {  11,  14, 0x1d },  /* ESCAPE_ROPE */
     {   9,  17, 0x12 },  /* HYPER_POTION */
@@ -3255,6 +3287,13 @@ static const map_warp_t kWarps_RocketHideoutB2F[] = {
 
 static const npc_event_t kNpcs_RocketHideoutB2F[] = {
     {  20,  12, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB2F_ROCKET */
+};
+
+static const map_trainer_t kTrainers_RocketHideoutB2F[] = {
+    { 0, 0, 30, 13, 4, EVENT_BEAT_ROCKET_HIDEOUT_2_TRAINER_0,
+      "BOSS said you can\nsee GHOSTs with\nthe SILPH SCOPE!",
+      "The TEAM ROCKET\nHQ has 4 basement\nfloors. Can you\nreach the BOSS?",
+      "I\nsurrender!" },
 };
 
 static const item_event_t kItems_RocketHideoutB2F[] = {
@@ -3274,6 +3313,17 @@ static const npc_event_t kNpcs_RocketHideoutB3F[] = {
     {  26,  12, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB3F_ROCKET2 */
 };
 
+static const map_trainer_t kTrainers_RocketHideoutB3F[] = {
+    { 0, 3, 30, 14, 2, EVENT_BEAT_ROCKET_HIDEOUT_3_TRAINER_0,
+      "Stop meddling in\nTEAM ROCKET's\naffairs!",
+      "SILPH SCOPE?\nThe machine the\nBOSS stole. It's\nhere somewhere.",
+      "Oof!\nTaken down!" },
+    { 1, 1, 30, 15, 4, EVENT_BEAT_ROCKET_HIDEOUT_3_TRAINER_1,
+      "We got word from\nupstairs that you\nwere coming!",
+      "Go ahead and go!\nBut, you need the\nLIFT KEY to run\nthe elevator!",
+      "What?\nI lost? No!" },
+};
+
 static const item_event_t kItems_RocketHideoutB3F[] = {
     {  26,  17, 0xd2 },  /* TM_DOUBLE_EDGE */
     {  20,  14, 0x28 },  /* RARE_CANDY */
@@ -3286,10 +3336,22 @@ static const map_warp_t kWarps_RocketHideoutB4F[] = {
 };
 
 static const npc_event_t kNpcs_RocketHideoutB4F[] = {
-    {  25,   3, 0x17, 0, "So! I must say, I\nam impressed you\ngot here!", NULL },  /* SPRITE_GIOVANNI, STAY, TEXT_ROCKETHIDEOUTB4F_GIOVANNI */
+    {  25,   3, 0x17, 0, NULL, RocketHideoutB4F_GiovanniScript },  /* SPRITE_GIOVANNI, STAY, TEXT_ROCKETHIDEOUTB4F_GIOVANNI */
     {  23,  12, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET1 */
     {  26,  12, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET2 */
-    {  11,   2, 0x18, 0, NULL, NULL },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET3 */
+    {  11,   2, 0x18, 0, NULL, RocketHideoutB4F_Rocket3Script },  /* SPRITE_ROCKET, STAY, TEXT_ROCKETHIDEOUTB4F_ROCKET3 */
+};
+
+static const map_trainer_t kTrainers_RocketHideoutB4F[] = {
+    /* Giovanni (npc 0) and Rocket3 (npc 3) are handled by scripted callbacks. */
+    { 1, 0, 30, 16, 0, EVENT_BEAT_ROCKET_HIDEOUT_4_TRAINER_0,
+      "I know you! You\nruined our plans\nat MT.MOON!",
+      "Do you have\nsomething against\nTEAM ROCKET?",
+      "Burned\nagain!" },
+    { 2, 0, 30, 17, 0, EVENT_BEAT_ROCKET_HIDEOUT_4_TRAINER_1,
+      "How can you not\nsee the beauty of\nour evil?",
+      "BOSS! I'm sorry I\nfailed you!",
+      "Ayaya!" },
 };
 
 static const item_event_t kItems_RocketHideoutB4F[] = {
@@ -3983,7 +4045,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x84] = { kWarps_CeladonMansionRoofHouse, 2, kNpcs_CeladonMansionRoofHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0x85] = { kWarps_CeladonPokecenter, 2, kNpcs_CeladonPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x86] = { kWarps_CeladonGym, 2, kNpcs_CeladonGym, 8, NULL, 0, NULL, 0, 0x03 },
-    [0x87] = { kWarps_GameCorner, 3, kNpcs_GameCorner, 11, kSigns_GameCorner, 1, NULL, 0, 0x0f },
+    [0x87] = { kWarps_GameCorner, 3, kNpcs_GameCorner, 11, kSigns_GameCorner, 1, NULL, 0, 0x0f, NULL, 0, kHiddenEvents_GameCorner, 1 },
     [0x88] = { kWarps_CeladonMart5F, 3, kNpcs_CeladonMart5F, 4, kSigns_CeladonMart5F, 1, NULL, 0, 0x0f },
     [0x89] = { kWarps_GameCornerPrizeRoom, 2, kNpcs_GameCornerPrizeRoom, 2, kSigns_GameCornerPrizeRoom, 3, NULL, 0, 0x0f },
     [0x8a] = { kWarps_CeladonDiner, 2, kNpcs_CeladonDiner, 5, NULL, 0, NULL, 0, 0x0f },
@@ -4047,10 +4109,10 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xc4] = { kWarps_VermilionTradeHouse, 2, kNpcs_VermilionTradeHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0xc5] = { kWarps_DiglettsCave, 2, NULL, 0, NULL, 0, NULL, 0, 0x19 },
     [0xc6] = { kWarps_VictoryRoad3F, 4, kNpcs_VictoryRoad3F, 8, NULL, 0, kItems_VictoryRoad3F, 2, 0x7d },
-    [0xc7] = { kWarps_RocketHideoutB1F, 5, kNpcs_RocketHideoutB1F, 5, NULL, 0, kItems_RocketHideoutB1F, 2, 0x2e },
-    [0xc8] = { kWarps_RocketHideoutB2F, 5, kNpcs_RocketHideoutB2F, 1, NULL, 0, kItems_RocketHideoutB2F, 4, 0x2e },
-    [0xc9] = { kWarps_RocketHideoutB3F, 2, kNpcs_RocketHideoutB3F, 2, NULL, 0, kItems_RocketHideoutB3F, 2, 0x2e },
-    [0xca] = { kWarps_RocketHideoutB4F, 3, kNpcs_RocketHideoutB4F, 4, NULL, 0, kItems_RocketHideoutB4F, 5, 0x2e },
+    [0xc7] = { kWarps_RocketHideoutB1F, 5, kNpcs_RocketHideoutB1F, 5, NULL, 0, kItems_RocketHideoutB1F, 2, 0x2e, kTrainers_RocketHideoutB1F, 5 },
+    [0xc8] = { kWarps_RocketHideoutB2F, 5, kNpcs_RocketHideoutB2F, 1, NULL, 0, kItems_RocketHideoutB2F, 4, 0x2e, kTrainers_RocketHideoutB2F, 1 },
+    [0xc9] = { kWarps_RocketHideoutB3F, 2, kNpcs_RocketHideoutB3F, 2, NULL, 0, kItems_RocketHideoutB3F, 2, 0x2e, kTrainers_RocketHideoutB3F, 2 },
+    [0xca] = { kWarps_RocketHideoutB4F, 3, kNpcs_RocketHideoutB4F, 4, NULL, 0, kItems_RocketHideoutB4F, 5, 0x2e, kTrainers_RocketHideoutB4F, 2 },
     [0xcb] = { kWarps_RocketHideoutElevator, 2, NULL, 0, kSigns_RocketHideoutElevator, 1, NULL, 0, 0x0f },
     [0xcc] = { kWarps_RocketHideoutElevator, 2, NULL, 0, kSigns_RocketHideoutElevator, 1, NULL, 0, 0x0f },
     [0xcd] = { kWarps_RocketHideoutElevator, 2, NULL, 0, kSigns_RocketHideoutElevator, 1, NULL, 0, 0x0f },

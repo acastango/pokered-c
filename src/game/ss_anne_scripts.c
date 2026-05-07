@@ -19,6 +19,7 @@
 #include "music.h"
 #include "inventory.h"
 #include "trainer_sight.h"
+#include "rival_starter.h"
 #include "../platform/hardware.h"
 #include "../platform/audio.h"
 #include "../platform/display.h"
@@ -54,6 +55,8 @@ extern uint8_t wPlayerName[];
 
 /* ---- HM item ID -------------------------------------------------------- */
 #define HM01  0xC4
+/* Species ID from pokered index table (Dex #67). */
+#define SPECIES_MACHOKE 67
 
 /* ============================================================
  * RIVAL STATE MACHINE
@@ -399,6 +402,13 @@ void SSAnne_CaptainScript(void) {
     Text_ShowASCII(kCaptainSick);
 }
 
+/* SSAnneB1FRoomsMachokeText in ASM calls PlayCry(MACHOKE) as text_asm.
+ * Keep this behavior localized to the B1F Rooms Machoke NPC callback. */
+void SSAnne_B1FRoomsMachokeScript(void) {
+    Text_ShowASCII("MACHOKE: Gwoh!\nGoggoh!@");
+    Audio_PlayCry(SPECIES_MACHOKE);
+}
+
 void SSAnneScripts_Tick(void) {
     /* ---- Rival state machine ---- */
     switch (g_rival_state) {
@@ -434,9 +444,12 @@ void SSAnneScripts_Tick(void) {
         if (Text_IsOpen()) { Text_Update(); return; }
         /* Text dismissed — select party based on rival's starter.
          * Mirrors SSAnne2FRivalStartBattleScript wTrainerNo selection. */
-        if      (wRivalStarter == STARTER2) g_rival_tr_no = 1;
-        else if (wRivalStarter == STARTER3) g_rival_tr_no = 2;
+        {
+        uint8_t rival_starter = RivalStarter_Get();
+        if      (rival_starter == STARTER2) g_rival_tr_no = 1;
+        else if (rival_starter == STARTER3) g_rival_tr_no = 2;
         else                                g_rival_tr_no = 3;
+        }
         /* SaveEndBattleTextPointers in SSAnne2F.asm: show the short defeat
          * quote in-battle before the longer overworld follow-up text. */
         gTrainerAfterText = kRivalDefeated;

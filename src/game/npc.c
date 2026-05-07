@@ -264,6 +264,11 @@ void NPC_SetFacing(int i, int facing) {
     apply_npc_oam_facing(i);
 }
 
+int NPC_GetFacing(int i) {
+    if (i < 0 || i >= npc_count) return 0;
+    return (int)(npc_facing[i] & 3);
+}
+
 int NPC_GetLastInteracted(void) {
     return npc_last_interacted;
 }

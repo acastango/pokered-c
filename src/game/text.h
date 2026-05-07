@@ -31,6 +31,11 @@ void Text_Close(void);
  * Mirrors the original game where text_end leaves tiles in VRAM so the
  * dialog box stays visible while the move animation plays over it. */
 void Text_KeepTilesOnClose(void);
+/* Copy the currently visible text box tiles (rows 12-17) from the window
+ * tilemap onto the BG scroll tilemap, then hide the window layer.
+ * Useful for ASM-like overlays where subsequent BG UI should draw above
+ * an existing prompt box. */
+void Text_BlitBoxToBGAndHideWindow(void);
 /* Draw the empty dialog box border into gScrollTileMap without starting text.
  * Matches DisplayTextBoxID(MESSAGE_BOX) in pokered, called before the battle
  * intro slide so the box frame is visible throughout the animation. */

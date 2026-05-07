@@ -31,6 +31,7 @@
  */
 #include "text.h"
 #include "../platform/hardware.h"
+#include "overworld.h"
 #include "../platform/audio.h"
 #include "../data/font_data.h"
 #include "../game/constants.h"
@@ -509,4 +510,15 @@ void Text_Close(void) {
         s_pending_sfx = NULL;
         fn();
     }
+}
+
+void Text_BlitBoxToBGAndHideWindow(void) {
+    /* Copy screen rows 12..17 from window tiles into BG scroll buffer. */
+    for (int r = BOX_ROW; r < BOX_ROW + BOX_ROWS; r++) {
+        for (int c = 0; c < SCREEN_WIDTH; c++) {
+            gScrollTileMap[(r + 2) * SCROLL_MAP_W + (c + 2)] = gWindowTileMap[r][c];
+        }
+    }
+    /* Hide window so BG can be layered over this copied prompt box. */
+    hWY = SCREEN_HEIGHT_PX;
 }

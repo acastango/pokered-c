@@ -66,10 +66,10 @@ static const song_t kSongs[] = {
     /* MUSIC_GYM */            { { &kGym_Ch1,       &kGym_Ch2,       &kGym_Ch3       } },
     /* MUSIC_CITIES1 */        { { &kCities1_Ch1,   &kCities1_Ch2,   &kCities1_Ch3   } },
     /* MUSIC_CITIES2 */        { { &kCities2_Ch1,   &kCities2_Ch2,   &kCities2_Ch3   } },
-    /* MUSIC_CELADON */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_CELADON */        { { &kCeladon_Ch1,   &kCeladon_Ch2,   &kCeladon_Ch3   } },
     /* MUSIC_CINNABAR */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_VERMILION */      { { &kVermilion_Ch1, &kVermilion_Ch2, &kVermilion_Ch3 } },
-    /* MUSIC_LAVENDER */       { { NULL,            NULL,            NULL            } },
+    /* MUSIC_LAVENDER */       { { &kLavender_Ch1,  &kLavender_Ch2,  &kLavender_Ch3  } },
     /* MUSIC_SS_ANNE */        { { &kSSAnne_Ch1,    &kSSAnne_Ch2,    &kSSAnne_Ch3    } },
     /* MUSIC_ROUTES1 */        { { &kRoutes1_Ch1,   &kRoutes1_Ch2,   &kRoutes1_Ch3   } },
     /* MUSIC_ROUTES2 */        { { &kRoutes2_Ch1,   &kRoutes2_Ch2,   &kRoutes2_Ch3   } },
@@ -77,10 +77,10 @@ static const song_t kSongs[] = {
     /* MUSIC_ROUTES4 */        { { NULL,            NULL,            NULL            } },
     /* MUSIC_INDIGO_PLATEAU */ { { NULL,            NULL,            NULL            } },
     /* MUSIC_OAKS_LAB */       { { &kOaksLab_Ch1,   &kOaksLab_Ch2,   &kOaksLab_Ch3   } },
-    /* MUSIC_DUNGEON1 */       { { NULL,            NULL,            NULL            } },
+    /* MUSIC_DUNGEON1 */       { { &kDungeon1_Ch1,  &kDungeon1_Ch2,  &kDungeon1_Ch3  } },
     /* MUSIC_DUNGEON2 */       { { &kDungeon2_Ch1,  &kDungeon2_Ch2,  &kDungeon2_Ch3  } },
     /* MUSIC_DUNGEON3 */       { { &kDungeon3_Ch1,  &kDungeon3_Ch2,  &kDungeon3_Ch3  } },
-    /* MUSIC_POKEMON_TOWER */  { { NULL,            NULL,            NULL            } },
+    /* MUSIC_POKEMON_TOWER */  { { &kPokemonTower_Ch1,&kPokemonTower_Ch2,&kPokemonTower_Ch3} },
     /* MUSIC_SILPH_CO */       { { NULL,            NULL,            NULL            } },
     /* MUSIC_SAFARI_ZONE */    { { &kSafariZone_Ch1,&kSafariZone_Ch2,&kSafariZone_Ch3} },
     /* MUSIC_TITLE */          { { &kTitleScreen_Ch1,&kTitleScreen_Ch2,&kTitleScreen_Ch3,&kTitleScreen_Ch4 } },
@@ -100,6 +100,7 @@ static const song_t kSongs[] = {
     /* MUSIC_SURFING */            { { &kSurfing_Ch1,           &kSurfing_Ch2,           &kSurfing_Ch3           } },
     /* MUSIC_MEET_PROF_OAK */     { { &kMeetProfOak_Ch1,       &kMeetProfOak_Ch2,       &kMeetProfOak_Ch3       } },
     /* MUSIC_INTRO_BATTLE */      { { &kIntroBattle_Ch1,       &kIntroBattle_Ch2,       &kIntroBattle_Ch3,      &kIntroBattle_Ch4 } },
+    /* MUSIC_GAME_CORNER */       { { &kGameCorner_Ch1,        &kGameCorner_Ch2,        &kGameCorner_Ch3        } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 

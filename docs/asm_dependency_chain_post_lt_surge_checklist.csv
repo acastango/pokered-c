@@ -1,0 +1,42 @@
+order,event_or_gate,asm_source,asm_operation,expected_c_touchpoint,status,notes
+1,EVENT_BEAT_LT_SURGE,scripts/VermilionGym.asm:69,SetEvent,src/game/vermilion_gym_scripts.c,unknown,Start of post-Surge chain
+2,EVENT_GOT_TM24,scripts/VermilionGym.asm:76,SetEvent,src/game/vermilion_gym_scripts.c,unknown,Conditional on bag space
+3,wObtainedBadges.BIT_THUNDERBADGE,scripts/VermilionGym.asm:84,set bit,src/game/vermilion_gym_scripts.c,unknown,Badge possession bit
+4,wBeatGymFlags.BIT_THUNDERBADGE,scripts/VermilionGym.asm:86,set bit,src/game/vermilion_gym_scripts.c,unknown,Gym clear bit
+5,EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI,scripts/RocketHideoutB4F.asm:54,SetEvent,src/game/rocket_hideout_b4f_scripts.c,unknown,Core Rocket Hideout completion
+6,EVENT_ROCKET_DROPPED_LIFT_KEY,scripts/RocketHideoutB4F.asm:193,CheckAndSetEvent,src/game/rocket_hideout_b4f_scripts.c,unknown,One-time lift key behavior
+7,TEXT_ROCKETHIDEOUTB4F_SILPH_SCOPE,scripts/RocketHideoutB4F.asm:85,Pickup text slot,src/data/event_data.c,unknown,Verify item object/event wiring
+8,EVENT_BEAT_GHOST_MAROWAK,scripts/PokemonTower6F.asm:64,SetEvent,src/game/pokemon_tower_6f_scripts.c,unknown,Gates tower progression
+9,EVENT_RESCUED_MR_FUJI,scripts/PokemonTower7F.asm:229,SetEvent,src/game/pokemon_tower_7f_scripts.c,unknown,Lavender/Fuji progression anchor
+10,EVENT_RESCUED_MR_FUJI_2,scripts/PokemonTower7F.asm:230,SetEvent,src/game/pokemon_tower_7f_scripts.c,unknown,Secondary mirror flag in ASM
+11,EVENT_GOT_POKE_FLUTE,scripts/MrFujisHouse.asm:81,SetEvent,src/game/mr_fujis_house_scripts.c,unknown,Critical post-Tower item gate
+12,EVENT_BEAT_SILPH_CO_GIOVANNI,scripts/SilphCo11F.asm:233,SetEvent,src/game/silph_co_11f_scripts.c,unknown,Saffron liberation completion
+13,EVENT_GOT_MASTER_BALL,scripts/SilphCo11F.asm:304,SetEvent,src/game/silph_co_11f_scripts.c,unknown,Conditional on bag space
+14,EVENT_BEAT_KOGA,scripts/FuchsiaGym.asm:52,SetEvent,src/game/fuchsia_gym_scripts.c,unknown,Gym 5 completion
+15,EVENT_GOT_TM06,scripts/FuchsiaGym.asm:59,SetEvent,src/game/fuchsia_gym_scripts.c,unknown,Conditional on bag space
+16,wObtainedBadges.BIT_SOULBADGE,scripts/FuchsiaGym.asm:65,set bit,src/game/fuchsia_gym_scripts.c,unknown,Badge possession bit
+17,wBeatGymFlags.BIT_SOULBADGE,scripts/FuchsiaGym.asm:67,set bit,src/game/fuchsia_gym_scripts.c,unknown,Gym clear bit
+18,EVENT_BEAT_SABRINA,scripts/SaffronGym.asm:50,SetEvent,src/game/saffron_gym_scripts.c,unknown,Gym 6 completion
+19,EVENT_GOT_TM46,scripts/SaffronGym.asm:57,SetEvent,src/game/saffron_gym_scripts.c,unknown,Conditional on bag space
+20,wObtainedBadges.BIT_MARSHBADGE,scripts/SaffronGym.asm:63,set bit,src/game/saffron_gym_scripts.c,unknown,Badge possession bit
+21,wBeatGymFlags.BIT_MARSHBADGE,scripts/SaffronGym.asm:65,set bit,src/game/saffron_gym_scripts.c,unknown,Gym clear bit
+22,EVENT_BEAT_BLAINE,scripts/CinnabarGym.asm:150,SetEvent,src/game/cinnabar_gym_scripts.c,unknown,Gym 7 completion
+23,EVENT_GOT_TM38,scripts/CinnabarGym.asm:157,SetEvent,src/game/cinnabar_gym_scripts.c,unknown,Conditional on bag space
+24,wObtainedBadges.BIT_VOLCANOBADGE,scripts/CinnabarGym.asm:163,set bit,src/game/cinnabar_gym_scripts.c,unknown,Badge possession bit
+25,wBeatGymFlags.BIT_VOLCANOBADGE,scripts/CinnabarGym.asm:165,set bit,src/game/cinnabar_gym_scripts.c,unknown,Gym clear bit
+26,EVENT_BEAT_VIRIDIAN_GYM_GIOVANNI,scripts/ViridianGym.asm:142,SetEvent,src/game/viridian_gym_scripts.c,unknown,Gym 8 completion
+27,EVENT_2ND_ROUTE22_RIVAL_BATTLE,scripts/ViridianGym.asm:167,SetEvents range start,src/game/viridian_gym_scripts.c,missing,Must arm rival 2
+28,EVENT_ROUTE22_RIVAL_WANTS_BATTLE,scripts/ViridianGym.asm:167,SetEvents range end,src/game/viridian_gym_scripts.c,partial,Also armed earlier by Oak for rival 1
+29,EVENT_ROUTE22_RIVAL_WANTS_BATTLE,scripts/Route22.asm:59,CheckEvent,src/game/route22_scripts.c,implemented,Entry gate
+30,EVENT_2ND_ROUTE22_RIVAL_BATTLE,scripts/Route22.asm:74,CheckEventReuseA,src/game/route22_scripts.c,implemented,Second-branch selector
+31,EVENT_BEAT_ROUTE22_RIVAL_2ND_BATTLE,scripts/Route22.asm:326,SetEvent,src/game/route22_scripts.c,implemented,Post-victory mark
+32,EVENT_2ND_ROUTE22_RIVAL_BATTLE + EVENT_ROUTE22_RIVAL_WANTS_BATTLE,scripts/Route22.asm:375,ResetEvents,src/game/route22_scripts.c,implemented,Disarm after encounter
+33,EVENT_PASSED_CASCADEBADGE_CHECK..EVENT_PASSED_EARTHBADGE_CHECK,scripts/Route23.asm:33-219,EventFlagBit/FlagAction set-test,src/game/route23_scripts.c,unknown,Must preserve memoized pass flags
+34,wObtainedBadges runtime checks,scripts/Route23.asm:202-213,FlagActionPredef test,src/game/route23_scripts.c,unknown,Must preserve live badge verification
+35,EVENT_BEAT_LORELEIS_ROOM_TRAINER_0,scripts/LoreleisRoom.asm:19,CheckEvent gate,src/game/loreleis_room_scripts.c,unknown,Controls room exit block
+36,EVENT_BEAT_BRUNOS_ROOM_TRAINER_0,scripts/BrunosRoom.asm:17,CheckEvent gate,src/game/brunos_room_scripts.c,unknown,Controls room exit block
+37,EVENT_BEAT_AGATHAS_ROOM_TRAINER_0,scripts/AgathasRoom.asm:17,CheckEvent gate,src/game/agathas_room_scripts.c,unknown,Controls room exit block
+38,EVENT_LANCES_ROOM_LOCK_DOOR,scripts/LancesRoom.asm:71,CheckAndSetEvent,src/game/lances_room_scripts.c,unknown,One-time entrance lock
+39,EVENT_BEAT_LANCE,scripts/LancesRoom.asm:156,SetEvent,src/game/lances_room_scripts.c,unknown,Gates champion-room progression
+40,EVENT_BEAT_CHAMPION_RIVAL,scripts/ChampionsRoom.asm:98,SetEvent,src/game/champions_room_scripts.c,unknown,Champion completion marker
+41,INDIGO_PLATEAU_EVENTS_START..INDIGO_PLATEAU_EVENTS_END,scripts/HallOfFame.asm:45,ResetEventRange,src/game/hall_of_fame_scripts.c,unknown,Critical post-clear range reset

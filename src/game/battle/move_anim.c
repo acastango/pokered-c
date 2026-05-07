@@ -133,6 +133,7 @@ static void MoveAnim_UpdatePerFrameEffects(move_anim_ctx_t *ctx);
 static void MoveAnim_LoadEnemyFrontSprite(uint8_t species);
 static void MoveAnim_LoadPlayerBackSprite(uint8_t species);
 static void MoveAnim_HidePlayerBackSprite(void);
+static void MoveAnim_ClearPlayerBackSpriteAt(uint8_t col, uint8_t row);
 static void MoveAnim_PlacePlayerBackSpriteAt(uint8_t col, uint8_t row);
 static int MoveAnim_SE_FlashScreenLongStep(move_anim_ctx_t *ctx);
 static int MoveAnim_SE_SpiralBallsInwardStep(move_anim_ctx_t *ctx);
@@ -961,6 +962,10 @@ static void MoveAnim_AnimationMoveMonHorizontally(move_anim_ctx_t *ctx) {
         MoveAnim_PlacePlayerBackSpriteAt(2u, 5u);
     } else {
         /* ASM: hlcoord 11,0 for enemy mon */
+        /* Enemy-side path uses OAM coordinates. Ensure they're visible before
+         * applying the horizontal offset; otherwise we'd offset/capture a
+         * hidden (y=0) state and strand the enemy sprite invisible. */
+        MoveAnim_SetEnemyVisible(1u);
         MoveAnim_OffsetEnemyY(0);
         {
             uint16_t i;
@@ -974,7 +979,6 @@ static void MoveAnim_AnimationMoveMonHorizontally(move_anim_ctx_t *ctx) {
                 }
             }
             BattleUI_EnemySpriteCaptureState();
-            BattleUI_EnemySpriteSetVisible(1u);
         }
     }
     MoveAnim_DelayFramesAsm(3u);
@@ -986,13 +990,13 @@ static void MoveAnim_AnimationResetMonPosition(move_anim_ctx_t *ctx) {
     sMoveAnimShakeY = 0;
     Display_SetShakeOffset(0, 0);
     if (hWhoseTurn == 0u) {
-        /* ASM clears offset position first (col2,row5), then shows normal pic. */
-        MoveAnim_PlacePlayerBackSpriteAt(2u, 5u);
+        /* Clear any shifted-offset copy from F2 first, then rebuild normal pose. */
+        MoveAnim_ClearPlayerBackSpriteAt(2u, 5u);
         MoveAnim_HidePlayerBackSprite();
         MoveAnim_LoadPlayerBackSprite(wBattleMon.species);
     } else {
-        BattleUI_EnemySpriteCaptureState();
         MoveAnim_SetEnemyVisible(1u);
+        BattleUI_EnemySpriteCaptureState();
     }
 }
 
@@ -1097,6 +1101,10 @@ static void MoveAnim_AnimationSlideMonOff(move_anim_ctx_t *ctx) {
         }
     } else {
         uint8_t step;
+        /* Defensive parity with F2/F1 path: if an earlier command left enemy
+         * hidden, restore visibility before motion/capture so we don't save
+         * an all-zero hidden baseline. */
+        MoveAnim_SetEnemyVisible(1u);
         for (step = 0u; step < 8u; step++) {
             uint16_t i;
             uint16_t start = BattleUI_GetEnemyOAMStart();
@@ -1649,14 +1657,18 @@ static void MoveAnim_LoadPlayerBackSprite(uint8_t species) {
 }
 
 static void MoveAnim_HidePlayerBackSprite(void) {
+    MoveAnim_ClearPlayerBackSpriteAt(MOVE_ANIM_PLAYER_BG_COL, MOVE_ANIM_PLAYER_BG_ROW);
+}
+
+static void MoveAnim_ClearPlayerBackSpriteAt(uint8_t col, uint8_t row) {
     uint8_t ty;
     for (ty = 0; ty < 7u; ty++) {
         uint8_t tx;
         for (tx = 0; tx < 7u; tx++) {
-            uint16_t row = (uint16_t)(MOVE_ANIM_PLAYER_BG_ROW + ty);
-            uint16_t col = (uint16_t)(MOVE_ANIM_PLAYER_BG_COL + tx);
-            uint16_t idx = (uint16_t)(row * SCREEN_WIDTH + col);
-            uint16_t sidx = (uint16_t)(row + 2u) * SCROLL_MAP_W + (uint16_t)(col + 2u);
+            uint16_t r = (uint16_t)(row + ty);
+            uint16_t c = (uint16_t)(col + tx);
+            uint16_t idx = (uint16_t)(r * SCREEN_WIDTH + c);
+            uint16_t sidx = (uint16_t)(r + 2u) * SCROLL_MAP_W + (uint16_t)(c + 2u);
             if (idx < SCREEN_AREA) wTileMap[idx] = BLANK_TILE_SLOT;
             if (sidx < (SCROLL_MAP_W * SCROLL_MAP_H)) gScrollTileMap[sidx] = BLANK_TILE_SLOT;
         }

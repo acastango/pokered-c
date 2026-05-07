@@ -69,7 +69,17 @@
 #include "pokeflute.h"
 #include "naming_screen.h"
 #include "name_rater_scripts.h"
+#include "rockethideout_b4f_scripts.h"
+#include "rockethideout_scripts.h"
+#include "game_corner_scripts.h"
+#include "pokemontower2f_scripts.h"
+#include "pokemontower5f_scripts.h"
+#include "pokemontower6f_scripts.h"
+#include "pokemontower7f_scripts.h"
+#include "mrfujis_house_scripts.h"
+#include "saffron_city_scripts.h"
 #include "yesno.h"
+#include "elevator_menu.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,6 +97,7 @@ typedef enum {
 } GameScene;
 
 static GameScene gScene = SCENE_OVERWORLD;
+static uint8_t sBattleResultLatched = BATTLE_OUTCOME_NONE;
 
 int  Game_GetScene(void)   { return (int)gScene; }
 void Game_SetScene(int s)  { gScene = (GameScene)s; }
@@ -111,6 +122,15 @@ static void fire_map_onload_callbacks(void) {
     Route2GateScripts_OnMapLoad();
     SSAnneScripts_OnMapLoad();
     VermilionGymScripts_OnMapLoad();
+    RocketHideoutB4FScripts_OnMapLoad();
+    RocketHideoutScripts_OnMapLoad();
+    GameCornerScripts_OnMapLoad();
+    PokemonTower2FScripts_OnMapLoad();
+    PokemonTower5FScripts_OnMapLoad();
+    PokemonTower6FScripts_OnMapLoad();
+    PokemonTower7FScripts_OnMapLoad();
+    MrFujisHouseScripts_OnMapLoad();
+    SaffronCityScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
     PokeFlute_LoadMap();
@@ -209,6 +229,7 @@ int gNoWilds = 0;
 /* Wild encounter: roll against rate and trigger text if hit */
 static void check_wild_encounter(void) {
     if (gNoWilds) return;
+    if (wCurMap == 0x92 && CheckEvent(EVENT_IN_PURIFIED_ZONE)) return; /* Pokemon Tower 5F purified zone */
     if (wCurMap >= NUM_MAPS) return;
     const wild_mons_t *w = &gWildGrass[wCurMap];
     if (!w->rate) return;
@@ -266,6 +287,10 @@ static void check_item_pickup(void) {
     for (int i = 0; i < ev->num_items; i++) {
         const item_event_t *it = &ev->items[i];
         if ((int)it->x != fx || (int)it->y != fy) continue;
+
+        /* Rocket Hideout B4F Lift Key: only collectible after the Rocket3 drop event. */
+        if (wCurMap == 0xCA && i == 4 && !CheckEvent(EVENT_ROCKET_DROPPED_LIFT_KEY))
+            return;
 
         /* Already picked up on a previous visit */
         if (wPickedUpItems[wCurMap] & (1u << i)) return;
@@ -405,6 +430,18 @@ static void check_sign_interact(void) {
     for (int i = 0; i < ev->num_signs; i++) {
         const sign_event_t *s = &ev->signs[i];
         if ((int)s->x == fx && (int)s->y == fy) {
+            /* Rocket Hideout elevator panel (ASM: RocketHideoutElevatorText):
+             * requires Lift Key to operate; otherwise shows key-needed text. */
+            if (wCurMap == 0xCB && (int)s->x == 1 && (int)s->y == 1) {
+                if (Inventory_GetQty(0x4A) > 0) {
+                    wDoNotWaitForButtonPress = 1;
+                    Text_ShowASCII("Which floor do\nyou want?");
+                    ElevatorMenu_QueueOpenRocketHideout();
+                } else if (s->text) {
+                    Text_ShowASCII(s->text);
+                }
+                return;
+            }
             if (s->text) Text_ShowASCII(s->text);
             return;
         }
@@ -519,8 +556,15 @@ void GameTick(void) {
         return;
     }
 
+    ElevatorMenu_TryOpenQueued();
+
     if (Menu_IsOpen()) {
         Menu_Tick();
+        return;
+    }
+
+    if (ElevatorMenu_IsOpen() || ElevatorMenu_IsBusy()) {
+        ElevatorMenu_Tick();
         return;
     }
 
@@ -620,6 +664,7 @@ void GameTick(void) {
             } else {
                 Battle_Start();
             }
+            sBattleResultLatched = BATTLE_OUTCOME_NONE;
             BattleUI_Enter();
             gScene = SCENE_BATTLE;
         }
@@ -632,8 +677,14 @@ void GameTick(void) {
          * wBattleResult in the same tick as setting bui_state=BUI_INACTIVE,
          * so we must snapshot them here to know the outcome after the tick. */
         uint8_t saved_battle_result = wBattleResult;
+        if (saved_battle_result != BATTLE_OUTCOME_NONE)
+            sBattleResultLatched = saved_battle_result;
         BattleUI_Tick();
         if (!BattleUI_IsActive()) {
+            uint8_t resolved_battle_result =
+                (saved_battle_result != BATTLE_OUTCOME_NONE)
+                ? saved_battle_result
+                : sBattleResultLatched;
             /* Battle ended — restore overworld GFX and state.
              * Font_LoadHudTiles() overwrote tile_gfx slots 2-24 during battle;
              * Map_ReloadGfx() restores the tileset so the map renders correctly.
@@ -649,8 +700,12 @@ void GameTick(void) {
                 int was_cerulean_rocket = CeruleanScripts_ConsumeRocketBattle();
                 int was_rocket_r24      = Route24Scripts_ConsumeRocketBattle();
                 int was_ss_anne_rival  = SSAnneScripts_ConsumeRivalBattle();
+                int was_rh_b4f_scripted = RocketHideoutB4FScripts_ConsumeBattle();
+                int was_gamecorner_rocket = GameCornerScripts_ConsumeRocketBattle();
+                int was_pt2_rival = PokemonTower2FScripts_ConsumeRivalBattle();
+                int was_pt7_rocket = PokemonTower7FScripts_ConsumeBattle();
                 printf("[battle end] result=%u engaged=(class=%u no=%u) gymleader=%u flags: gym=%d route22=%d cerulean_rival=%d cerulean_rocket=%d route24_rocket=%d ssanne=%d\n",
-                       (unsigned)saved_battle_result,
+                       (unsigned)resolved_battle_result,
                        (unsigned)gEngagedTrainerClass,
                        (unsigned)gEngagedTrainerNo,
                        (unsigned)wGymLeaderNo,
@@ -660,7 +715,7 @@ void GameTick(void) {
                        was_cerulean_rocket,
                        was_rocket_r24,
                        was_ss_anne_rival);
-                if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
+                if (resolved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY) {
                     if (wGymLeaderNo)
                         GymScripts_OnVictory();
                     else if (was_gym_trainer)
@@ -675,6 +730,14 @@ void GameTick(void) {
                         Route24Scripts_OnVictory();
                     else if (was_ss_anne_rival)
                         SSAnneScripts_OnVictory();
+                    else if (was_rh_b4f_scripted)
+                        RocketHideoutB4FScripts_OnVictory();
+                    else if (was_gamecorner_rocket)
+                        GameCornerScripts_OnVictory();
+                    else if (was_pt2_rival)
+                        PokemonTower2FScripts_OnVictory();
+                    else if (was_pt7_rocket)
+                        PokemonTower7FScripts_OnVictory();
                     else
                         Trainer_MarkCurrentDefeated();
                 } else if (was_route22_rival) {
@@ -687,26 +750,46 @@ void GameTick(void) {
                     Route24Scripts_OnDefeat();
                 } else if (was_ss_anne_rival) {
                     SSAnneScripts_OnDefeat();
+                } else if (was_rh_b4f_scripted) {
+                    RocketHideoutB4FScripts_OnDefeat();
+                } else if (was_gamecorner_rocket) {
+                    GameCornerScripts_OnDefeat();
+                } else if (was_pt2_rival) {
+                    PokemonTower2FScripts_OnDefeat();
+                } else if (was_pt7_rocket) {
+                    PokemonTower7FScripts_OnDefeat();
+                }
+                /* Defensive cleanup: if a gym leader battle ended without a
+                 * trainer-victory result (loss/blackout/other), clear the
+                 * leader marker so the next unrelated trainer victory cannot
+                 * be misrouted through GymScripts_OnVictory(). */
+                if (resolved_battle_result != BATTLE_OUTCOME_TRAINER_VICTORY &&
+                    wGymLeaderNo) {
+                    wGymLeaderNo = 0;
                 }
             }
 
             {
+                int was_pt6_marowak = PokemonTower6FScripts_ConsumeBattle();
                 int was_snorlax = PokeFlute_ConsumeSnorlaxPostBattle();
                 if (was_snorlax) {
-                    if (saved_battle_result == BATTLE_OUTCOME_WILD_VICTORY)
+                    if (resolved_battle_result == BATTLE_OUTCOME_WILD_VICTORY)
                         PokeFlute_OnSnorlaxVictory();
-                    else if (saved_battle_result == BATTLE_OUTCOME_CAUGHT)
+                    else if (resolved_battle_result == BATTLE_OUTCOME_CAUGHT)
                         PokeFlute_OnSnorlaxCaught();
                     /* BLACKOUT/RUN: no callback, normal handling applies */
+                }
+                if (was_pt6_marowak) {
+                    PokemonTower6FScripts_OnBattleOutcome(resolved_battle_result);
                 }
             }
 
             gScene = SCENE_OVERWORLD;
             gStepJustCompleted = 0;
             memset(wShadowOAM, 0, sizeof(wShadowOAM));
-            if (saved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY ||
-                saved_battle_result == BATTLE_OUTCOME_WILD_VICTORY    ||
-                saved_battle_result == BATTLE_OUTCOME_CAUGHT) {
+            if (resolved_battle_result == BATTLE_OUTCOME_TRAINER_VICTORY ||
+                resolved_battle_result == BATTLE_OUTCOME_WILD_VICTORY    ||
+                resolved_battle_result == BATTLE_OUTCOME_CAUGHT) {
                 if (wEvolutionOccurred) {
                     /* BUI_EVOLUTION snapped the palette back to normal — no
                      * fade-in needed; just load the map palette directly. */
@@ -717,7 +800,7 @@ void GameTick(void) {
                     gWarpStep      = 0;
                     gWarpStepTimer = FADE_TICKS_PER_STEP;
                 }
-            } else if (saved_battle_result == BATTLE_OUTCOME_BLACKOUT) {
+            } else if (resolved_battle_result == BATTLE_OUTCOME_BLACKOUT) {
                 /* Mirrors HandleBlackOut: heal party, warp to last pokecenter / mom's house. */
                 for (int i = 0; i < wPartyCount; i++) {
                     wPartyMons[i].base.hp     = wPartyMons[i].max_hp;
@@ -741,6 +824,7 @@ void GameTick(void) {
             } else {
                 Display_LoadMapPalette();
             }
+            sBattleResultLatched = BATTLE_OUTCOME_NONE;
             Map_ReloadGfx();
             Map_ResetScrollState();
             Font_Load();   /* restore font/box tiles (120-126, 128-255) */
@@ -766,16 +850,28 @@ void GameTick(void) {
      *  which calls DelayFrame twice, so steps are 8×2=16 VBlanks.)   *
      * Future scenes (SCENE_BATTLE, SCENE_MENU) run at full 60 Hz.   */
     if (gScene == SCENE_OVERWORLD) {
-        static int     ow_phase          = 0;
-        static uint8_t ow_pressed_latch  = 0;
-        if (ow_phase ^= 1) {
-            /* Skip frame: latch any presses so the next active frame sees them.
-             * Mirrors original: Joypad was read once per 30 Hz OverworldLoop
-             * iteration, so presses between iterations were never lost. */
+        /* ASM-accurate overworld cadence gate (fixed-point):
+         *   ASM_OW_HZ = GB_VBLANK_HZ / 2 = 29.86375
+         *   C_MAIN_HZ ~= 62.5 (16 ms frame pacing)
+         * Run an overworld tick when the accumulator crosses:
+         *   ASM_OW_HZ / C_MAIN_HZ = 597275 / 1250000.
+         * This removes the +4.6% speedup from strict every-other-frame gating. */
+        static uint32_t ow_accum         = 0;
+        static uint8_t  ow_pressed_latch = 0;
+        enum {
+            OW_GATE_NUM = 597275u,
+            OW_GATE_DEN = 1250000u
+        };
+
+        ow_accum += OW_GATE_NUM;
+        if (ow_accum < OW_GATE_DEN) {
+            /* Skip frame: latch presses so the next active tick sees them. */
             ow_pressed_latch |= hJoyPressed;
             return;
         }
-        /* Active frame: fold latched presses in so interactions aren't missed. */
+        ow_accum -= OW_GATE_DEN;
+
+        /* Active tick: fold latched presses in so interactions aren't missed. */
         hJoyPressed      |= ow_pressed_latch;
         ow_pressed_latch  = 0;
     }
@@ -1033,6 +1129,205 @@ void GameTick(void) {
         }
     }
 
+    /* ---- Rocket Hideout B4F scripted encounters ------------------------ */
+    {
+        RocketHideoutB4FScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (RocketHideoutB4FScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (RocketHideoutB4FScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Game Corner Rocket + poster switch ---------------------------- */
+    {
+        GameCornerScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (GameCornerScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (GameCornerScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Rocket Hideout map scripts (doors + spinner tiles) ------------ */
+    {
+        RocketHideoutScripts_Tick();
+        if (RocketHideoutScripts_IsActive()) {
+            /* Spinner scripts drive simulated movement, but player motion still
+             * advances through the normal overworld step pipeline each frame. */
+            Player_Update();
+            if (Warp_JustHappened()) {
+                gWarpPhase     = WARP_FADE_OUT;
+                gWarpStep      = 0;
+                gWarpStepTimer = FADE_TICKS_PER_STEP;
+                return;
+            }
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Pokemon Tower 2F rival script -------------------------------- */
+    {
+        PokemonTower2FScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (PokemonTower2FScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (PokemonTower2FScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Pokemon Tower 5F purified zone ------------------------------- */
+    {
+        PokemonTower5FScripts_Tick();
+        if (PokemonTower5FScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Pokemon Tower 6F ghost Marowak ------------------------------- */
+    {
+        PokemonTower6FScripts_Tick();
+        {
+            uint8_t species, enemy_level;
+            if (PokemonTower6FScripts_GetPendingBattle(&species, &enemy_level)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                wCurPartySpecies = species;
+                wCurEnemyLevel   = enemy_level;
+                Music_Play(MUSIC_WILD_BATTLE);
+                gPendingTrainerBattle = 0;
+                BattleTransition_Start(0, enemy_level, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (PokemonTower6FScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Pokemon Tower 7F Rockets + Mr. Fuji rescue ------------------- */
+    {
+        PokemonTower7FScripts_Tick();
+        {
+            uint8_t tr_class, tr_no;
+            if (PokemonTower7FScripts_GetPendingBattle(&tr_class, &tr_no)) {
+                int player_level = 5;
+                for (int i = 0; i < wPartyCount; i++) {
+                    if (wPartyMons[i].base.hp > 0) {
+                        player_level = wPartyMons[i].level;
+                        break;
+                    }
+                }
+                gEngagedTrainerClass = tr_class;
+                gEngagedTrainerNo    = tr_no;
+                memset(wShadowOAM + 4, 0, (MAX_SPRITES - 4) * sizeof(wShadowOAM[0]));
+                Music_Play(MUSIC_TRAINER_BATTLE);
+                gPendingTrainerBattle = 1;
+                BattleTransition_Start(1, 0, player_level);
+                gScene = SCENE_BTRANS;
+                return;
+            }
+        }
+        if (PokemonTower7FScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
     /* ---- Cerulean City rival battle script ----------------------------- */
     {
         CeruleanScripts_Tick();
@@ -1203,6 +1498,7 @@ void GameTick(void) {
     if (Text_IsOpen()) return;
     check_sign_interact();
     if (Text_IsOpen()) return;
+    if (ElevatorMenu_IsOpen()) return;
     check_cut_tree();
 
     /* Door step-out: fire once on the first normal frame after arriving on a
@@ -1266,7 +1562,12 @@ void GameTick(void) {
         Route22Scripts_StepCheck();
         CeruleanScripts_StepCheck();
         Route24Scripts_StepCheck();
+        PokemonTower2FScripts_StepCheck();
+        PokemonTower5FScripts_StepCheck();
+        PokemonTower6FScripts_StepCheck();
+        PokemonTower7FScripts_StepCheck();
         SSAnneScripts_StepCheck();
+        RocketHideoutScripts_StepCheck();
         VermilionScripts_StepCheck();
         if (Text_IsOpen()) return;
         /* Trainer sight check has priority over wild encounters (mirrors

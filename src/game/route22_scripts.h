@@ -1,9 +1,10 @@
 #pragma once
-/* route22_scripts.h — Route 22 rival encounter (rival 1 early-game battle).
+/* route22_scripts.h — Route 22 rival encounters (rival 1 and rival 2).
  *
  * Trigger: player steps on (29,4) or (29,5) while
- *   EVENT_ROUTE22_RIVAL_WANTS_BATTLE + EVENT_1ST_ROUTE22_RIVAL_BATTLE set
- *   and EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE not set.
+ *   EVENT_ROUTE22_RIVAL_WANTS_BATTLE set, and either:
+ *   - EVENT_1ST_ROUTE22_RIVAL_BATTLE set + EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE clear
+ *   - EVENT_2ND_ROUTE22_RIVAL_BATTLE set + EVENT_BEAT_ROUTE22_RIVAL_2ND_BATTLE clear
  *
  * Those events are set at the end of the Oak's Lab Pokédex sequence
  * (OLS_RIVAL_LEAVE_DONE in oakslab_scripts.c).

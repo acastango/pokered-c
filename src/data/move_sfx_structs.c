@@ -874,6 +874,33 @@ static const move_sfx_channel_def_t sfx_SFX_BATTLE_2B_channels[] = {
     { 8, "SFX_Battle_2B_Ch8", sfx_SFX_Battle_2B_Ch8_cmds, (uint16_t)(sizeof(sfx_SFX_Battle_2B_Ch8_cmds)/sizeof(sfx_SFX_Battle_2B_Ch8_cmds[0])) },
 };
 
+static const move_sfx_cmd_t sfx_SFX_Arrow_Tiles_1_Ch5_cmds[] = {
+    { MOVE_SFX_CMD_DUTY_CYCLE, 0, 0, 0, 0 },
+    { MOVE_SFX_CMD_PITCH_SWEEP, 1, 7, 0, 0 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 13, 2, 1792 },
+    { MOVE_SFX_CMD_PITCH_SWEEP, 0, 8, 0, 0 },
+    { MOVE_SFX_CMD_SOUND_RET, 0, 0, 0, 0 },
+};
+
+static const move_sfx_channel_def_t sfx_SFX_Arrow_Tiles_1_channels[] = {
+    { 5, "SFX_Arrow_Tiles_1_Ch5", sfx_SFX_Arrow_Tiles_1_Ch5_cmds, (uint16_t)(sizeof(sfx_SFX_Arrow_Tiles_1_Ch5_cmds)/sizeof(sfx_SFX_Arrow_Tiles_1_Ch5_cmds[0])) },
+};
+
+static const move_sfx_cmd_t sfx_SFX_Safari_Zone_PA_Ch5_cmds[] = {
+    { MOVE_SFX_CMD_DUTY_CYCLE, 2, 0, 0, 0 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 15, 3, 1840 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 8, 6, 5, 1840 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 15, 4, 1792 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 7, 4, 1792 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 4, 4, 1792 },
+    { MOVE_SFX_CMD_SQUARE_NOTE, 15, 2, 4, 1792 },
+    { MOVE_SFX_CMD_SOUND_RET, 0, 0, 0, 0 },
+};
+
+static const move_sfx_channel_def_t sfx_SFX_Safari_Zone_PA_channels[] = {
+    { 5, "SFX_Safari_Zone_PA_Ch5", sfx_SFX_Safari_Zone_PA_Ch5_cmds, (uint16_t)(sizeof(sfx_SFX_Safari_Zone_PA_Ch5_cmds)/sizeof(sfx_SFX_Safari_Zone_PA_Ch5_cmds[0])) },
+};
+
 const move_sfx_def_t gMoveSfxStructs[] = {
     { "SFX_POUND", 2, sfx_SFX_POUND_channels, (uint8_t)(sizeof(sfx_SFX_POUND_channels)/sizeof(sfx_SFX_POUND_channels[0])) },
     { "SFX_BATTLE_0C", 2, sfx_SFX_BATTLE_0C_channels, (uint8_t)(sizeof(sfx_SFX_BATTLE_0C_channels)/sizeof(sfx_SFX_BATTLE_0C_channels[0])) },
@@ -923,5 +950,7 @@ const move_sfx_def_t gMoveSfxStructs[] = {
     { "SFX_BATTLE_32", 2, sfx_SFX_BATTLE_32_channels, (uint8_t)(sizeof(sfx_SFX_BATTLE_32_channels)/sizeof(sfx_SFX_BATTLE_32_channels[0])) },
     { "SFX_BATTLE_34", 2, sfx_SFX_BATTLE_34_channels, (uint8_t)(sizeof(sfx_SFX_BATTLE_34_channels)/sizeof(sfx_SFX_BATTLE_34_channels[0])) },
     { "SFX_BATTLE_2B", 2, sfx_SFX_BATTLE_2B_channels, (uint8_t)(sizeof(sfx_SFX_BATTLE_2B_channels)/sizeof(sfx_SFX_BATTLE_2B_channels[0])) },
+    { "SFX_Arrow_Tiles_1", 1, sfx_SFX_Arrow_Tiles_1_channels, (uint8_t)(sizeof(sfx_SFX_Arrow_Tiles_1_channels)/sizeof(sfx_SFX_Arrow_Tiles_1_channels[0])) },
+    { "SFX_Safari_Zone_PA", 1, sfx_SFX_Safari_Zone_PA_channels, (uint8_t)(sizeof(sfx_SFX_Safari_Zone_PA_channels)/sizeof(sfx_SFX_Safari_Zone_PA_channels[0])) },
 };
 const uint16_t gMoveSfxStructCount = (uint16_t)(sizeof(gMoveSfxStructs)/sizeof(gMoveSfxStructs[0]));

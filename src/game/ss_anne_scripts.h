@@ -52,6 +52,10 @@ void SSAnneScripts_OnDefeat(void);
  * Called when player presses A on the captain. */
 void SSAnne_CaptainScript(void);
 
+/* npc_script_fn callback — SS Anne B1F Rooms Machoke interaction.
+ * Mirrors SSAnneB1FRooms.asm text_asm behavior: show text and play cry. */
+void SSAnne_B1FRoomsMachokeScript(void);
+
 /* Vermilion dock guard — SS Ticket step check.
  * Ports VermilionCityDefaultScript (scripts/VermilionCity.asm).
  * Step trigger at (18,30) facing DOWN: blocks without S_S_TICKET. */

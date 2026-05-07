@@ -45,6 +45,7 @@
 #include "../../data/base_stats.h"
 #include "../../data/event_constants.h"
 #include "../../data/pokemon_sprites.h"
+#include "../../data/ghost_front_sprite.h"
 #include "../../data/trainer_sprites.h"
 #include "../constants.h"
 #include "../text.h"
@@ -54,6 +55,7 @@
 #include "../trainer_sight.h" /* gEngagedTrainerClass */
 #include "../player.h"      /* gScrollPxX, gScrollPxY */
 #include "../naming_screen.h"
+#include "../inventory.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -93,6 +95,7 @@ typedef enum {
     BUI_TRAINER_VICTORY_TEXT,  /* defeat quote dismissed: wait for SFX                 */
     BUI_GYM_BADGE_JINGLE,      /* wait for key-item jingle, then show badge info text  */
     BUI_WAIT_CRY,              /* WaitForSoundToFinish for a cry before continuing     */
+    BUI_GHOST_REVEAL,          /* Pokemon Tower ghost->Marowak intro sequence          */
     BUI_WAIT_SOUND,            /* WaitForSoundToFinish then show money text            */
     BUI_FADE_WHITE,            /* white palette hold ~30f then BUI_END                 */
     BUI_LEVELUP_STATS,  /* wait for A on the level-up stats box     */
@@ -198,6 +201,20 @@ static const char *s_badge_recv_text    = NULL;
 static const char *s_badge_info_text    = NULL;
 static bui_state_t s_wait_cry_next_state = BUI_END;
 static char        s_wait_cry_text[64];
+static int         s_ghost_intro_phase   = 0;
+static int         s_ghost_intro_timer   = 0;
+
+#define MAP_POKEMON_TOWER_6F 0x93
+#define ITEM_SILPH_SCOPE     0x48
+#define GHOST_OBP1_NORMAL    0xE4
+#define GHOST_OBP1_FLASH     0xCC
+
+static int bui_should_run_marowak_ghost_intro(void) {
+    if (wIsInBattle != 1) return 0; /* wild only */
+    if (wCurMap != MAP_POKEMON_TOWER_6F) return 0;
+    if (wEnemyMon.species != SPECIES_MAROWAK) return 0; /* RESTLESS_SOUL == MAROWAK */
+    return Inventory_GetQty(ITEM_SILPH_SCOPE) > 0;
+}
 
 void BattleUI_SetBadgeRecvText(const char *text) { s_badge_recv_text = text; }
 void BattleUI_SetBadgeInfoText(const char *text) { s_badge_info_text = text; }
@@ -2621,6 +2638,11 @@ void BattleUI_Enter(void) {
             for (int i = 0; i < TRAINER_CANVAS_TILES; i++)
                 Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
                                        gTrainerFrontSprite[tc][i]);
+    } else if (bui_should_run_marowak_ghost_intro()) {
+        for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++) {
+            Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
+                                   kGhostFrontSprite[i]);
+        }
     } else if (e_dex > 0 && e_dex <= 151) {
         for (int i = 0; i < POKEMON_FRONT_CANVAS_TILES; i++)
             Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + i),
@@ -2727,15 +2749,107 @@ void BattleUI_Tick(void) {
                 Text_ShowASCII(s_msg_buf);
                 bui_state = BUI_SEND_OUT;
             } else {
-                Audio_PlayCry(wEnemyMon.species);
-                const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
-                snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Wild %s\nappeared!", e_name2);
-                s_wait_cry_next_state = BUI_SEND_OUT;
-                bui_state = BUI_WAIT_CRY;
+                if (bui_should_run_marowak_ghost_intro()) {
+                    Text_ShowASCII("Ghost\nappeared!");
+                    s_ghost_intro_phase = 0;
+                    s_ghost_intro_timer = 0;
+                    bui_state = BUI_GHOST_REVEAL;
+                } else {
+                    Audio_PlayCry(wEnemyMon.species);
+                    const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                    snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Wild %s\nappeared!", e_name2);
+                    s_wait_cry_next_state = BUI_SEND_OUT;
+                    bui_state = BUI_WAIT_CRY;
+                }
             }
         }
         break;
     }
+
+    case BUI_GHOST_REVEAL:
+        if (s_ghost_intro_phase == 0) {
+            Text_ShowASCII("SILPH SCOPE\nunveiled the\nGHOST's identity!");
+            s_ghost_intro_phase = 1;
+            s_ghost_intro_timer = 0;
+            for (int ty = 0; ty < 7; ty++) {
+                for (int tx = 0; tx < 7; tx++) {
+                    int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                    wShadowOAM[idx].flags |= OAM_FLAG_PALETTE; /* use OBP1 during reveal */
+                }
+            }
+            Display_SetOBP1(GHOST_OBP1_NORMAL);
+            break;
+        }
+        if (s_ghost_intro_phase == 1) {
+            s_ghost_intro_timer++;
+            if ((s_ghost_intro_timer % 10) == 0) {
+                int flash_idx = s_ghost_intro_timer / 10;
+                /* ASM FlashSprite8Times cadence: toggle every 10 frames, 8 toggles. */
+                Display_SetOBP1((flash_idx & 1) ? GHOST_OBP1_FLASH : GHOST_OBP1_NORMAL);
+                if (flash_idx >= 8) {
+                    s_ghost_intro_phase = 2;
+                    s_ghost_intro_timer = 0;
+                    Display_SetOBP1(GHOST_OBP1_NORMAL);
+                }
+            }
+            break;
+        }
+        if (s_ghost_intro_phase == 2) {
+            /* ASM fadeOutGhostLoop: OBP1 shifts toward white in 10-frame steps. */
+            static const uint8_t kFadeOutObp1[] = { 0xE4, 0x90, 0x40, 0x00 };
+            s_ghost_intro_timer++;
+            if ((s_ghost_intro_timer % 10) == 0) {
+                int i = s_ghost_intro_timer / 10;
+                if (i < (int)(sizeof(kFadeOutObp1) / sizeof(kFadeOutObp1[0]))) {
+                    Display_SetOBP1(kFadeOutObp1[i]);
+                } else {
+                    /* At full white: swap from ghost sprite tiles to Marowak tiles. */
+                    uint8_t marowak_dex = gSpeciesToDex[SPECIES_MAROWAK];
+                    if (marowak_dex > 0 && marowak_dex <= 151) {
+                        for (int t = 0; t < POKEMON_FRONT_CANVAS_TILES; t++) {
+                            Display_LoadSpriteTile((uint8_t)(ENEMY_SPR_TILE_BASE + t),
+                                                   gPokemonFrontSprite[marowak_dex][t]);
+                        }
+                    }
+                    s_ghost_intro_phase = 3;
+                    s_ghost_intro_timer = 0;
+                }
+            }
+            break;
+        }
+        if (s_ghost_intro_phase == 3) {
+            /* ASM fadeInMarowakLoop equivalent in 10-frame palette steps. */
+            static const uint8_t kFadeInObp1[] = { 0x40, 0x90, 0xE4 };
+            s_ghost_intro_timer++;
+            if ((s_ghost_intro_timer % 10) == 0) {
+                int i = s_ghost_intro_timer / 10;
+                if (i <= (int)(sizeof(kFadeInObp1) / sizeof(kFadeInObp1[0]))) {
+                    Display_SetOBP1(kFadeInObp1[i - 1]);
+                }
+                if (i >= (int)(sizeof(kFadeInObp1) / sizeof(kFadeInObp1[0]))) {
+                    Display_SetOBP1(GHOST_OBP1_NORMAL);
+                    for (int ty = 0; ty < 7; ty++) {
+                        for (int tx = 0; tx < 7; tx++) {
+                            int idx = ENEMY_SPR_OAM_BASE + ty * 7 + tx;
+                            wShadowOAM[idx].flags &= (uint8_t)~OAM_FLAG_PALETTE; /* restore OBP0 */
+                        }
+                    }
+                    /* Keep enemy continuously visible after reveal; don't use
+                     * visibility restore path here because its saved baseline
+                     * may not be initialized yet in this intro branch. */
+                    bui_place_enemy_sprite_full_oam();
+                    BattleUI_EnemySpriteCaptureState();
+                    Audio_PlayCry(wEnemyMon.species);
+                    {
+                        const char *e_name2 = Pokemon_GetName(gSpeciesToDex[wEnemyMon.species]);
+                        snprintf(s_wait_cry_text, sizeof(s_wait_cry_text), "Wild %s\nappeared!", e_name2);
+                    }
+                    s_wait_cry_next_state = BUI_SEND_OUT;
+                    bui_state = BUI_WAIT_CRY;
+                }
+            }
+        }
+        break;
 
     /* ---- "Wild X appeared!" text is up; wait for A then send out --- */
     case BUI_APPEARED:

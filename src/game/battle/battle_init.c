@@ -16,6 +16,7 @@
 #include "../pokemon.h"
 #include "../music.h"
 #include "../pokedex.h"
+#include "../rival_starter.h"
 #include <string.h>
 
 void Battle_Start(void) {
@@ -327,8 +328,9 @@ void Battle_ReadTrainer(uint8_t trainer_class, uint8_t trainer_no) {
         if (wEnemyPartyCount > 0)
             wEnemyMons[0].base.moves[2] = MOVE_SKY_ATTACK;
         uint8_t rival_move;
-        if      (wRivalStarter == STARTER3) rival_move = MOVE_MEGA_DRAIN;
-        else if (wRivalStarter == STARTER1) rival_move = MOVE_FIRE_BLAST;
+        uint8_t rival_starter = RivalStarter_Get();
+        if      (rival_starter == STARTER3) rival_move = MOVE_MEGA_DRAIN;
+        else if (rival_starter == STARTER1) rival_move = MOVE_FIRE_BLAST;
         else                                rival_move = MOVE_BLIZZARD;   /* STARTER2 */
         if (wEnemyPartyCount > 5)
             wEnemyMons[5].base.moves[2] = rival_move;

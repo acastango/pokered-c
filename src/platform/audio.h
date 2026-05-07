@@ -51,6 +51,9 @@ void Audio_PlaySFX_Ledge(void);
 
 /* Collision bump — mirrors SFX_COLLISION (audio/sfx/collision_1.asm, Ch5) */
 void Audio_PlaySFX_Collision(void);
+/* Retriggerable collision variant for elevator shake loop parity.
+ * Unlike Audio_PlaySFX_Collision, this does not skip if already active. */
+void Audio_PlaySFX_CollisionRetrigger(void);
 
 /* Building/cave enter and exit — mirrors SFX_GO_INSIDE / SFX_GO_OUTSIDE
  * (home/overworld.asm PlayMapChangeSound, noise channel Ch8) */
@@ -97,6 +100,10 @@ int  Audio_IsMoveSfxDebug(void);
 /* Gym trash-can switch click — mirrors SFX_SWITCH (audio/sfx/switch_1.asm, Ch5).
  * Two-tone two-click sequence; ~15 frames. */
 void Audio_PlaySFX_Switch(void);
+/* Rocket Hideout spinner tiles — imported from SFX_Arrow_Tiles_1. */
+void Audio_PlaySFX_ArrowTiles(void);
+/* Elevator "ding-dong" PA — SFX_Safari_Zone_PA (used after elevator shake). */
+void Audio_PlaySFX_SafariZonePA(void);
 
 /* Denied / wrong-answer buzz — mirrors SFX_DENIED (audio/sfx/denied_1.asm, Ch5+Ch6).
  * Two-channel alternating buzz; ~24 frames. */

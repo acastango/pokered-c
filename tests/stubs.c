@@ -73,6 +73,7 @@ void Audio_PlaySFX_Faint(void) {}
 void Audio_PlaySFX_Run(void) {}
 void Audio_PlaySFX_Cut(void) {}
 void Audio_PlaySFX_Switch(void) {}
+void Audio_PlaySFX_ArrowTiles(void) {}
 void Audio_PlaySFX_Denied(void) {}
 void Audio_PlaySFX_HealingMachine(void) {}
 void Audio_PlaySFX_LevelUp(void) {}
@@ -120,6 +121,5 @@ void Display_SetBlockIDOverlay(int e) { (void)e; }
 int  Display_GetBlockIDOverlay(void)  { return 0; }
 void Display_SetBlockIDQueryFn(int (*fn)(int bx, int by)) { (void)fn; }
 void Display_SetBlockIDCam(int tx, int ty) { (void)tx; (void)ty; }
-
 
 

@@ -30,8 +30,26 @@
 #include "../platform/audio.h"
 #include "../platform/display.h"
 #include "../data/event_data.h"
+#include "../data/event_constants.h"
 #include "../data/map_data.h"
 #include "../game/constants.h"
+#include "pallet_scripts.h"
+#include "oakslab_scripts.h"
+#include "viridian_mart_scripts.h"
+#include "mtmoon_scripts.h"
+#include "route22_scripts.h"
+#include "cerulean_scripts.h"
+#include "route24_scripts.h"
+#include "bills_house_scripts.h"
+#include "route2gate_scripts.h"
+#include "ss_anne_scripts.h"
+#include "vermilion_gym_scripts.h"
+#include "rockethideout_b4f_scripts.h"
+#include "rockethideout_scripts.h"
+#include "game_corner_scripts.h"
+#include "trainer_sight.h"
+#include "gate_scripts.h"
+#include "pokeflute.h"
 #include <stdio.h>
 
 /* LAST_MAP sentinel (0xFF in the original — "return to previous outdoor map") */
@@ -109,6 +127,28 @@ static int is_door_tile(uint8_t tile) {
         if (*p == tile) return 1;
     }
     return 0;
+}
+
+/* Keep warp arrivals consistent with GameInit/enter_overworld map-load flow.
+ * This applies per-map dynamic blocks/scripts (e.g., Rocket Hideout B4F door). */
+static void fire_map_onload_callbacks(void) {
+    PalletScripts_OnMapLoad();
+    OaksLabScripts_OnMapLoad();
+    ViridianMartScripts_OnMapLoad();
+    MtMoon_OnMapLoad();
+    Route22Scripts_OnMapLoad();
+    CeruleanScripts_OnMapLoad();
+    Route24Scripts_OnMapLoad();
+    BillsHouseScripts_OnMapLoad();
+    Route2GateScripts_OnMapLoad();
+    SSAnneScripts_OnMapLoad();
+    VermilionGymScripts_OnMapLoad();
+    RocketHideoutB4FScripts_OnMapLoad();
+    RocketHideoutScripts_OnMapLoad();
+    GameCornerScripts_OnMapLoad();
+    Trainer_LoadMap();
+    Gate_LoadMap();
+    PokeFlute_LoadMap();
 }
 
 /* Per-tileset warp-trigger tile ID lists.
@@ -204,11 +244,47 @@ static int gWarpDoorStep = 0;
 static int     gWarpPending     = 0;
 static uint8_t gPendingDestMap  = 0;
 static uint8_t gPendingDestIdx  = 0;
+static int     gPendingExactPos = 0;
+static int     gPendingX        = 0;
+static int     gPendingY        = 0;
+static uint8_t gPendingFromMap  = 0;
+static uint8_t gPendingFromWarp = 0;
+
+static int     gRocketElevatorDestValid = 0;
+static uint8_t gRocketElevatorDestMap   = 0;
+static int     gRocketElevatorDestX     = 0;
+static int     gRocketElevatorDestY     = 0;
+static int     gRocketElevatorReturnValid = 0;
+static uint8_t gRocketElevatorReturnMap   = 0;
+static uint8_t gRocketElevatorReturnWarp  = 0;
+
+/* ASM RocketHideoutElevatorWarpMaps parity (scripts/rockethideoutelevator.asm):
+ *   db 4, ROCKET_HIDEOUT_B1F
+ *   db 4, ROCKET_HIDEOUT_B2F
+ *   db 2, ROCKET_HIDEOUT_B4F
+ * Warp IDs there are 1-based; convert to 0-based for gMapEvents arrays. */
+static int rocket_elevator_default_return_warp(uint8_t map_id, uint8_t *warp_out) {
+    if (!warp_out) return 0;
+    switch (map_id) {
+        case 0xC7: *warp_out = 3; return 1; /* B1F warp 4 */
+        case 0xC8: *warp_out = 3; return 1; /* B2F warp 4 */
+        case 0xCA: *warp_out = 1; return 1; /* B4F warp 2 */
+        default: break;
+    }
+    return 0;
+}
 
 int Warp_JustHappened(void) {
     int v = gWarpJustHappened;
     gWarpJustHappened = 0;
     return v;
+}
+
+void Warp_SetRocketElevatorDestination(uint8_t map_id, int tile_x, int tile_y) {
+    gRocketElevatorDestValid = 1;
+    gRocketElevatorDestMap   = map_id;
+    gRocketElevatorDestX     = tile_x;
+    gRocketElevatorDestY     = tile_y;
 }
 
 int Warp_HasDoorStep(void) {
@@ -241,11 +317,23 @@ static int is_warp_tile_in_front_of_player(void) {
     return is_warp_trigger_tile(Map_GetGameTile(fx, fy));
 }
 
+/* Some warps are script-gated in ASM despite being present in map warp data.
+ * Game Corner stairs (GAME_CORNER @ 17,4) are disabled until the poster switch
+ * sets EVENT_FOUND_ROCKET_HIDEOUT. */
+static int is_warp_event_enabled(const map_warp_t *w) {
+    if (!w) return 0;
+    if (wCurMap == 0x87 && w->x == 17 && w->y == 4) {
+        return CheckEvent(EVENT_FOUND_ROCKET_HIDEOUT);
+    }
+    return 1;
+}
+
 int Warp_HasEventAt(int x, int y) {
     if (wCurMap >= NUM_MAPS) return 0;
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->warps) return 0;
     for (int i = 0; i < ev->num_warps; i++) {
+        if (!is_warp_event_enabled(&ev->warps[i])) continue;
         if (ev->warps[i].x == x && ev->warps[i].y == y) return 1;
     }
     return 0;
@@ -263,8 +351,10 @@ int Warp_CheckCollision(void) {
 
     for (int i = 0; i < ev->num_warps; i++) {
         const map_warp_t *w = &ev->warps[i];
+        if (!is_warp_event_enabled(w)) continue;
         if (w->x != wXCoord || w->y != wYCoord) continue;
 
+        uint8_t from_map = wCurMap;
         uint8_t dest_map = w->dest_map;
         if (dest_map == LAST_MAP) dest_map = wLastMap;
         if (dest_map >= NUM_MAPS) return 0;
@@ -277,6 +367,9 @@ int Warp_CheckCollision(void) {
 
         gPendingDestMap  = dest_map;
         gPendingDestIdx  = w->dest_warp_idx;
+        gPendingFromMap  = from_map;
+        gPendingFromWarp = (uint8_t)i;
+        gPendingExactPos = 0;
         gWarpPending      = 1;
         gWarpJustHappened = 1;
         printf("[warp_collision] map %d -> map %d (warp %d)\n",
@@ -287,20 +380,26 @@ int Warp_CheckCollision(void) {
 }
 
 int Warp_Check(void) {
+    const int warp_debug = 0;
     if (wCurMap >= NUM_MAPS) return 0;
 
     const map_events_t *ev = &gMapEvents[wCurMap];
     if (!ev->warps || ev->num_warps == 0) return 0;
 
-    printf("[warp_check] map=%d pos=(%d,%d) facing=%d edge=%d warps=%d\n",
-           wCurMap, wXCoord, wYCoord, gPlayerFacing,
-           (int)((wCurMapHeight > 0) ? (wYCoord == (int16_t)(wCurMapHeight * 2 - 1)) : 0),
-           ev->num_warps);
+    if (warp_debug) {
+        printf("[warp_check] map=%d pos=(%d,%d) facing=%d edge=%d warps=%d\n",
+               wCurMap, wXCoord, wYCoord, gPlayerFacing,
+               (int)((wCurMapHeight > 0) ? (wYCoord == (int16_t)(wCurMapHeight * 2 - 1)) : 0),
+               ev->num_warps);
+    }
 
     for (int i = 0; i < ev->num_warps; i++) {
         const map_warp_t *w = &ev->warps[i];
-        printf("[warp_check]   warp[%d]=(%d,%d) match=%d\n",
-               i, w->x, w->y, (w->x == wXCoord && w->y == wYCoord));
+        if (!is_warp_event_enabled(w)) continue;
+        if (warp_debug) {
+            printf("[warp_check]   warp[%d]=(%d,%d) match=%d\n",
+                   i, w->x, w->y, (w->x == wXCoord && w->y == wYCoord));
+        }
         if (w->x != wXCoord || w->y != wYCoord) continue;
 
         /* Save source map for the debug log before anything is updated. */
@@ -342,6 +441,22 @@ int Warp_Check(void) {
         }
 
         uint8_t dest_idx = w->dest_warp_idx;
+        int use_rocket_elevator_override = 0;
+        int use_rocket_elevator_return = 0;
+        if (wCurMap == 0xCB && (w->y == 1) && (w->x == 2 || w->x == 3) && gRocketElevatorDestValid) {
+            dest_map = gRocketElevatorDestMap;
+            use_rocket_elevator_override = 1;
+            printf("[elev] exit uses selected floor -> map=%u xy=(%d,%d)\n",
+                   gRocketElevatorDestMap, gRocketElevatorDestX, gRocketElevatorDestY);
+        } else if (wCurMap == 0xCB && (w->y == 1) && (w->x == 2 || w->x == 3) && gRocketElevatorReturnValid) {
+            /* ASM RocketHideoutElevatorStoreWarpEntriesScript behavior:
+             * default elevator exit returns to the floor/warp you entered from. */
+            dest_map = gRocketElevatorReturnMap;
+            dest_idx = gRocketElevatorReturnWarp;
+            use_rocket_elevator_return = 1;
+            printf("[elev] exit uses stored return -> map=%u warp=%u\n",
+                   gRocketElevatorReturnMap, gRocketElevatorReturnWarp);
+        }
 
         /* Only update wLastMap when leaving an outdoor map.
          * Do this NOW (before Map_Load changes wCurMap/wCurMapTileset).
@@ -362,10 +477,23 @@ int Warp_Check(void) {
          * (called at peak black) so the fade-out still uses the old tileset. */
         gPendingDestMap  = dest_map;
         gPendingDestIdx  = dest_idx;
+        gPendingFromMap  = from_map;
+        gPendingFromWarp = (uint8_t)i;
+        if (use_rocket_elevator_override) {
+            gPendingExactPos = 1;
+            gPendingX = gRocketElevatorDestX;
+            gPendingY = gRocketElevatorDestY;
+            gRocketElevatorDestValid = 0;
+        } else if (use_rocket_elevator_return) {
+            gPendingExactPos = 0;
+        } else {
+            gPendingExactPos = 0;
+        }
         gWarpPending      = 1;
         gWarpJustHappened = 1;
         printf("[warp] map %d -> map %d (warp %d) queued\n",
                from_map, dest_map, dest_idx);
+
         return 1;
     }
     return 0;
@@ -377,8 +505,22 @@ void Warp_Execute(void) {
 
     uint8_t dest_map = gPendingDestMap;
     uint8_t dest_idx = gPendingDestIdx;
+    uint8_t from_map = gPendingFromMap;
+    uint8_t from_warp = gPendingFromWarp;
 
     Map_Load(dest_map);   /* loads new tileset GFX into tile_gfx[] */
+
+    /* ASM parity: keep "step out where you entered" data tied to the
+     * actual executed transition into Rocket Hideout Elevator. */
+    if (dest_map == 0xCB && from_map != 0xCB) {
+        uint8_t warp_idx = from_warp;
+        (void)rocket_elevator_default_return_warp(from_map, &warp_idx);
+        gRocketElevatorReturnValid = 1;
+        gRocketElevatorReturnMap = from_map;
+        gRocketElevatorReturnWarp = warp_idx;
+        printf("[elev] set stored return from entry -> from_map=%u from_warp=%u mapped_warp=%u\n",
+               from_map, from_warp, warp_idx);
+    }
 
     /* Mirrors wMapPalOffset logic in home/overworld.asm:
      * - Enter ROCK_TUNNEL_1F from outside → darkness on (offset=6)
@@ -400,7 +542,18 @@ void Warp_Execute(void) {
     Player_IgnoreInputFrames(8);
 
     const map_events_t *dev = &gMapEvents[dest_map];
-    if (dev->warps && dest_idx < dev->num_warps) {
+    if (gPendingExactPos) {
+        int max_x = (int)wCurMapWidth  * 2 - 1;
+        int max_y = (int)wCurMapHeight * 2 - 1;
+        int nx = gPendingX;
+        int ny = gPendingY;
+        if (nx > max_x) nx = max_x;
+        if (ny > max_y) ny = max_y;
+        if (nx < 0) nx = 0;
+        if (ny < 0) ny = 0;
+        Player_SetPos((int16_t)nx, (int16_t)ny);
+        gPendingExactPos = 0;
+    } else if (dev->warps && dest_idx < dev->num_warps) {
         const map_warp_t *dw = &dev->warps[dest_idx];
         int max_x = (int)wCurMapWidth  * 2 - 1;
         int max_y = (int)wCurMapHeight * 2 - 1;
@@ -422,6 +575,7 @@ void Warp_Execute(void) {
     gWarpDoorStep = is_door_tile(Map_GetGameTile((int)wXCoord, (int)wYCoord));
 
     NPC_Load();
+    fire_map_onload_callbacks();
     printf("[warp] executed -> map %d @ (%d,%d)\n",
            dest_map, wXCoord, wYCoord);
 }
@@ -443,6 +597,7 @@ void Warp_ForceTeleport(uint8_t map_id, int tile_x, int tile_y) {
     if (tile_y > max_y) tile_y = max_y;
     Player_SetPos((uint16_t)tile_x, (uint16_t)tile_y);
     NPC_Load();
+    fire_map_onload_callbacks();
     Player_IgnoreInputFrames(8);
     printf("[warp] teleport -> map %d @ (%d,%d)\n", map_id, tile_x, tile_y);
 }

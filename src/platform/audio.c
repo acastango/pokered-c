@@ -758,6 +758,19 @@ void Audio_PlaySFX_Collision(void) {
     collision_sfx_timer  = COLLISION_SFX_FRAMES;
 }
 
+void Audio_PlaySFX_CollisionRetrigger(void) {
+    /* ASM elevator shake re-triggers collision repeatedly; do not gate on
+     * collision_sfx_active here. */
+    Music_SuspendChannel(0);
+    Audio_WriteReg(0, 0, 0x5A);                              /* NR10: pace=5, dec, shift=2 */
+    Audio_WriteReg(0, 1, (2 << 6) | 0x3F);                  /* NR11: duty=2 (50%) */
+    Audio_WriteReg(0, 2, 0xF1);                              /* NR12: vol=15, dec, pace=1 */
+    Audio_WriteReg(0, 3, (uint8_t)(768 & 0xFF));             /* NR13: freq low */
+    Audio_WriteReg(0, 4, (uint8_t)(((768 >> 8) & 0x07) | 0x80)); /* NR14: freq high + trigger */
+    collision_sfx_active = 1;
+    collision_sfx_timer  = COLLISION_SFX_FRAMES;
+}
+
 /* ---- Building enter/exit SFX (noise channel, ch[3]) ---------------
  * Original: home/overworld.asm PlayMapChangeSound → SFX_GO_INSIDE /
  *           SFX_GO_OUTSIDE, both on Ch8 (GB CH4, noise).
@@ -1664,6 +1677,14 @@ void Audio_PlaySFX_Switch(void) {
     Music_SuspendChannel(0);
     switch_sfx_step = 0;
     switch_sfx_fire(0);
+}
+
+void Audio_PlaySFX_ArrowTiles(void) {
+    (void)Audio_PlayMoveSFXBySymbol("SFX_Arrow_Tiles_1");
+}
+
+void Audio_PlaySFX_SafariZonePA(void) {
+    (void)Audio_PlayMoveSFXBySymbol("SFX_Safari_Zone_PA");
 }
 
 /* ---- Denied / wrong-answer SFX (SFX_DENIED → SFX_Denied_1_Ch5/Ch6) -

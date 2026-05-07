@@ -27,6 +27,10 @@ SFX_HEADERS = [
 SFX_DIR = ROOT / "pokered-master" / "audio" / "sfx"
 OUT_H = ROOT / "src" / "data" / "move_sfx_structs.h"
 OUT_C = ROOT / "src" / "data" / "move_sfx_structs.c"
+EXTRA_SFX_SYMBOLS = [
+    "SFX_Arrow_Tiles_1",
+    "SFX_Safari_Zone_PA",
+]
 
 MOVE_ROW_RE = re.compile(
     r"^\s*db\s+([A-Z0-9_]+)\s*,\s*\$([0-9A-Fa-f]{2})\s*,\s*\$([0-9A-Fa-f]{2})"
@@ -58,6 +62,9 @@ def parse_move_symbols() -> list[str]:
             sym = m.group(1)
             if sym not in symbols:
                 symbols.append(sym)
+    for sym in EXTRA_SFX_SYMBOLS:
+        if sym not in symbols:
+            symbols.append(sym)
     return symbols
 
 

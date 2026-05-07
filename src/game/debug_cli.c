@@ -18,6 +18,7 @@
 #include "battle/battle_exp.h"  /* Battle_AddExpDirect, gDebugExpRate */
 #include "battle/battle.h"      /* Battle hittrace diagnostics */
 #include "music.h"              /* Music_Play */
+#include "rockethideout_b4f_scripts.h"
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
 #include "../data/event_data.h"    /* map_events_t, gMapEvents */
@@ -1467,6 +1468,63 @@ static void process_cmd(const char *cmd) {
             Map_Load(wCurMap); NPC_Load();
             SSAnneScripts_OnMapLoad();
             printf("[cli] checkpoint: ss_anne_hm — inside SS Anne 1F, walk north to dock then departure\n");
+        } else if (strcmp(cp, "liftkey_reset") == 0) {
+            /* Reset Rocket Hideout B4F Lift Key sequence for repeat testing:
+             * - Rocket3 battle not yet won
+             * - Lift Key not dropped
+             * - Lift Key not picked up on B4F */
+            ClearEvent(EVENT_BEAT_ROCKET_HIDEOUT_4_TRAINER_2);
+            ClearEvent(EVENT_ROCKET_DROPPED_LIFT_KEY);
+            if (0xCA < 248)
+                wPickedUpItems[0xCA] &= (uint16_t)~(1u << 4);
+
+            /* If currently on B4F, immediately re-apply map object visibility. */
+            if (wCurMap == 0xCA) {
+                extern void NPC_Load(void);
+                extern void RocketHideoutB4FScripts_OnMapLoad(void);
+                NPC_Load();
+                RocketHideoutB4FScripts_OnMapLoad();
+            }
+            printf("[cli] checkpoint: liftkey_reset — cleared flags 441/715 and B4F Lift Key pickup bit\n");
+        } else if (strcmp(cp, "giovanni_reset") == 0) {
+            /* Reset Rocket Hideout B4F Giovanni sequence for repeat testing:
+             * - Giovanni battle not yet won
+             * - Silph Scope not picked up on B4F */
+            ClearEvent(EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI);
+            if (0xCA < 248)
+                wPickedUpItems[0xCA] &= (uint16_t)~(1u << 3);
+
+            /* If currently on B4F, immediately re-apply map object visibility. */
+            if (wCurMap == 0xCA) {
+                extern void NPC_Load(void);
+                extern void RocketHideoutB4FScripts_OnMapLoad(void);
+                NPC_Load();
+                RocketHideoutB4FScripts_OnMapLoad();
+            }
+            printf("[cli] checkpoint: giovanni_reset — cleared Giovanni flag and B4F Silph Scope pickup bit\n");
+        } else if (strcmp(cp, "giovanni_ready") == 0) {
+            /* Set Rocket Hideout B4F to "right before Giovanni":
+             * - Hideout discovered/opened
+             * - Lift Key in bag
+             * - Door grunts on B4F already beaten (door open)
+             * - Giovanni not yet beaten; Silph Scope not picked up
+             * - Teleport inside B4F a few tiles below Giovanni */
+            SetEvent(EVENT_FOUND_ROCKET_HIDEOUT);
+            SetEvent(EVENT_ROCKET_DROPPED_LIFT_KEY);
+            SetEvent(EVENT_BEAT_ROCKET_HIDEOUT_4_TRAINER_0);
+            SetEvent(EVENT_BEAT_ROCKET_HIDEOUT_4_TRAINER_1);
+            ClearEvent(EVENT_BEAT_ROCKET_HIDEOUT_GIOVANNI);
+            if (Inventory_GetQty(0x4A) == 0)
+                Inventory_Add(0x4A, 1); /* LIFT_KEY */
+            if (0xCA < 248)
+                wPickedUpItems[0xCA] &= (uint16_t)~(1u << 3); /* Silph Scope on B4F not picked */
+
+            wCurMap = 0xCA;  /* ROCKET_HIDEOUT_B4F */
+            wXCoord = 25; wYCoord = 6;
+            Map_Load(wCurMap); NPC_Load();
+            RocketHideoutB4FScripts_OnMapLoad();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: giovanni_ready — teleported to B4F in front of Giovanni, Lift Key granted\n");
         } else if (strcmp(cp, "surge") == 0) {
             /* surge — inside Vermilion Gym, puzzle solved, facing Lt. Surge */
             SetEvent(EVENT_GOT_POKEDEX);
@@ -1502,7 +1560,7 @@ static void process_cmd(const char *cmd) {
             printf("[cli] checkpoint: surge — inside Vermilion Gym, facing Lt. Surge\n");
         } else {
             printf("[cli] Unknown checkpoint: %s\n"
-                   "      Available: parcel_ready, pokedex_ready, mt_moon, cerulean, route22, brock, misty, cerulean_rocket, ss_anne_hm, surge\n", cp);
+                   "      Available: parcel_ready, pokedex_ready, mt_moon, cerulean, route22, brock, misty, cerulean_rocket, ss_anne_hm, liftkey_reset, giovanni_reset, giovanni_ready, surge\n", cp);
         }
         write_state();
         return;

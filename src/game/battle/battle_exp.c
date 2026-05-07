@@ -73,6 +73,17 @@ static void exp_queue_push_learn_move(uint8_t slot, uint8_t move_id) {
     }
 }
 
+/* Returns non-zero if party nickname slot currently matches the species'
+ * default name (i.e. not a custom nickname). */
+static int exp_nick_is_default_species(uint8_t slot, uint8_t species) {
+    uint8_t dex = gSpeciesToDex[species];
+    uint8_t enc_default[NAME_LENGTH];
+    if (slot >= PARTY_LENGTH) return 0;
+    if (dex == 0 || dex > NUM_POKEMON) return 0;
+    Pokemon_EncodeNameString(Pokemon_GetName(dex), enc_default);
+    return memcmp(wPartyMonNicks[slot], enc_default, NAME_LENGTH) == 0;
+}
+
 int BattleExp_TakeNextEvent(battleexp_event_t *out) {
     if (!out) return 0;
     if (s_exp_queue_idx >= s_exp_queue_count) return 0;
@@ -406,6 +417,10 @@ void Battle_ApplyEvolution(uint8_t slot, uint8_t new_species) {
 
     p->base.species      = new_species;
     wPartySpecies[slot]  = new_species;
+    /* If the mon had the default (non-custom) species name before evolving,
+     * update it to the evolved species name. Preserve true nicknames. */
+    if (exp_nick_is_default_species(slot, old_species))
+        Pokemon_EncodeNameString(Pokemon_GetName(new_dex), wPartyMonNicks[slot]);
 
     uint8_t atk_dv = (uint8_t)((p->base.dvs >> 12) & 0x0F);
     uint8_t def_dv = (uint8_t)((p->base.dvs >>  8) & 0x0F);

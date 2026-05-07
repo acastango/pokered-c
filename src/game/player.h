@@ -66,3 +66,14 @@ extern int gNoClip;
  * warp tile just arrived on.  Does NOT block Warp_Check — the warp fires
  * as soon as input is restored and the player walks into the exit. */
 void Player_IgnoreInputFrames(int n);
+
+/* Start map-script simulated movement from an expanded direction sequence.
+ * `seq` uses 0=DOWN,1=UP,2=LEFT,3=RIGHT and is consumed from `last_idx` to 0
+ * (matching ASM simulated joypad playback over reverse-expanded buffers). */
+void Player_StartSimulatedMovement(const int8_t *seq, int last_idx);
+
+/* Returns 1 while simulated movement playback is active. */
+int Player_IsSimulatingMovement(void);
+
+/* Enable/disable spinner-facing animation while movement is in progress. */
+void Player_SetSpinnerSpin(int enabled);

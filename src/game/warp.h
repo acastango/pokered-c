@@ -60,3 +60,7 @@ int Warp_HasEventAt(int x, int y);
  * Bypasses the normal warp fade/queue system.  Pass tile_x=-1,tile_y=-1 to land
  * at the map centre.  Intended for the bugs/teleport.txt file-based trigger. */
 void Warp_ForceTeleport(uint8_t map_id, int tile_x, int tile_y);
+
+/* Rocket Hideout elevator script destination override.
+ * Applies when exiting ROCKET_HIDEOUT_ELEVATOR (map 0xCB) warps at (2,1)/(3,1). */
+void Warp_SetRocketElevatorDestination(uint8_t map_id, int tile_x, int tile_y);

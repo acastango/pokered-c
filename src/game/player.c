@@ -73,10 +73,14 @@
  * = black where bit set, transparent where clear).  Four OAM entries 2×2 with
  * XY flip variants form a 16×16 oval ground shadow.
  *
+ * Port note: move animation tiles now occupy sprite slots $31..$7F in battle.
+ * Keeping the shadow on $7F causes overwrites after battle, so we reserve a
+ * high slot outside the move-animation range for stable overworld shadow gfx.
+ *
  * Original position: Y_OAM=$54 (screen Y=68), X_OAM=$48 (screen X=64).
  * Relative to player TL (screen Y=64, X=64): shadow TL is 4px below player TL,
  * sitting at the lower half of the player sprite (the feet / ground plane). */
-#define SHADOW_TILE_IDX   127   /* sprite tile $7F — matches vChars1 tile $7f */
+#define SHADOW_TILE_IDX   0xFB  /* reserved high OBJ tile; avoids move-anim $31..$7F overlap */
 #define SHADOW_OAM_BASE   68    /* OAM slots 68-71: after player(0-3) + NPCs(4-67) */
 #define SHADOW_Y_OFFSET     8   /* shadow TL is 8px below player TL (original: $54-$4C = 84-76 = 8px) */
 
@@ -199,6 +203,21 @@ static int gPlayerOffPxY     = 0;
 static int gIntraAnimFrame   = 0;  /* 0-3; advances AnimFrameCounter every 4 frames */
 static int gAnimFrameCounter = 0;  /* 0-3; cycles through walk animation states */
 static int s_wall_anim_active = 0; /* 1 while pressing into a wall (mirrors wWalkCounter>0 on collision path) */
+static const int8_t *s_sim_seq = 0;
+static int s_sim_idx = -1;
+static int s_spinner_spin_active = 0;
+static int s_spinner_spin_phase = 0;
+
+/* ASM SpinnerPlayerFacingDirections parity:
+ * down -> left -> up -> right -> down */
+static int spinner_next_facing(int facing) {
+    switch (facing & 3) {
+    case 0: return 2; /* down -> left */
+    case 2: return 1; /* left -> up */
+    case 1: return 3; /* up -> right */
+    default: return 0; /* right -> down */
+    }
+}
 
 /* ---- Sprite helpers -------------------------------------- */
 
@@ -249,6 +268,12 @@ static void load_player_frame(int frame_idx) {
  * Mirrors UpdatePlayerSprite + FlippedOAM layout in facings.asm. */
 static void update_player_oam(void) {
     int anim_idx = (gWalkTimer > 0 || s_wall_anim_active) ? gAnimFrameCounter : 0;
+    if (s_spinner_spin_active) {
+        /* ASM UpdateSpriteInWalkingAnimation: BIT_SPINNING skips normal
+         * walk anim frame progression, so keep standing frame while facing
+         * rotates via LoadSpinnerArrowTiles-equivalent logic. */
+        anim_idx = 0;
+    }
     const anim_entry_t *e = &kAnimTable[gPlayerFacing & 3][anim_idx];
     load_player_frame(e->frame);
 
@@ -385,6 +410,20 @@ void Player_DoScriptedStep(int dir) {
     begin_step(nx, ny, dx, dy);
 }
 
+void Player_StartSimulatedMovement(const int8_t *seq, int last_idx) {
+    s_sim_seq = seq;
+    s_sim_idx = last_idx;
+}
+
+int Player_IsSimulatingMovement(void) {
+    return (s_sim_seq != 0 && s_sim_idx >= 0);
+}
+
+void Player_SetSpinnerSpin(int enabled) {
+    s_spinner_spin_active = enabled ? 1 : 0;
+    s_spinner_spin_phase = 0;
+}
+
 void Player_SetPos(int16_t x, int16_t y) {
     wXCoord       = x;
     wYCoord       = y;
@@ -418,13 +457,22 @@ void Player_Init(uint8_t x, uint8_t y) {
 void Player_Update(void) {
     /* ---- Mid-step: advance BG scroll and sprite slide ---- */
     if (gWalkTimer > 0) {
+        if (s_spinner_spin_active) {
+            /* ASM parity tuning: spinner-facing advance is effectively half-rate
+             * relative to our movement tick path; rotate once every 2 ticks. */
+            if ((s_spinner_spin_phase++ & 1) == 0) {
+                gPlayerFacing = spinner_next_facing(gPlayerFacing);
+            }
+        }
         /* Background scrolls from initial offset toward 0 (1 px per frame = 1px/VBlank). */
         gScrollPxX    -= gBgScrollDX;
         gScrollPxY    -= gBgScrollDY;
         /* Sprite slides from old screen position toward new (1 px per frame). */
         gPlayerOffPxX += (gWalkDX - gBgScrollDX);
         gPlayerOffPxY += (gWalkDY - gBgScrollDY);
-        advance_anim();
+        if (!s_spinner_spin_active) {
+            advance_anim();
+        }
         if (--gWalkTimer == 0) {
             /* Snap to zero at step completion to absorb any rounding drift. */
             gScrollPxX = gScrollPxY = gPlayerOffPxX = gPlayerOffPxY = 0;
@@ -458,6 +506,20 @@ void Player_Update(void) {
 
     /* ---- Scripted movement: suppress all idle input while active ---- */
     if (gScriptedMovement) {
+        update_player_oam();
+        return;
+    }
+
+    /* ---- Simulated movement (ASM StartSimulatingJoypadStates parity) ----
+     * Feed scripted directions through the same per-frame player pipeline.
+     * This keeps spinner/auto-move progression independent of map-script tick
+     * ordering and avoids deadlocks when map scripts early-return. */
+    if (Player_IsSimulatingMovement()) {
+        int dir = (int)s_sim_seq[s_sim_idx--];
+        Player_DoScriptedStep(dir);
+        if (s_sim_idx < 0) {
+            s_sim_seq = 0;
+        }
         update_player_oam();
         return;
     }
