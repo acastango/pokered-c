@@ -50,6 +50,10 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - Move animation pipeline integrated and actively parity-polished against ASM behavior
 - Full battle UI: HP bars, status icons, party dots, move menu, bag/switch/run submenus
 
+Move animation disclaimer:
+- Move animations are integrated, but approximately 75% remain untested/unverified against ASM parity.
+- Some animations may still have visual/timing/SFX mismatches or edge-case bugs.
+
 ### UI screens
 - **Start menu** — Pokédex (when obtained), Pokémon party, bag, save, exit (player card/option still stubbed)
 - **Bag** — item list and use
