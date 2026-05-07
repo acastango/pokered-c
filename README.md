@@ -27,9 +27,10 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - **Oak's Lab** — starter selection dialogue, rival pick, receive Pokédex, Oak's Parcel delivery chain
 - **Viridian City** — Mart locked until Parcel delivered; Old Man tutorial
 - **Viridian Forest** — trainer encounters (Bug Catcher parties)
+- **Pewter City and Brock** — Pewter city Youngster guide sequence implemented to ASM spec, Brock battle and post battle sequence implemented to ASM spec.
 - **Mt. Moon** — trainer encounters, cave exit warps
 - **Route 22 / Cerulean / Route 24-25** — rival/event flows, Nugget Bridge chain, trainers, Bill's House sequence
-- **S.S. Anne chapter** — rival battle and captain/HM01 Cut sequence integrated with associated trainer/event scripting
+- **S.S. Anne chapter** — rival battle and captain/HM01 Cut sequence integrated with associated trainer/event scripting - SS anne exit animation isnt perfect yet.
 - **Vermilion Gym script path** — gym-specific script module and puzzle/event scaffolding integrated
 - **Celadon Gym / Erika battle and TM sequence**  — Gym leader Erika is fully battleable with event flag set up, TM given after victory. 
 - **Celadon / Rocket Hideout** — Game Corner poster Rocket encounter + switch, staircase reveal behavior, spinner movement/animation/SFX flow, Lift Key drop sequence, elevator panel flow, Giovanni encounter + Silph Scope drop sequence
