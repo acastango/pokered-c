@@ -8,7 +8,6 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 
 ## Release notes
 
-- Human-readable changelog: [`CHANGELOG.md`](CHANGELOG.md)
 - Full file-level release ledger (2026-04-13): [`bugs/release_ledger_2026-04-13.md`](bugs/release_ledger_2026-04-13.md)
 
 ## What's implemented
@@ -138,6 +137,23 @@ cd build && ctest
 | Z | A button (confirm, interact) |
 | X | B button (cancel, back) |
 | Enter | Start |
+
+### Debug render / rewind keys
+- `--debug-render` launch mode: fixed `512x288` window (logical `256x144`) with in-window CLI sidebar
+- `~` / `Shift+~`: toggle debug CLI typing mode in debug-render
+- Hold `Ctrl+Z`: rewind backward frame-by-frame
+- Hold `Ctrl+Y`: redo/forward frame-by-frame
+
+## Debug tooling
+
+- Debug CLI command reference: [`docs/debug-and-tooling/game_cli_commands.md`](docs/debug-and-tooling/game_cli_commands.md)
+- Debug system guide (replay, rewind, quicksave/csave, telemetry): [`docs/debug-and-tooling/debug_cli_tools_guide.md`](docs/debug-and-tooling/debug_cli_tools_guide.md)
+- Build notes: [`docs/debug-and-tooling/pokered-build.md`](docs/debug-and-tooling/pokered-build.md)
+
+Runtime debug outputs:
+- `bugs/cli_state.txt` (CLI state snapshots)
+- `bugs/session_narrative.log` (human-readable session log)
+- `bugs/session_events.jsonl` (structured event stream, including event-flag transitions and battle start/end summaries)
 
 ## Data extraction tools
 
