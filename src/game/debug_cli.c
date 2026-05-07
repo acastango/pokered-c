@@ -124,19 +124,30 @@ static char     s_replay_tmp_input[192] = {0};
 #define CLI_HIST_MAX   64
 #define CLI_HIST_WIDTH 72
 static char s_hist[CLI_HIST_MAX][CLI_HIST_WIDTH + 1];
+static uint8_t s_hist_color[CLI_HIST_MAX];
 static int  s_hist_head = 0;
 static int  s_hist_count = 0;
+static int  s_last_cmd_hist_slot = -1;
+static int  s_last_cmd_valid = 1;
 
-static void cli_hist_push(const char *line) {
+static int cli_hist_push_color(const char *line, uint8_t color) {
+    int slot;
     size_t i = 0;
-    if (!line || !*line) return;
+    if (!line || !*line) return -1;
+    slot = s_hist_head;
     while (line[i] && i < CLI_HIST_WIDTH) {
         char c = line[i];
         s_hist[s_hist_head][i++] = (c >= 32 && c <= 126) ? c : ' ';
     }
     s_hist[s_hist_head][i] = '\0';
+    s_hist_color[s_hist_head] = color;
     s_hist_head = (s_hist_head + 1) % CLI_HIST_MAX;
     if (s_hist_count < CLI_HIST_MAX) s_hist_count++;
+    return slot;
+}
+
+static int cli_hist_push(const char *line) {
+    return cli_hist_push_color(line, CLI_HIST_COLOR_DEFAULT);
 }
 
 int DebugCLI_GetHistoryCount(void) { return s_hist_count; }
@@ -149,7 +160,20 @@ const char *DebugCLI_GetHistoryLine(int newest_index) {
     return s_hist[idx];
 }
 
+int DebugCLI_GetHistoryColor(int newest_index) {
+    int idx;
+    if (newest_index < 0 || newest_index >= s_hist_count) return CLI_HIST_COLOR_DEFAULT;
+    idx = s_hist_head - 1 - newest_index;
+    while (idx < 0) idx += CLI_HIST_MAX;
+    return s_hist_color[idx];
+}
+
 int DebugCLI_IsReplayPlaying(void) { return s_replay_playing; }
+
+void DebugCLI_HistoryPushExternal(const char *line) {
+    if (!line || !*line) return;
+    cli_hist_push_color(line, CLI_HIST_COLOR_LOG);
+}
 
 /* ---- Move animation lab (auto-play move sequence in a controlled battle) */
 static int s_animlab_enabled  = 0;
@@ -1017,6 +1041,7 @@ static void con_draw(void) {
 }
 
 static void process_cmd(const char *cmd) {
+    s_last_cmd_valid = 1;
     char verb[32] = {0};
     int  n = 1;
     sscanf(cmd, "%31s %d", verb, &n);
@@ -2182,6 +2207,7 @@ static void process_cmd(const char *cmd) {
     }
     else {
         printf("[cli] Unknown command: %s\n", verb);
+        s_last_cmd_valid = 0;
         write_state();
         return;
     }
@@ -2211,9 +2237,14 @@ static void poll_cmd_file(void) {
     {
         char logline[CLI_HIST_WIDTH + 1];
         snprintf(logline, sizeof(logline), "> %s", line);
-        cli_hist_push(logline);
+        s_last_cmd_hist_slot = cli_hist_push(logline);
     }
     process_cmd(line);
+    if (s_last_cmd_hist_slot >= 0) {
+        s_hist_color[s_last_cmd_hist_slot] =
+            (uint8_t)(s_last_cmd_valid ? CLI_HIST_COLOR_OK : CLI_HIST_COLOR_ERROR);
+        s_last_cmd_hist_slot = -1;
+    }
 }
 
 /* ---- Public tick -------------------------------------------------- */
@@ -2356,9 +2387,14 @@ void DebugCLI_ConsoleExecute(void) {
         {
             char logline[CLI_HIST_WIDTH + 1];
             snprintf(logline, sizeof(logline), "> %s", s_con_buf);
-            cli_hist_push(logline);
+            s_last_cmd_hist_slot = cli_hist_push(logline);
         }
         process_cmd(s_con_buf);
+        if (s_last_cmd_hist_slot >= 0) {
+            s_hist_color[s_last_cmd_hist_slot] =
+                (uint8_t)(s_last_cmd_valid ? CLI_HIST_COLOR_OK : CLI_HIST_COLOR_ERROR);
+            s_last_cmd_hist_slot = -1;
+        }
     }
     if (s_con_always_open) {
         s_con_len = 0;

@@ -49,6 +49,8 @@ static const char kBrockBadgeInfo[] =
 #define CERULEAN_TRAINER0_CLASS   6   /* JR_TRAINER_F = $06 */
 #define SURGE_CLASS              36   /* trainer_const LT_SURGE = $24 */
 #define SURGE_NO                  1
+#define ERIKA_CLASS              37   /* trainer_const ERIKA = $25 */
+#define ERIKA_NO                  1
 #define CERULEAN_TRAINER0_NO      1
 #define CERULEAN_TRAINER1_CLASS  15   /* SWIMMER = $0F */
 #define CERULEAN_TRAINER1_NO      1
@@ -91,6 +93,15 @@ typedef enum {
     GS_SURGE_TM_WAIT,      /* wait for "[PLAYER] received TM24!" */
     GS_SURGE_TM_EXPLAIN,   /* show TM24 explanation */
     GS_SURGE_TM_EXP_WAIT,
+
+    /* Erika (Celadon) */
+    GS_ERIKA_PRE_TEXT,
+    GS_ERIKA_PRE_WAIT,
+    GS_ERIKA_POST_TEXT,
+    GS_ERIKA_POST_WAIT,
+    GS_ERIKA_TM_WAIT,      /* wait for "[PLAYER] received TM21!" */
+    GS_ERIKA_TM_EXPLAIN,   /* show TM21 explanation */
+    GS_ERIKA_TM_EXP_WAIT,
 
     /* Generic guide / info text */
     GS_GUIDE_TEXT,
@@ -240,6 +251,43 @@ static const char kSurgeTMExplain[] =
     "TM24 contains\nTHUNDERBOLT!"
     "\fTeach it to an\nelectric #MON!";
 
+/* ---- Erika / Celadon Gym dialogue -------------------------------- */
+static const char kErikaPre[] =
+    "Hello. Lovely\nweather isn't it?\nIt's so pleasant."
+    "\f...Oh dear...\nI must have dozed\noff. Welcome."
+    "\fMy name is ERIKA.\nI am the LEADER\nof CELADON GYM."
+    "\fI teach the art of\nflower arranging.\nMy POKEMON are of\nthe grass-type."
+    "\fOh, I'm sorry, I\nhad no idea that\nyou wished to\nchallenge me."
+    "\fVery well, but I\nshall not lose.";
+
+/* In-battle defeat quote (SaveEndBattleTextPointers path in ASM). */
+static const char kErikaDefeatQuote[] =
+    "Oh!\nI concede defeat."
+    "\fYou are remarkably\nstrong."
+    "\fI must confer you\nthe RAINBOWBADGE.";
+
+/* "[PLAYER] received the RAINBOWBADGE!" shown with GetKeyItem jingle. */
+static char kErikaBadgeRecv[48];
+
+/* Post-battle flow mirrors _CeladonGymRainbowBadgeInfoText. */
+static const char kErikaBadgeInfo[] =
+    "The RAINBOWBADGE\nwill make #MON\nup to L50 obey."
+    "\fIt also allows\n#MON to use\nSTRENGTH in and\nout of battle."
+    "\fPlease also take\nthis with you.";
+
+/* "[PLAYER] received TM21!" — filled at runtime. */
+static char kErikaTMText[48];
+
+/* TM21 explanation text (_TM21ExplanationText). */
+static const char kErikaTMExplain[] =
+    "TM21 contains\nMEGA DRAIN."
+    "\fHalf the damage\nit inflicts is\ndrained to heal\nyour #MON!";
+
+/* Re-interaction advice after badge+TM obtained. */
+static const char kErikaAfter[] =
+    "You are cataloging\n#MON? I must\nsay I'm impressed."
+    "\fI would never\ncollect #MON\nif they were\nunattractive.";
+
 /* ---- Pewter gym guide dialogue ------------------------------------ */
 /* Pre-beat: advice about party order (mirrors PewterGymGuideText path) */
 static const char kGuidePre[] =
@@ -282,8 +330,7 @@ void GymScripts_Tick(void) {
             /* Pages 1-2 of _PewterGymBrockReceivedBoulderBadgeText */
             snprintf(kBrockDefeatQuote, sizeof(kBrockDefeatQuote),
                      "I took\nyou for granted."
-                     "\fAs proof of your\nvictory, here's\nthe BOULDERBADGE!",
-                     player_ascii);
+                     "\fAs proof of your\nvictory, here's\nthe BOULDERBADGE!");
             /* Page 3 — shown simultaneously with key-item jingle */
             snprintf(kBrockRecvText, sizeof(kBrockRecvText),
                      "%s received\nthe BOULDERBADGE!", player_ascii);
@@ -509,6 +556,78 @@ void GymScripts_Tick(void) {
         gState = GS_IDLE;
         return;
 
+    case GS_ERIKA_PRE_TEXT:
+        gState = GS_ERIKA_PRE_WAIT;
+        return;
+
+    case GS_ERIKA_PRE_WAIT:
+        if (Text_IsOpen()) return;
+        /* Build in-battle badge receive text and enqueue gym-leader battle. */
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kErikaBadgeRecv, sizeof(kErikaBadgeRecv),
+                     "%s received\nthe RAINBOWBADGE!", playerName);
+        }
+        gTrainerAfterText = kErikaDefeatQuote;
+        BattleUI_SetBadgeRecvText(kErikaBadgeRecv);
+        wGymLeaderNo   = 4;
+        gPendingClass  = ERIKA_CLASS;
+        gPendingNo     = ERIKA_NO;
+        gPendingBattle = 1;
+        gState         = GS_IDLE;
+        return;
+
+    case GS_ERIKA_POST_TEXT:
+        if (gPostFadeTimer > 0) { gPostFadeTimer--; return; }
+        Text_ShowASCII(kErikaBadgeInfo);
+        gState = GS_ERIKA_POST_WAIT;
+        return;
+
+    case GS_ERIKA_POST_WAIT:
+        if (Text_IsOpen()) return;
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kErikaTMText, sizeof(kErikaTMText),
+                     "%s received\nTM21!", playerName);
+        }
+        Inventory_Add(TM01 + 20, 1);   /* TM21 = TM_MEGA_DRAIN */
+        SetEvent(EVENT_GOT_TM21);
+        Audio_PlaySFX_GetItem1();
+        Text_ShowASCII(kErikaTMText);
+        gState = GS_ERIKA_TM_WAIT;
+        return;
+
+    case GS_ERIKA_TM_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_ERIKA_TM_EXPLAIN;
+        return;
+
+    case GS_ERIKA_TM_EXPLAIN:
+        Text_ShowASCII(kErikaTMExplain);
+        gState = GS_ERIKA_TM_EXP_WAIT;
+        return;
+
+    case GS_ERIKA_TM_EXP_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_IDLE;
+        return;
+
     case GS_GYM_TRAINER_PRE_WAIT:
         if (Text_IsOpen()) return;
         gPendingClass            = gGymTrainerClass;
@@ -579,6 +698,18 @@ void GymScripts_OnVictory(void) {
         wObtainedBadges |= (1u << BADGE_THUNDER);
         wGymLeaderNo = 0;
         gState = GS_SURGE_POST_TEXT;
+    } else if (wGymLeaderNo == 4) {
+        SetEvent(EVENT_BEAT_ERIKA);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+        SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+        wObtainedBadges |= (1u << BADGE_RAINBOW);
+        wGymLeaderNo = 0;
+        gState = GS_ERIKA_POST_TEXT;
     } else {
         wGymLeaderNo = 0;
     }
@@ -711,4 +842,20 @@ void GymScripts_SurgeInteract(void) {
     }
     Text_ShowASCII(kSurgePre);
     gState = GS_SURGE_PRE_TEXT;
+}
+
+void GymScripts_ErikaInteract(void) {
+    if (CheckEvent(EVENT_BEAT_ERIKA)) {
+        if (CheckEvent(EVENT_GOT_TM21)) {
+            Text_ShowASCII(kErikaAfter);
+            gState = GS_GUIDE_TEXT;
+            return;
+        }
+        /* ASM behavior: if Erika beaten but TM not obtained, retry TM flow. */
+        gPostFadeTimer = 0;
+        gState = GS_ERIKA_POST_TEXT;
+        return;
+    }
+    Text_ShowASCII(kErikaPre);
+    gState = GS_ERIKA_PRE_TEXT;
 }

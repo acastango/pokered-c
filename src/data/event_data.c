@@ -2322,8 +2322,54 @@ static const map_warp_t kWarps_CeladonGym[] = {
     {   5,  17, 0xff, 6 },  /* LAST_MAP */
 };
 
+static const map_trainer_t kTrainers_CeladonGym[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    /* OPP_LASS, #17; RIGHT, engage_dist=2 */
+    { 1, 3, 3, 17, 2, EVENT_BEAT_CELADON_GYM_TRAINER_0,
+      "Hey!\fYou are not\nallowed in here!",
+      "Bleaah!\nI hope ERIKA\nwipes you out!",
+      "You're\ntoo rough!" },
+    /* OPP_BEAUTY, #1; LEFT, engage_dist=2 */
+    { 2, 2, 18, 1, 2, EVENT_BEAT_CELADON_GYM_TRAINER_1,
+      "I was getting\nbored.",
+      "Grass-type #MON\nare tough against\nthe water-type!"
+      "\fThey also have an\nedge on rock and\nground #MON!",
+      "My\nmakeup!" },
+    /* OPP_JR_TRAINER_F, #11; DOWN, engage_dist=4 */
+    { 3, 0, 6, 11, 4, EVENT_BEAT_CELADON_GYM_TRAINER_2,
+      "Aren't you the\npeeping Tom?",
+      "Oh, you weren't\npeeping? We get a\nlot of gawkers!",
+      "I'm\nin shock!" },
+    /* OPP_BEAUTY, #2; DOWN, engage_dist=4 */
+    { 4, 0, 18, 2, 4, EVENT_BEAT_CELADON_GYM_TRAINER_3,
+      "Look at my grass\n#MON!"
+      "\fThey're so easy\nto raise!",
+      "We only use grass-\ntype #MON at\nour GYM!"
+      "\fWe also use them\nfor making flower\narrangements!",
+      "No!" },
+    /* OPP_LASS, #18; DOWN, engage_dist=2 */
+    { 5, 0, 3, 18, 2, EVENT_BEAT_CELADON_GYM_TRAINER_4,
+      "Don't bring any\nbugs or fire\n#MON in here!",
+      "Our LEADER, ERIKA,\nmight be quiet,"
+      "\fbut she's also\nvery skilled!",
+      "Oh!\nYou!" },
+    /* OPP_BEAUTY, #3; DOWN, engage_dist=2 */
+    { 6, 0, 18, 3, 2, EVENT_BEAT_CELADON_GYM_TRAINER_5,
+      "Pleased to meet\nyou. My hobby is\n#MON training.",
+      "I have a blind\ndate coming up."
+      "\fI have to learn\nto be polite.",
+      "Oh!\nSplendid!" },
+    /* OPP_COOLTRAINER_F, #1; DOWN, engage_dist=3 */
+    { 7, 0, 32, 1, 3, EVENT_BEAT_CELADON_GYM_TRAINER_6,
+      "Welcome to\nCELADON GYM!"
+      "\fYou better not\nunderestimate\ngirl power!",
+      "I didn't bring my\nbest #MON!"
+      "\fWait 'til next\ntime!",
+      "Oh!\nBeaten!" },
+};
+
 static const npc_event_t kNpcs_CeladonGym[] = {
-    {   4,   3, 0x1b, 0, "Hello. Lovely\nweather isn't it?\nIt's so pleasant.\f...Oh dear...\nI must have dozed\noff. Welcome.\fMy name is ERIKA.\nI am the LEADER\nof CELADON GYM.\fI teach the art of\nflower arranging.\nMy POKEMON are of\nthe grass-type.\fOh, I'm sorry, I\nhad no idea that\nyou wished to\nchallenge me.\fVery well, but I\nshall not lose.", NULL },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CELADONGYM_ERIKA */
+    {   4,   3, 0x1b, 0, NULL, GymScripts_ErikaInteract },  /* SPRITE_SILPH_WORKER_F, STAY, TEXT_CELADONGYM_ERIKA */
     {   2,  11, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F1 */
     {   7,  10, 0x0f, 0, NULL, NULL },  /* SPRITE_BEAUTY, STAY, TEXT_CELADONGYM_BEAUTY1 */
     {   9,   5, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_CELADONGYM_COOLTRAINER_F2 */
@@ -4044,7 +4090,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x83] = { kWarps_CeladonMansionRoof, 3, NULL, 0, kSigns_CeladonMansionRoof, 1, NULL, 0, 0x09 },
     [0x84] = { kWarps_CeladonMansionRoofHouse, 2, kNpcs_CeladonMansionRoofHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0x85] = { kWarps_CeladonPokecenter, 2, kNpcs_CeladonPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
-    [0x86] = { kWarps_CeladonGym, 2, kNpcs_CeladonGym, 8, NULL, 0, NULL, 0, 0x03 },
+    [0x86] = { kWarps_CeladonGym, 2, kNpcs_CeladonGym, 8, NULL, 0, NULL, 0, 0x03, kTrainers_CeladonGym, 7 },
     [0x87] = { kWarps_GameCorner, 3, kNpcs_GameCorner, 11, kSigns_GameCorner, 1, NULL, 0, 0x0f, NULL, 0, kHiddenEvents_GameCorner, 1 },
     [0x88] = { kWarps_CeladonMart5F, 3, kNpcs_CeladonMart5F, 4, kSigns_CeladonMart5F, 1, NULL, 0, 0x0f },
     [0x89] = { kWarps_GameCornerPrizeRoom, 2, kNpcs_GameCornerPrizeRoom, 2, kSigns_GameCornerPrizeRoom, 3, NULL, 0, 0x0f },

@@ -15,8 +15,10 @@
 
 #if defined(__GNUC__)
 extern int Game_GetScene(void) __attribute__((weak));
+extern void DebugCLI_HistoryPushExternal(const char *line) __attribute__((weak));
 #else
 extern int Game_GetScene(void);
+extern void DebugCLI_HistoryPushExternal(const char *line);
 #endif
 
 static void ensure_bugs_dir(void) {
@@ -117,6 +119,8 @@ void SessionLog_Eventf(const char *fmt, ...) {
             ts, (unsigned)wCurMap, (int)wXCoord, (int)wYCoord, scene, msg);
     fclose(fp);
 
+    if (DebugCLI_HistoryPushExternal)
+        DebugCLI_HistoryPushExternal(msg);
     write_jsonl("event", msg, NULL);
 }
 

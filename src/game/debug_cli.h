@@ -47,4 +47,11 @@ const char *DebugCLI_ConsoleGetBuffer(void);
 /* ---- Debug history feed (for debug-render sidebar) ---------------- */
 int DebugCLI_GetHistoryCount(void);
 const char *DebugCLI_GetHistoryLine(int newest_index); /* 0 = newest */
+int DebugCLI_GetHistoryColor(int newest_index);        /* see CLI_HIST_COLOR_* */
 int DebugCLI_IsReplayPlaying(void);
+void DebugCLI_HistoryPushExternal(const char *line);
+
+#define CLI_HIST_COLOR_DEFAULT 0
+#define CLI_HIST_COLOR_OK      1
+#define CLI_HIST_COLOR_ERROR   2
+#define CLI_HIST_COLOR_LOG     3

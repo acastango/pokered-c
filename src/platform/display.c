@@ -89,8 +89,8 @@ int Display_Init(void) {
     window = SDL_CreateWindow(
         "Pokémon Red",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        g_debug_render_mode ? 512 : (SCREEN_WIDTH_PX * DISPLAY_SCALE),
-        g_debug_render_mode ? 288 : (SCREEN_HEIGHT_PX * DISPLAY_SCALE),
+        g_debug_render_mode ? 768 : (SCREEN_WIDTH_PX * DISPLAY_SCALE),
+        g_debug_render_mode ? 432 : (SCREEN_HEIGHT_PX * DISPLAY_SCALE),
         SDL_WINDOW_SHOWN | (g_debug_render_mode ? 0 : SDL_WINDOW_RESIZABLE)
     );
     if (!window) return -1;
@@ -172,6 +172,27 @@ static void draw_text_3x5(int x, int y, const char *s, SDL_Color c, int max_char
     for (i = 0; s[i] && i < max_chars; i++) draw_glyph_3x5(x + i * 4, y, s[i], c);
 }
 
+/* Draw wrapped 3x5 text in a fixed-width column.
+ * Returns number of rendered rows. */
+static int draw_text_3x5_wrapped(int x, int y, const char *s, SDL_Color c, int max_chars, int max_rows) {
+    int row = 0;
+    const char *p = s;
+    if (!s || !*s || max_chars <= 0 || max_rows <= 0) return 0;
+    while (*p && row < max_rows) {
+        char linebuf[128];
+        int n = 0;
+        while (*p && n < max_chars) {
+            if (*p == '\n') { p++; break; }
+            linebuf[n++] = *p++;
+        }
+        linebuf[n] = '\0';
+        draw_text_3x5(x, y + row * 6, linebuf, c, max_chars);
+        row++;
+    }
+    return row;
+}
+
+
 static void present_fb(void) {
     SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
     SDL_RenderClear(renderer);
@@ -185,20 +206,36 @@ static void present_fb(void) {
         SDL_Rect side_bg = {160, 0, 96, 144};
         SDL_Color fg = {0xB8, 0xF8, 0xD0, 0xFF};
         SDL_Color inp = {0xE0, 0xF8, 0xD0, 0xFF};
+        SDL_Color okc = {0x7C, 0xF0, 0x7C, 0xFF};
+        SDL_Color errc = {0xFF, 0x6C, 0x6C, 0xFF};
+        SDL_Color logc = {0x7C, 0xBC, 0xFF, 0xFF};
         int lines = DebugCLI_GetHistoryCount();
-        int y = 10;
+        int y = 8;
+        const int hist_x = 166;
+        const int hist_max_chars = 22; /* 90px sidebar width / 4px advance */
+        const int hist_max_y = 135;
         const char *buf = DebugCLI_ConsoleGetBuffer();
         SDL_RenderCopy(renderer, fb_tex, NULL, &game_dst);
         SDL_SetRenderDrawColor(renderer, 0x08, 0x18, 0x20, 255);
         SDL_RenderFillRect(renderer, &side_bg);
         SDL_SetRenderDrawColor(renderer, 0x34, 0x68, 0x56, 255);
         SDL_RenderDrawLine(renderer, 160, 0, 160, 143);
-        draw_text_3x5(166, 2, "DEBUG CLI", fg, 16);
-        for (int i = lines - 1; i >= 0 && y < 134; i--) {
+        draw_text_3x5(hist_x, 1, "DEBUG CLI", fg, 16);
+        for (int i = lines - 1; i >= 0 && y < hist_max_y; i--) {
             const char *ln = DebugCLI_GetHistoryLine(i);
+            SDL_Color line_c = fg;
+            int hist_color = DebugCLI_GetHistoryColor(i);
+            int rows_left;
+            int used_rows;
             if (!ln) continue;
-            draw_text_3x5(166, y, ln, fg, 22);
-            y += 6;
+            if (hist_color == CLI_HIST_COLOR_OK) line_c = okc;
+            else if (hist_color == CLI_HIST_COLOR_ERROR) line_c = errc;
+            else if (hist_color == CLI_HIST_COLOR_LOG) line_c = logc;
+            rows_left = (hist_max_y - y) / 6;
+            if (rows_left <= 0) break;
+            used_rows = draw_text_3x5_wrapped(hist_x, y, ln, line_c, hist_max_chars, rows_left);
+            if (used_rows <= 0) used_rows = 1;
+            y += used_rows * 6;
         }
         draw_text_3x5(166, 138, "> ", inp, 2);
         draw_text_3x5(174, 138, buf ? buf : "", inp, 20);

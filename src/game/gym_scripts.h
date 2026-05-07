@@ -50,3 +50,5 @@ void GymScripts_CeruleanTrainer1Interact(void);
 void GymScripts_CeruleanGuideInteract(void);
 /* Vermilion Gym */
 void GymScripts_SurgeInteract(void);
+/* Celadon Gym */
+void GymScripts_ErikaInteract(void);
