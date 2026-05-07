@@ -6,6 +6,7 @@
  * wNumBagItems: count of occupied slots.
  */
 #include "inventory.h"
+#include "session_log.h"
 #include "../platform/hardware.h"
 #include "../data/item_data_gen.h"
 
@@ -19,6 +20,8 @@ int Inventory_Add(uint8_t item_id, uint8_t qty) {
             int new_qty = (int)wBagItems[i * 2 + 1] + qty;
             if (new_qty > MAX_QTY) new_qty = MAX_QTY;
             wBagItems[i * 2 + 1] = (uint8_t)new_qty;
+            if (Inventory_IsKeyItem(item_id))
+                SessionLog_ItemAcquired(item_id, qty, 1, "script/shop/debug");
             return 0;
         }
     }
@@ -29,6 +32,8 @@ int Inventory_Add(uint8_t item_id, uint8_t qty) {
     wBagItems[slot * 2 + 1] = qty > MAX_QTY ? MAX_QTY : qty;
     wNumBagItems++;
     wBagItems[wNumBagItems * 2] = ITEM_TERM;
+    if (Inventory_IsKeyItem(item_id))
+        SessionLog_ItemAcquired(item_id, qty, 1, "script/shop/debug");
     return 0;
 }
 

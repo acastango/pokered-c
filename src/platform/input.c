@@ -16,6 +16,7 @@
 static FILE *s_rec_fp  = NULL;
 static FILE *s_play_fp = NULL;
 static int   s_playing = 0;
+static int   s_block_gameplay_input = 0;
 
 /* Default key bindings — can be made configurable later */
 static SDL_Scancode key_map[8] = {
@@ -58,6 +59,9 @@ void Input_Update(void) {
 
     if (s_rec_fp) fwrite(&raw, 1, 1, s_rec_fp);
 
+    if (s_block_gameplay_input)
+        raw = 0;
+
     hJoyReleased = hJoyHeld & ~raw;
     hJoyPressed  = raw & ~hJoyHeld;
     hJoyHeld     = raw;
@@ -87,3 +91,4 @@ void Input_StopPlayback(void) {
 }
 int Input_IsRecording(void) { return s_rec_fp != NULL; }
 int Input_IsPlaying(void)   { return s_playing; }
+void Input_SetGameplayInputBlocked(int blocked) { s_block_gameplay_input = blocked ? 1 : 0; }

@@ -55,6 +55,7 @@
 #include "../trainer_sight.h" /* gEngagedTrainerClass */
 #include "../player.h"      /* gScrollPxX, gScrollPxY */
 #include "../naming_screen.h"
+#include "../session_log.h"
 #include "../inventory.h"
 #include <stdio.h>
 #include <string.h>
@@ -4532,6 +4533,8 @@ void BattleUI_Tick(void) {
         }
 
         wBattleResult = BATTLE_OUTCOME_CAUGHT;
+        SessionLog_CapturedMon(s_caught_species, wEnemyMon.level,
+                               s_caught_sent_to_box, s_caught_new_entry);
         if (s_caught_new_entry) {
             snprintf(s_msg_buf, sizeof(s_msg_buf),
                      "New #DEX data\nwill be added\nfor %s!", ename);

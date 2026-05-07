@@ -5,6 +5,8 @@
 #include "../game/constants.h"
 #include "../game/types.h"
 #include "../game/player.h"        /* gPlayerFacing */
+#include "../game/overworld.h"     /* gCamX/gCamY */
+#include "../game/npc.h"           /* NPC runtime state */
 #include "../game/trainer_sight.h" /* gEngagedTrainerClass */
 #include <stdio.h>
 #include <string.h>
@@ -252,6 +254,8 @@ typedef struct PACKED {
     uint8_t  wRepelRemainingSteps;
     int8_t   gPlayerFacing;
     int8_t   gScene;
+    int16_t  gScrollPxX, gScrollPxY;
+    int16_t  gCamX, gCamY;
 
     /* RNG */
     uint8_t  hRandomAdd, hRandomSub, hFrameCounter;
@@ -326,6 +330,9 @@ typedef struct PACKED {
     /* Exp flags */
     uint8_t  wPartyGainExpFlags, wPartyFoughtCurrentEnemyFlags;
     uint8_t  wGainBoostedExp, wCanEvolveFlags, wEvolutionOccurred;
+
+    /* Overworld runtime objects */
+    npc_state_t npc_state;
 } state_block_t;
 
 static state_block_t st;
@@ -353,6 +360,10 @@ static void pack_state(void) {
     st.wRepelRemainingSteps = wRepelRemainingSteps;
     st.gPlayerFacing = (int8_t)gPlayerFacing;
     st.gScene        = (int8_t)Game_GetScene();
+    st.gScrollPxX    = (int16_t)gScrollPxX;
+    st.gScrollPxY    = (int16_t)gScrollPxY;
+    st.gCamX         = (int16_t)gCamX;
+    st.gCamY         = (int16_t)gCamY;
 
     st.hRandomAdd     = hRandomAdd;
     st.hRandomSub     = hRandomSub;
@@ -446,6 +457,11 @@ static void pack_state(void) {
     st.wGainBoostedExp   = wGainBoostedExp;
     st.wCanEvolveFlags   = wCanEvolveFlags;
     st.wEvolutionOccurred = wEvolutionOccurred;
+    {
+        npc_state_t tmp_npc;
+        NPC_StateCapture(&tmp_npc);
+        memcpy(&st.npc_state, &tmp_npc, sizeof(tmp_npc));
+    }
 }
 
 static void unpack_state(void) {
@@ -463,6 +479,10 @@ static void unpack_state(void) {
     wRepelRemainingSteps = st.wRepelRemainingSteps;
     gPlayerFacing = (int)st.gPlayerFacing;
     Game_SetScene((int)st.gScene);
+    gScrollPxX = (int)st.gScrollPxX;
+    gScrollPxY = (int)st.gScrollPxY;
+    gCamX      = (int)st.gCamX;
+    gCamY      = (int)st.gCamY;
 
     hRandomAdd    = st.hRandomAdd;
     hRandomSub    = st.hRandomSub;
@@ -556,6 +576,11 @@ static void unpack_state(void) {
     wGainBoostedExp    = st.wGainBoostedExp;
     wCanEvolveFlags    = st.wCanEvolveFlags;
     wEvolutionOccurred = st.wEvolutionOccurred;
+    {
+        npc_state_t tmp_npc;
+        memcpy(&tmp_npc, &st.npc_state, sizeof(tmp_npc));
+        NPC_StateRestore(&tmp_npc);
+    }
 }
 
 int Save_StateWrite(const char *path) {
@@ -580,3 +605,23 @@ int Save_StateLoad(const char *path) {
 }
 
 int Save_StateWasBattle(void) { return s_last_load_in_battle; }
+
+size_t Save_StateSize(void) {
+    return sizeof(st);
+}
+
+int Save_StateCaptureToBuffer(void *dst, size_t dst_size) {
+    if (!dst || dst_size < sizeof(st)) return -1;
+    pack_state();
+    memcpy(dst, &st, sizeof(st));
+    return 0;
+}
+
+int Save_StateLoadFromBuffer(const void *src, size_t src_size) {
+    if (!src || src_size < sizeof(st)) return -1;
+    memcpy(&st, src, sizeof(st));
+    if (st.magic != STATE_MAGIC || st.version != STATE_VERSION) return -1;
+    unpack_state();
+    s_last_load_in_battle = (st.wIsInBattle != 0);
+    return 0;
+}

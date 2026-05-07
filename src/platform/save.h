@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
 /* save.h — SRAM → file I/O replacement
  *
@@ -37,6 +38,9 @@ int  Save_ValidateChecksum(void);
  * Returns 0 on success, -1 on error.                                 */
 int  Save_StateWrite(const char *path);
 int  Save_StateLoad(const char *path);
+size_t Save_StateSize(void);
+int  Save_StateCaptureToBuffer(void *dst, size_t dst_size);
+int  Save_StateLoadFromBuffer(const void *src, size_t src_size);
 /* Returns non-zero if the last Save_StateLoad had wIsInBattle set,
  * so the caller knows to call BattleUI_Restore(). */
 int  Save_StateWasBattle(void);

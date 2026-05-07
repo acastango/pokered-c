@@ -19,6 +19,25 @@
 #include "battle/battle.h"      /* Battle hittrace diagnostics */
 #include "music.h"              /* Music_Play */
 #include "rockethideout_b4f_scripts.h"
+#include "pallet_scripts.h"
+#include "oakslab_scripts.h"
+#include "viridian_mart_scripts.h"
+#include "mtmoon_scripts.h"
+#include "cerulean_scripts.h"
+#include "route22_scripts.h"
+#include "route24_scripts.h"
+#include "bills_house_scripts.h"
+#include "route2gate_scripts.h"
+#include "ss_anne_scripts.h"
+#include "vermilion_gym_scripts.h"
+#include "rockethideout_scripts.h"
+#include "game_corner_scripts.h"
+#include "pokemontower2f_scripts.h"
+#include "pokemontower5f_scripts.h"
+#include "pokemontower6f_scripts.h"
+#include "pokemontower7f_scripts.h"
+#include "mrfujis_house_scripts.h"
+#include "saffron_city_scripts.h"
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
 #include "../data/event_data.h"    /* map_events_t, gMapEvents */
@@ -27,15 +46,23 @@
 #include "inventory.h"
 #include "badge.h"
 #include "../platform/hardware.h"
+#include "../platform/save.h"
 #include "../game/constants.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#ifdef _WIN32
+#include <direct.h>
+#endif
 #include "../data/font_data.h"
 
 #define CMD_FILE   "bugs/cli_cmd.txt"
 #define STATE_FILE "bugs/cli_state.txt"
+#define REPLAY_DIR "bugs/replays"
 
 /* ---- Button masks (matching input.c bit layout) ------------------- */
 #define BTN_A      0x01
@@ -72,6 +99,58 @@ static int s_poll_timer     = 0;
 static int s_wait_remaining = 0;
 static int s_pending_write  = 0;
 
+/* ---- Deterministic replay --------------------------------------- */
+#define REPLAY_MAGIC   0x31504C52u /* "RLP1" */
+#define REPLAY_VERSION 1u
+
+typedef struct replay_header_t {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t state_size;
+    uint32_t input_frames;
+} replay_header_t;
+
+static int      s_replay_recording = 0;
+static int      s_replay_playing = 0;
+static uint32_t s_replay_play_pos = 0;
+static uint32_t s_replay_play_len = 0;
+static uint8_t *s_replay_play_buf = NULL;
+static FILE    *s_replay_rec_fp = NULL;
+static char     s_replay_name[96] = {0};
+static char     s_replay_tmp_state[192] = {0};
+static char     s_replay_tmp_input[192] = {0};
+
+/* ---- Sidebar history --------------------------------------------- */
+#define CLI_HIST_MAX   64
+#define CLI_HIST_WIDTH 72
+static char s_hist[CLI_HIST_MAX][CLI_HIST_WIDTH + 1];
+static int  s_hist_head = 0;
+static int  s_hist_count = 0;
+
+static void cli_hist_push(const char *line) {
+    size_t i = 0;
+    if (!line || !*line) return;
+    while (line[i] && i < CLI_HIST_WIDTH) {
+        char c = line[i];
+        s_hist[s_hist_head][i++] = (c >= 32 && c <= 126) ? c : ' ';
+    }
+    s_hist[s_hist_head][i] = '\0';
+    s_hist_head = (s_hist_head + 1) % CLI_HIST_MAX;
+    if (s_hist_count < CLI_HIST_MAX) s_hist_count++;
+}
+
+int DebugCLI_GetHistoryCount(void) { return s_hist_count; }
+
+const char *DebugCLI_GetHistoryLine(int newest_index) {
+    int idx;
+    if (newest_index < 0 || newest_index >= s_hist_count) return NULL;
+    idx = s_hist_head - 1 - newest_index;
+    while (idx < 0) idx += CLI_HIST_MAX;
+    return s_hist[idx];
+}
+
+int DebugCLI_IsReplayPlaying(void) { return s_replay_playing; }
+
 /* ---- Move animation lab (auto-play move sequence in a controlled battle) */
 static int s_animlab_enabled  = 0;
 static int s_animlab_move_id  = 1;  /* next move ID to test (1..NUM_MOVE_DEFS-1) */
@@ -89,6 +168,8 @@ static int     s_con_len   = 0;
 static int     s_con_open  = 0;
 static int     s_con_blink = 0;
 static uint8_t s_con_saved[2 * SCREEN_WIDTH];
+static int     s_con_overlay_enabled = 1;
+static int     s_con_always_open = 0;
 
 /* ---- Helpers ------------------------------------------------------ */
 static int get_scene(void) {
@@ -286,6 +367,371 @@ static int cli_resolve_move_id(const char *move_str) {
         }
         if (strcmp(needle, norm) == 0) return id;
     }
+    return 0;
+}
+
+static int cli_parse_arg(const char *src, int arg_index, char *out, size_t out_sz) {
+    int idx = 0;
+    const char *p = src;
+    if (!src || !out || out_sz == 0) return 0;
+    out[0] = '\0';
+    while (*p) {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p) break;
+        if (idx == arg_index) {
+            size_t n = 0;
+            char quote = 0;
+            if (*p == '"' || *p == '\'') {
+                quote = *p++;
+                while (*p && *p != quote && n + 1 < out_sz) out[n++] = *p++;
+                if (*p == quote) p++;
+            } else {
+                while (*p && *p != ' ' && *p != '\t' && n + 1 < out_sz) out[n++] = *p++;
+            }
+            out[n] = '\0';
+            return n > 0;
+        }
+        if (*p == '"' || *p == '\'') {
+            char q = *p++;
+            while (*p && *p != q) p++;
+            if (*p == q) p++;
+        } else {
+            while (*p && *p != ' ' && *p != '\t') p++;
+        }
+        idx++;
+    }
+    return 0;
+}
+
+static void cli_sanitize_key(const char *in, char *out, size_t out_sz) {
+    size_t n = 0;
+    if (!in || !out || out_sz == 0) return;
+    for (size_t i = 0; in[i] && n + 1 < out_sz; i++) {
+        char c = in[i];
+        if ((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == '_' || c == '-') {
+            out[n++] = c;
+        } else if (c == ' ') {
+            out[n++] = '_';
+        }
+    }
+    out[n] = '\0';
+}
+
+static void cli_build_state_path(const char *key, char *path_out, size_t path_sz) {
+    char clean[80] = {0};
+    int all_digits = 1;
+    if (!key || !*key) {
+        snprintf(path_out, path_sz, "bugs/qs_slot_1.state");
+        return;
+    }
+    for (int i = 0; key[i]; i++) {
+        if (key[i] < '0' || key[i] > '9') { all_digits = 0; break; }
+    }
+    cli_sanitize_key(key, clean, sizeof(clean));
+    if (clean[0] == '\0') strcpy(clean, "slot_1");
+    if (all_digits) snprintf(path_out, path_sz, "bugs/qs_slot_%s.state", clean);
+    else snprintf(path_out, path_sz, "bugs/qs_%s.state", clean);
+}
+
+static int cli_file_exists(const char *path) {
+    struct stat st;
+    return (path && stat(path, &st) == 0 && S_ISREG(st.st_mode));
+}
+
+static int cli_make_dir_if_needed(const char *path) {
+    struct stat st;
+    if (!path || !*path) return -1;
+    if (stat(path, &st) == 0) return S_ISDIR(st.st_mode) ? 0 : -1;
+#ifdef _WIN32
+    return _mkdir(path);
+#else
+    return mkdir(path, 0777);
+#endif
+}
+
+static int cli_copy_file(const char *src, const char *dst) {
+    FILE *in = NULL, *out = NULL;
+    char buf[4096];
+    size_t n;
+    in = fopen(src, "rb");
+    if (!in) return -1;
+    out = fopen(dst, "wb");
+    if (!out) { fclose(in); return -1; }
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
+        if (fwrite(buf, 1, n, out) != n) { fclose(in); fclose(out); return -1; }
+    }
+    fclose(in);
+    fclose(out);
+    return 0;
+}
+
+static int cli_backup_state_if_exists(const char *state_path) {
+    char backup_dir[192] = {0};
+    char backup_file[256] = {0};
+    char base[96] = {0};
+    char ext[24] = {0};
+    int next_idx = 1;
+    const char *name = NULL;
+    const char *dot = NULL;
+    DIR *d = NULL;
+    struct dirent *ent;
+
+    if (!cli_file_exists(state_path)) return 0;
+
+    name = strrchr(state_path, '/');
+    name = name ? name + 1 : state_path;
+    dot = strrchr(name, '.');
+    if (dot) {
+        size_t blen = (size_t)(dot - name);
+        if (blen >= sizeof(base)) blen = sizeof(base) - 1;
+        memcpy(base, name, blen);
+        base[blen] = '\0';
+        snprintf(ext, sizeof(ext), "%s", dot);
+    } else {
+        snprintf(base, sizeof(base), "%s", name);
+        snprintf(ext, sizeof(ext), ".state");
+    }
+
+    snprintf(backup_dir, sizeof(backup_dir), "bugs/%s_backup", base);
+    if (cli_make_dir_if_needed(backup_dir) != 0) return -1;
+
+    d = opendir(backup_dir);
+    if (d) {
+        while ((ent = readdir(d)) != NULL) {
+            int idx = -1;
+            char pat[128] = {0};
+            snprintf(pat, sizeof(pat), "%s_%%d%s", base, ext);
+            if (sscanf(ent->d_name, pat, &idx) == 1 && idx >= next_idx) {
+                next_idx = idx + 1;
+            }
+        }
+        closedir(d);
+    }
+
+    snprintf(backup_file, sizeof(backup_file), "%s/%s_%03d%s", backup_dir, base, next_idx, ext);
+    return cli_copy_file(state_path, backup_file);
+}
+
+static void cli_reload_after_state_load(void) {
+    Map_Load(wCurMap);
+    NPC_Load();
+    PalletScripts_OnMapLoad();
+    OaksLabScripts_OnMapLoad();
+    ViridianMartScripts_OnMapLoad();
+    MtMoon_OnMapLoad();
+    Route22Scripts_OnMapLoad();
+    CeruleanScripts_OnMapLoad();
+    Route24Scripts_OnMapLoad();
+    BillsHouseScripts_OnMapLoad();
+    Route2GateScripts_OnMapLoad();
+    SSAnneScripts_OnMapLoad();
+    VermilionGymScripts_OnMapLoad();
+    RocketHideoutB4FScripts_OnMapLoad();
+    RocketHideoutScripts_OnMapLoad();
+    GameCornerScripts_OnMapLoad();
+    PokemonTower2FScripts_OnMapLoad();
+    PokemonTower5FScripts_OnMapLoad();
+    PokemonTower6FScripts_OnMapLoad();
+    PokemonTower7FScripts_OnMapLoad();
+    MrFujisHouseScripts_OnMapLoad();
+    SaffronCityScripts_OnMapLoad();
+    Trainer_LoadMap();
+    if (Save_StateWasBattle()) {
+        BattleUI_Restore();
+    }
+}
+
+static int cli_make_dir_tree(const char *path) {
+    char tmp[256];
+    size_t len;
+    if (!path || !*path) return -1;
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+    for (size_t i = 1; i < len; i++) {
+        if (tmp[i] == '/' || tmp[i] == '\\') {
+            char save = tmp[i];
+            tmp[i] = '\0';
+            if (*tmp) cli_make_dir_if_needed(tmp);
+            tmp[i] = save;
+        }
+    }
+    return cli_make_dir_if_needed(tmp);
+}
+
+static void cli_build_replay_path(const char *name, char *out_path, size_t out_sz) {
+    char clean[96] = {0};
+    cli_sanitize_key(name, clean, sizeof(clean));
+    if (clean[0] == '\0') snprintf(clean, sizeof(clean), "replay");
+    snprintf(out_path, out_sz, "%s/%s.rpl", REPLAY_DIR, clean);
+}
+
+static void replay_reset_playback(void) {
+    if (s_replay_play_buf) {
+        free(s_replay_play_buf);
+        s_replay_play_buf = NULL;
+    }
+    s_replay_playing = 0;
+    s_replay_play_pos = 0;
+    s_replay_play_len = 0;
+}
+
+static void replay_reset_recording(void) {
+    if (s_replay_rec_fp) {
+        fclose(s_replay_rec_fp);
+        s_replay_rec_fp = NULL;
+    }
+    s_replay_recording = 0;
+    s_replay_name[0] = '\0';
+    s_replay_tmp_state[0] = '\0';
+    s_replay_tmp_input[0] = '\0';
+}
+
+static int replay_start_record(const char *name) {
+    char clean[96] = {0};
+    if (!name || !*name) return -1;
+    cli_sanitize_key(name, clean, sizeof(clean));
+    if (clean[0] == '\0') return -1;
+
+    cli_make_dir_tree(REPLAY_DIR);
+    replay_reset_playback();
+    replay_reset_recording();
+
+    snprintf(s_replay_name, sizeof(s_replay_name), "%s", clean);
+    snprintf(s_replay_tmp_state, sizeof(s_replay_tmp_state), "%s/%s.tmp.state", REPLAY_DIR, clean);
+    snprintf(s_replay_tmp_input, sizeof(s_replay_tmp_input), "%s/%s.tmp.inputs", REPLAY_DIR, clean);
+
+    if (Save_StateWrite(s_replay_tmp_state) != 0) return -1;
+    s_replay_rec_fp = fopen(s_replay_tmp_input, "wb");
+    if (!s_replay_rec_fp) {
+        remove(s_replay_tmp_state);
+        return -1;
+    }
+    s_replay_recording = 1;
+    return 0;
+}
+
+static int replay_stop_record(char *out_final_path, size_t out_sz) {
+    FILE *state = NULL, *in = NULL, *out = NULL;
+    long state_sz_l = 0, input_sz_l = 0;
+    size_t state_sz, input_sz;
+    replay_header_t hdr;
+    char final_path[192] = {0};
+    char copy_buf[4096];
+    size_t n;
+
+    if (!s_replay_recording || !s_replay_rec_fp) return -1;
+    fclose(s_replay_rec_fp);
+    s_replay_rec_fp = NULL;
+    s_replay_recording = 0;
+
+    cli_build_replay_path(s_replay_name, final_path, sizeof(final_path));
+    if (cli_backup_state_if_exists(final_path) != 0) {
+        /* best effort backup */
+    }
+
+    state = fopen(s_replay_tmp_state, "rb");
+    in = fopen(s_replay_tmp_input, "rb");
+    out = fopen(final_path, "wb");
+    if (!state || !in || !out) goto fail;
+
+    if (fseek(state, 0, SEEK_END) != 0) goto fail;
+    state_sz_l = ftell(state);
+    if (state_sz_l < 0) goto fail;
+    rewind(state);
+
+    if (fseek(in, 0, SEEK_END) != 0) goto fail;
+    input_sz_l = ftell(in);
+    if (input_sz_l < 0) goto fail;
+    rewind(in);
+
+    state_sz = (size_t)state_sz_l;
+    input_sz = (size_t)input_sz_l;
+
+    hdr.magic = REPLAY_MAGIC;
+    hdr.version = REPLAY_VERSION;
+    hdr.state_size = (uint32_t)state_sz;
+    hdr.input_frames = (uint32_t)input_sz;
+    if (fwrite(&hdr, 1, sizeof(hdr), out) != sizeof(hdr)) goto fail;
+
+    while ((n = fread(copy_buf, 1, sizeof(copy_buf), state)) > 0) {
+        if (fwrite(copy_buf, 1, n, out) != n) goto fail;
+    }
+    while ((n = fread(copy_buf, 1, sizeof(copy_buf), in)) > 0) {
+        if (fwrite(copy_buf, 1, n, out) != n) goto fail;
+    }
+
+    fclose(state); fclose(in); fclose(out);
+    remove(s_replay_tmp_state);
+    remove(s_replay_tmp_input);
+    if (out_final_path && out_sz > 0) snprintf(out_final_path, out_sz, "%s", final_path);
+    s_replay_name[0] = '\0';
+    return 0;
+
+fail:
+    if (state) fclose(state);
+    if (in) fclose(in);
+    if (out) fclose(out);
+    return -1;
+}
+
+static int replay_start_play(const char *name) {
+    FILE *fp = NULL;
+    replay_header_t hdr;
+    char path[192] = {0};
+    char tmp_state[192] = {0};
+    uint8_t *state_buf = NULL;
+
+    if (!name || !*name) return -1;
+    cli_build_replay_path(name, path, sizeof(path));
+
+    fp = fopen(path, "rb");
+    if (!fp) return -1;
+    if (fread(&hdr, 1, sizeof(hdr), fp) != sizeof(hdr)) { fclose(fp); return -1; }
+    if (hdr.magic != REPLAY_MAGIC || hdr.version != REPLAY_VERSION) { fclose(fp); return -1; }
+    if (hdr.state_size == 0) { fclose(fp); return -1; }
+
+    state_buf = (uint8_t *)malloc(hdr.state_size);
+    if (!state_buf) { fclose(fp); return -1; }
+    if (fread(state_buf, 1, hdr.state_size, fp) != hdr.state_size) {
+        free(state_buf); fclose(fp); return -1;
+    }
+
+    replay_reset_playback();
+    s_replay_play_buf = NULL;
+    if (hdr.input_frames > 0) {
+        s_replay_play_buf = (uint8_t *)malloc(hdr.input_frames);
+        if (!s_replay_play_buf) { free(state_buf); fclose(fp); return -1; }
+        if (fread(s_replay_play_buf, 1, hdr.input_frames, fp) != hdr.input_frames) {
+            free(state_buf); replay_reset_playback(); fclose(fp); return -1;
+        }
+    }
+    fclose(fp);
+
+    snprintf(tmp_state, sizeof(tmp_state), "%s/.replay_load_%s.state", REPLAY_DIR, name);
+    {
+        FILE *sf = fopen(tmp_state, "wb");
+        if (!sf) { free(state_buf); replay_reset_playback(); return -1; }
+        if (fwrite(state_buf, 1, hdr.state_size, sf) != hdr.state_size) {
+            fclose(sf); free(state_buf); replay_reset_playback(); return -1;
+        }
+        fclose(sf);
+    }
+    free(state_buf);
+
+    if (Save_StateLoad(tmp_state) != 0) {
+        remove(tmp_state);
+        replay_reset_playback();
+        return -1;
+    }
+    remove(tmp_state);
+    cli_reload_after_state_load();
+
+    s_replay_playing = 1;
+    s_replay_play_pos = 0;
+    s_replay_play_len = hdr.input_frames;
     return 0;
 }
 
@@ -539,6 +985,7 @@ static int con_char_to_tile(unsigned char c) {
 }
 
 static void con_draw(void) {
+    if (!s_con_overlay_enabled) return;
     /* Top border: ┌──────────────────┐ */
     gScrollTileMap[CON_TMIDX(CON_TOP_ROW, 0)] = (uint8_t)Font_CharToTile(0x79);
     for (int c = 1; c < SCREEN_WIDTH - 1; c++)
@@ -842,6 +1289,122 @@ static void process_cmd(const char *cmd) {
         } else {
             wObtainedBadges |= (uint8_t)(1u << n);
             printf("[cli] givebadge %d → wObtainedBadges=0x%02X\n", n, wObtainedBadges);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "quicksave") == 0) {
+        char key[96] = {0};
+        char path[160] = {0};
+        if (!cli_parse_arg(cmd, 1, key, sizeof(key))) strcpy(key, "1");
+        cli_build_state_path(key, path, sizeof(path));
+        if (cli_backup_state_if_exists(path) != 0)
+            printf("[cli] quicksave backup failed (continuing): %s\n", path);
+        if (Save_StateWrite(path) == 0)
+            printf("[cli] quicksave %s -> %s\n", key, path);
+        else
+            printf("[cli] quicksave failed: %s\n", path);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "quickload") == 0) {
+        char key[96] = {0};
+        char path[160] = {0};
+        if (!cli_parse_arg(cmd, 1, key, sizeof(key))) strcpy(key, "1");
+        cli_build_state_path(key, path, sizeof(path));
+        if (Save_StateLoad(path) == 0) {
+            cli_reload_after_state_load();
+            printf("[cli] quickload %s <- %s\n", key, path);
+        } else {
+            printf("[cli] quickload failed: %s\n", path);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "csave") == 0) {
+        char sub[32] = {0};
+        char name[96] = {0};
+        char path[160] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) {
+            printf("[cli] csave usage: csave create <name> | csave load <name>\n");
+            write_state();
+            return;
+        }
+        if (!cli_parse_arg(cmd, 2, name, sizeof(name))) {
+            printf("[cli] csave: missing name\n");
+            write_state();
+            return;
+        }
+        cli_build_state_path(name, path, sizeof(path));
+        if (strcmp(sub, "create") == 0 || strcmp(sub, "save") == 0) {
+            if (cli_backup_state_if_exists(path) != 0)
+                printf("[cli] csave backup failed (continuing): %s\n", path);
+            if (Save_StateWrite(path) == 0)
+                printf("[cli] csave create %s -> %s\n", name, path);
+            else
+                printf("[cli] csave create failed: %s\n", path);
+        } else if (strcmp(sub, "load") == 0) {
+            if (Save_StateLoad(path) == 0) {
+                cli_reload_after_state_load();
+                printf("[cli] csave load %s <- %s\n", name, path);
+            } else {
+                printf("[cli] csave load failed: %s\n", path);
+            }
+        } else {
+            printf("[cli] csave usage: csave create <name> | csave load <name>\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "replay") == 0) {
+        char sub[32] = {0};
+        char name[96] = {0};
+        char final_path[192] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) {
+            printf("[cli] replay usage: replay record <name> | replay stop | replay play <name> | replay status\n");
+            write_state();
+            return;
+        }
+        if (strcmp(sub, "record") == 0) {
+            if (!cli_parse_arg(cmd, 2, name, sizeof(name))) {
+                printf("[cli] replay record: missing name\n");
+            } else if (replay_start_record(name) == 0) {
+                printf("[cli] replay record: started '%s'\n", name);
+            } else {
+                printf("[cli] replay record: failed\n");
+            }
+        } else if (strcmp(sub, "stop") == 0) {
+            int did = 0;
+            if (s_replay_recording) {
+                if (replay_stop_record(final_path, sizeof(final_path)) == 0)
+                    printf("[cli] replay stop: saved %s\n", final_path);
+                else
+                    printf("[cli] replay stop: failed to finalize recording\n");
+                did = 1;
+            }
+            if (s_replay_playing) {
+                replay_reset_playback();
+                printf("[cli] replay stop: playback stopped\n");
+                did = 1;
+            }
+            if (!did) printf("[cli] replay stop: nothing active\n");
+        } else if (strcmp(sub, "play") == 0) {
+            if (!cli_parse_arg(cmd, 2, name, sizeof(name))) {
+                printf("[cli] replay play: missing name\n");
+            } else if (replay_start_play(name) == 0) {
+                printf("[cli] replay play: started '%s' (%lu frames)\n",
+                       name, (unsigned long)s_replay_play_len);
+            } else {
+                printf("[cli] replay play: failed for '%s'\n", name);
+            }
+        } else if (strcmp(sub, "status") == 0) {
+            printf("[cli] replay status: record=%s play=%s frame=%lu/%lu\n",
+                   s_replay_recording ? "ON" : "OFF",
+                   s_replay_playing ? "ON" : "OFF",
+                   (unsigned long)s_replay_play_pos,
+                   (unsigned long)s_replay_play_len);
+        } else {
+            printf("[cli] replay usage: replay record <name> | replay stop | replay play <name> | replay status\n");
         }
         write_state();
         return;
@@ -1645,6 +2208,11 @@ static void poll_cmd_file(void) {
     if (*line == '\0') return;
 
     printf("[cli] cmd: %s\n", line);
+    {
+        char logline[CLI_HIST_WIDTH + 1];
+        snprintf(logline, sizeof(logline), "> %s", line);
+        cli_hist_push(logline);
+    }
     process_cmd(line);
 }
 
@@ -1657,6 +2225,18 @@ void DebugCLI_Tick(void) {
     if (s_seq_pos < s_seq_len) {
         gCliButtons = s_seq[s_seq_pos++];
         gCliFrames  = 1;
+    }
+
+    if (s_replay_playing) {
+        if (s_replay_play_pos < s_replay_play_len) {
+            gCliButtons = s_replay_play_buf[s_replay_play_pos++];
+            gCliFrames  = 1;
+        } else {
+            replay_reset_playback();
+            printf("[cli] replay: playback complete\n");
+            s_pending_write = 1;
+            s_wait_remaining = 4;
+        }
     }
 
     /* Auto-drive move animation lab while battle UI is active. */
@@ -1707,6 +2287,11 @@ void DebugCLI_Tick(void) {
         }
     }
 
+    if (s_replay_recording && s_replay_rec_fp) {
+        uint8_t raw = hJoyInput;
+        fwrite(&raw, 1, 1, s_replay_rec_fp);
+    }
+
     /* Poll for new command only when idle */
     if (s_seq_pos >= s_seq_len && gCliFrames == 0) {
         if (++s_poll_timer >= 30) {
@@ -1720,9 +2305,11 @@ void DebugCLI_Tick(void) {
 
 void DebugCLI_ConsoleOpen(void) {
     if (s_con_open) return;
-    for (int c = 0; c < SCREEN_WIDTH; c++) {
-        s_con_saved[c]                = gScrollTileMap[CON_TMIDX(CON_TOP_ROW, c)];
-        s_con_saved[SCREEN_WIDTH + c] = gScrollTileMap[CON_TMIDX(CON_IN_ROW,  c)];
+    if (s_con_overlay_enabled) {
+        for (int c = 0; c < SCREEN_WIDTH; c++) {
+            s_con_saved[c]                = gScrollTileMap[CON_TMIDX(CON_TOP_ROW, c)];
+            s_con_saved[SCREEN_WIDTH + c] = gScrollTileMap[CON_TMIDX(CON_IN_ROW,  c)];
+        }
     }
     s_con_len    = 0;
     s_con_buf[0] = '\0';
@@ -1732,10 +2319,13 @@ void DebugCLI_ConsoleOpen(void) {
 }
 
 void DebugCLI_ConsoleClose(void) {
+    if (s_con_always_open) return;
     if (!s_con_open) return;
-    for (int c = 0; c < SCREEN_WIDTH; c++) {
-        gScrollTileMap[CON_TMIDX(CON_TOP_ROW, c)] = s_con_saved[c];
-        gScrollTileMap[CON_TMIDX(CON_IN_ROW,  c)] = s_con_saved[SCREEN_WIDTH + c];
+    if (s_con_overlay_enabled) {
+        for (int c = 0; c < SCREEN_WIDTH; c++) {
+            gScrollTileMap[CON_TMIDX(CON_TOP_ROW, c)] = s_con_saved[c];
+            gScrollTileMap[CON_TMIDX(CON_IN_ROW,  c)] = s_con_saved[SCREEN_WIDTH + c];
+        }
     }
     s_con_open = 0;
 }
@@ -1763,13 +2353,38 @@ void DebugCLI_ConsoleExecute(void) {
     if (!s_con_open) return;
     if (s_con_len > 0) {
         printf("[console] %s\n", s_con_buf);
+        {
+            char logline[CLI_HIST_WIDTH + 1];
+            snprintf(logline, sizeof(logline), "> %s", s_con_buf);
+            cli_hist_push(logline);
+        }
         process_cmd(s_con_buf);
     }
-    DebugCLI_ConsoleClose();
+    if (s_con_always_open) {
+        s_con_len = 0;
+        s_con_buf[0] = '\0';
+        s_con_blink = 0;
+        con_draw();
+    } else {
+        DebugCLI_ConsoleClose();
+    }
 }
 
 void DebugCLI_ConsoleRender(void) {
     if (!s_con_open) return;
     s_con_blink = (s_con_blink + 1) % CON_BLINK_PERIOD;
     con_draw();
+}
+
+void DebugCLI_ConsoleSetOverlayEnabled(int enabled) {
+    s_con_overlay_enabled = enabled ? 1 : 0;
+}
+
+void DebugCLI_ConsoleSetAlwaysOpen(int enabled) {
+    s_con_always_open = enabled ? 1 : 0;
+    if (s_con_always_open && !s_con_open) DebugCLI_ConsoleOpen();
+}
+
+const char *DebugCLI_ConsoleGetBuffer(void) {
+    return s_con_buf;
 }

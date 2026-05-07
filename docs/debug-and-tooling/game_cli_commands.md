@@ -7,6 +7,16 @@ Script file: `python tools/game_cli.py --script path/to/cmds.txt`
 The game must be running. Commands are written to `bugs/cli_cmd.txt`;
 results are read back from `bugs/cli_state.txt`.
 
+Launch options:
+
+- `pokered.exe --debug-render` → fixed `512x288` window (logical `256x144`, 2x scale) with CLI history sidebar
+
+Runtime debug-render input notes:
+
+- `~` / `Shift+~` toggles CLI typing mode
+- Enter submits while typing mode is active
+- Gameplay input is blocked while typing mode is active
+
 ---
 
 ## Input / Navigation
@@ -185,6 +195,20 @@ Jump to a pre-configured story state (sets relevant event flags, warps, gives pa
 | Command | Description |
 |---|---|
 | `tileinfo` / `tile_info` | Dump tile IDs and passability for player position + 4 neighbours |
+| `replay record <name>` | Start deterministic replay capture (snapshot + per-frame inputs) |
+| `replay stop` | Stop recording or stop playback |
+| `replay play <name>` | Load replay snapshot and play recorded input stream |
+| `replay status` | Show replay state and playback position |
+
+Rewind hotkeys (runtime, not CLI commands):
+
+- Hold `Ctrl+Z` → frame-by-frame rewind
+- Hold `Ctrl+Y` → frame-by-frame forward (redo)
+
+Session logs (runtime outputs):
+
+- `bugs/session_narrative.log` (human-readable)
+- `bugs/session_events.jsonl` (structured events, including event-flag transitions and battle start/end summaries)
 
 ---
 

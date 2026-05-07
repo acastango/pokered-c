@@ -17,3 +17,4 @@ void Input_StartPlayback(const char *path);
 void Input_StopPlayback(void);
 int  Input_IsRecording(void);
 int  Input_IsPlaying(void);
+void Input_SetGameplayInputBlocked(int blocked);

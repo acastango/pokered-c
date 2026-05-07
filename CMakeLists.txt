@@ -70,6 +70,7 @@ set(SOURCES
     src/game/naming_screen.c
     src/game/menu.c
     src/game/inventory.c
+    src/game/session_log.c
     src/game/pokemon.c
     src/game/bag_menu.c
     src/game/party_menu.c
@@ -196,6 +197,7 @@ set(TEST_GAME_SOURCES
     src/game/text.c
     src/game/naming_screen.c
     src/game/inventory.c
+    src/game/session_log.c
     src/game/party_menu.c
     src/game/summary_screen.c
     src/data/party_icon_data.c

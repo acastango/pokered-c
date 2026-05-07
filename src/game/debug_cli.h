@@ -21,6 +21,10 @@
  *   animlab stop          — stop auto-play (keeps current battle active)
  *   animlab status        — show animlab status in cli state/output
  *   hittrace on|off|reset|status — MoveHitTest diagnostic tracing
+ *   replay record <name>  — capture full start state + per-frame inputs
+ *   replay stop           — stop recording or playback
+ *   replay play <name>    — load replay start state and auto-play frames
+ *   replay status         — show replay runtime status
  *   movetestteam1         — set 6-mon party with 24 predefined move-anim test moves
  *
  * State file format: plain ASCII, grid + legend + party summary.
@@ -36,3 +40,11 @@ void DebugCLI_ConsoleAddChar(char c);
 void DebugCLI_ConsoleBackspace(void);
 void DebugCLI_ConsoleExecute(void);
 void DebugCLI_ConsoleRender(void);  /* call each frame before display render */
+void DebugCLI_ConsoleSetOverlayEnabled(int enabled);
+void DebugCLI_ConsoleSetAlwaysOpen(int enabled);
+const char *DebugCLI_ConsoleGetBuffer(void);
+
+/* ---- Debug history feed (for debug-render sidebar) ---------------- */
+int DebugCLI_GetHistoryCount(void);
+const char *DebugCLI_GetHistoryLine(int newest_index); /* 0 = newest */
+int DebugCLI_IsReplayPlaying(void);

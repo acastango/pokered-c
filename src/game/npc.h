@@ -2,6 +2,25 @@
 /* npc.h — NPC sprite loading, movement, and OAM management. */
 #include <stdint.h>
 
+#define NPC_STATE_MAX 16
+
+typedef struct npc_state_t {
+    int      npc_count;
+    int      npc_last_interacted;
+    uint8_t  npc_sprite[NPC_STATE_MAX];
+    uint8_t  npc_x[NPC_STATE_MAX];
+    uint8_t  npc_y[NPC_STATE_MAX];
+    uint8_t  npc_facing[NPC_STATE_MAX];
+    uint8_t  npc_move_type[NPC_STATE_MAX];
+    int      npc_move_timer[NPC_STATE_MAX];
+    int      npc_walk_frames[NPC_STATE_MAX];
+    int      npc_walk_total[NPC_STATE_MAX];
+    int      npc_step_px[NPC_STATE_MAX];
+    int      npc_px_off[NPC_STATE_MAX];
+    int      npc_py_off[NPC_STATE_MAX];
+    uint8_t  npc_hidden[NPC_STATE_MAX];
+} npc_state_t;
+
 /* Load NPC GFX and OAM for the current map. Call after Map_Load(). */
 void NPC_Load(void);
 
@@ -78,3 +97,7 @@ int NPC_IsWalking(int i);
  * Does nothing if NPC is already mid-walk.
  * Used by trainer_sight.c to walk trainers toward the player. */
 void NPC_DoScriptedStep(int i, int dir);
+
+/* Runtime state snapshot for deterministic save-state/rewind fidelity. */
+void NPC_StateCapture(npc_state_t *out);
+void NPC_StateRestore(const npc_state_t *in);

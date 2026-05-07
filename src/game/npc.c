@@ -34,6 +34,7 @@
 #include "../game/constants.h"
 #include "../data/event_data.h"
 #include "../data/sprite_data.h"
+#include <string.h>
 
 /* OAM attribute bit 5: horizontal flip (GB standard). */
 #define OAM_XFLIP  0x20
@@ -106,6 +107,20 @@ static void apply_npc_oam_facing(int i) {
         wShadowOAM[oam + s].tile  = tile_base + s;
         wShadowOAM[oam + s].flags = flg;
     }
+}
+
+static void npc_apply_visual_state(int i) {
+    int walking = 0;
+    if (npc_walk_frames[i] > 0 && npc_walk_total[i] > 0) {
+        int total = npc_walk_total[i];
+        int elapsed = total - npc_walk_frames[i];
+        int divisor = total / 4;
+        if (divisor <= 0) divisor = 1;
+        int counter = (elapsed > 0) ? ((elapsed - 1) / divisor) : 0;
+        walking = counter & 1;
+    }
+    reload_npc_tiles_ex(i, walking);
+    apply_npc_oam_facing(i);
 }
 
 /* ---- Public API -------------------------------------------------- */
@@ -511,4 +526,43 @@ void NPC_BuildView(int scroll_px_x, int scroll_px_y) {
         wShadowOAM[oam + 2].y = 0;
         wShadowOAM[oam + 3].y = 0;
     }
+}
+
+void NPC_StateCapture(npc_state_t *out) {
+    if (!out) return;
+    out->npc_count = npc_count;
+    out->npc_last_interacted = npc_last_interacted;
+    memcpy(out->npc_sprite, npc_sprite, sizeof(npc_sprite));
+    memcpy(out->npc_x, npc_x, sizeof(npc_x));
+    memcpy(out->npc_y, npc_y, sizeof(npc_y));
+    memcpy(out->npc_facing, npc_facing, sizeof(npc_facing));
+    memcpy(out->npc_move_type, npc_move_type, sizeof(npc_move_type));
+    memcpy(out->npc_move_timer, npc_move_timer, sizeof(npc_move_timer));
+    memcpy(out->npc_walk_frames, npc_walk_frames, sizeof(npc_walk_frames));
+    memcpy(out->npc_walk_total, npc_walk_total, sizeof(npc_walk_total));
+    memcpy(out->npc_step_px, npc_step_px, sizeof(npc_step_px));
+    memcpy(out->npc_px_off, npc_px_off, sizeof(npc_px_off));
+    memcpy(out->npc_py_off, npc_py_off, sizeof(npc_py_off));
+    memcpy(out->npc_hidden, npc_hidden, sizeof(npc_hidden));
+}
+
+void NPC_StateRestore(const npc_state_t *in) {
+    if (!in) return;
+    npc_count = in->npc_count;
+    if (npc_count < 0) npc_count = 0;
+    if (npc_count > MAX_NPCS) npc_count = MAX_NPCS;
+    npc_last_interacted = in->npc_last_interacted;
+    memcpy(npc_sprite, in->npc_sprite, sizeof(npc_sprite));
+    memcpy(npc_x, in->npc_x, sizeof(npc_x));
+    memcpy(npc_y, in->npc_y, sizeof(npc_y));
+    memcpy(npc_facing, in->npc_facing, sizeof(npc_facing));
+    memcpy(npc_move_type, in->npc_move_type, sizeof(npc_move_type));
+    memcpy(npc_move_timer, in->npc_move_timer, sizeof(npc_move_timer));
+    memcpy(npc_walk_frames, in->npc_walk_frames, sizeof(npc_walk_frames));
+    memcpy(npc_walk_total, in->npc_walk_total, sizeof(npc_walk_total));
+    memcpy(npc_step_px, in->npc_step_px, sizeof(npc_step_px));
+    memcpy(npc_px_off, in->npc_px_off, sizeof(npc_px_off));
+    memcpy(npc_py_off, in->npc_py_off, sizeof(npc_py_off));
+    memcpy(npc_hidden, in->npc_hidden, sizeof(npc_hidden));
+    for (int i = 0; i < npc_count; i++) npc_apply_visual_state(i);
 }

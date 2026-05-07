@@ -4,6 +4,7 @@
 #define DISPLAY_SCALE   3   /* 160x144 → 480x432 */
 
 int  Display_Init(void);
+void Display_SetDebugRenderMode(int on); /* fixed 256x144 layout with CLI sidebar */
 void Display_Render(void);  /* wTileMap + wShadowOAM → screen (no scroll) */
 /* Display_RenderScrolled: render tile_map (stride columns wide) with sub-tile
  * pixel offset (px, py).  Replaces Display_Render for the overworld walk system.

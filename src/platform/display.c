@@ -8,6 +8,7 @@
  */
 #include "display.h"
 #include "hardware.h"
+#include "../game/debug_cli.h"
 #include "../game/constants.h"
 #include <SDL2/SDL.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 static SDL_Window   *window   = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture  *fb_tex   = NULL;  /* 160×144 framebuffer */
+static int g_debug_render_mode = 0;
 
 /* BG tile GFX cache: up to 256 tiles × 16 bytes (tileset, font, box) */
 static uint8_t  tile_gfx[256][TILE_SIZE];
@@ -87,9 +89,9 @@ int Display_Init(void) {
     window = SDL_CreateWindow(
         "Pokémon Red",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        SCREEN_WIDTH_PX * DISPLAY_SCALE,
-        SCREEN_HEIGHT_PX * DISPLAY_SCALE,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+        g_debug_render_mode ? 512 : (SCREEN_WIDTH_PX * DISPLAY_SCALE),
+        g_debug_render_mode ? 288 : (SCREEN_HEIGHT_PX * DISPLAY_SCALE),
+        SDL_WINDOW_SHOWN | (g_debug_render_mode ? 0 : SDL_WINDOW_RESIZABLE)
     );
     if (!window) return -1;
 
@@ -99,8 +101,13 @@ int Display_Init(void) {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) return -1;
 
-    SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
-    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    if (g_debug_render_mode) {
+        SDL_RenderSetLogicalSize(renderer, 256, 144);
+        SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    } else {
+        SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH_PX, SCREEN_HEIGHT_PX);
+        SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+    }
 
     fb_tex = SDL_CreateTexture(renderer,
         SDL_PIXELFORMAT_RGBA8888,
@@ -111,6 +118,92 @@ int Display_Init(void) {
     /* Default palette: rBGP = 0xE4 (00=white 01=light 10=dark 11=black) */
     Display_SetPalette(0xE4, 0xE4, 0xE4);
     return 0;
+}
+
+void Display_SetDebugRenderMode(int on) {
+    g_debug_render_mode = on ? 1 : 0;
+}
+
+static void draw_glyph_3x5(int x, int y, char ch, SDL_Color c) {
+    static const struct { char ch; uint8_t rows[5]; } G[] = {
+        {'A',{0x2,0x5,0x7,0x5,0x5}}, {'B',{0x6,0x5,0x6,0x5,0x6}},
+        {'C',{0x3,0x4,0x4,0x4,0x3}}, {'D',{0x6,0x5,0x5,0x5,0x6}},
+        {'E',{0x7,0x4,0x6,0x4,0x7}}, {'F',{0x7,0x4,0x6,0x4,0x4}},
+        {'G',{0x3,0x4,0x5,0x5,0x3}}, {'H',{0x5,0x5,0x7,0x5,0x5}},
+        {'I',{0x7,0x2,0x2,0x2,0x7}}, {'J',{0x1,0x1,0x1,0x5,0x2}},
+        {'K',{0x5,0x5,0x6,0x5,0x5}}, {'L',{0x4,0x4,0x4,0x4,0x7}},
+        {'M',{0x5,0x7,0x7,0x5,0x5}}, {'N',{0x5,0x7,0x7,0x7,0x5}},
+        {'O',{0x2,0x5,0x5,0x5,0x2}}, {'P',{0x6,0x5,0x6,0x4,0x4}},
+        {'Q',{0x2,0x5,0x5,0x3,0x1}}, {'R',{0x6,0x5,0x6,0x5,0x5}},
+        {'S',{0x3,0x4,0x2,0x1,0x6}}, {'T',{0x7,0x2,0x2,0x2,0x2}},
+        {'U',{0x5,0x5,0x5,0x5,0x7}}, {'V',{0x5,0x5,0x5,0x5,0x2}},
+        {'W',{0x5,0x5,0x7,0x7,0x5}}, {'X',{0x5,0x5,0x2,0x5,0x5}},
+        {'Y',{0x5,0x5,0x2,0x2,0x2}}, {'Z',{0x7,0x1,0x2,0x4,0x7}},
+        {'0',{0x7,0x5,0x5,0x5,0x7}}, {'1',{0x2,0x6,0x2,0x2,0x7}},
+        {'2',{0x6,0x1,0x7,0x4,0x7}}, {'3',{0x6,0x1,0x3,0x1,0x6}},
+        {'4',{0x5,0x5,0x7,0x1,0x1}}, {'5',{0x7,0x4,0x6,0x1,0x6}},
+        {'6',{0x3,0x4,0x6,0x5,0x2}}, {'7',{0x7,0x1,0x2,0x2,0x2}},
+        {'8',{0x2,0x5,0x2,0x5,0x2}}, {'9',{0x2,0x5,0x3,0x1,0x6}},
+        {'-',{0x0,0x0,0x7,0x0,0x0}}, {'_',{0x0,0x0,0x0,0x0,0x7}},
+        {':',{0x0,0x2,0x0,0x2,0x0}}, {'.',{0x0,0x0,0x0,0x0,0x2}},
+        {'>',{0x4,0x2,0x1,0x2,0x4}}, {'/',{0x1,0x1,0x2,0x4,0x4}},
+        {' ',{0x0,0x0,0x0,0x0,0x0}},
+    };
+    uint8_t rows[5] = {0};
+    char up = (char)((ch >= 'a' && ch <= 'z') ? (ch - 32) : ch);
+    int found = 0;
+    for (unsigned i = 0; i < sizeof(G)/sizeof(G[0]); i++) {
+        if (G[i].ch == up) { memcpy(rows, G[i].rows, 5); found = 1; break; }
+    }
+    if (!found) return;
+    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
+    for (int ry = 0; ry < 5; ry++) {
+        for (int rx = 0; rx < 3; rx++) {
+            if (rows[ry] & (1u << (2 - rx))) {
+                SDL_RenderDrawPoint(renderer, x + rx, y + ry);
+            }
+        }
+    }
+}
+
+static void draw_text_3x5(int x, int y, const char *s, SDL_Color c, int max_chars) {
+    int i;
+    if (!s) return;
+    for (i = 0; s[i] && i < max_chars; i++) draw_glyph_3x5(x + i * 4, y, s[i], c);
+}
+
+static void present_fb(void) {
+    SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
+    SDL_RenderClear(renderer);
+    if (!g_debug_render_mode) {
+        SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
+        SDL_RenderPresent(renderer);
+        return;
+    }
+    {
+        SDL_Rect game_dst = {0, 0, 160, 144};
+        SDL_Rect side_bg = {160, 0, 96, 144};
+        SDL_Color fg = {0xB8, 0xF8, 0xD0, 0xFF};
+        SDL_Color inp = {0xE0, 0xF8, 0xD0, 0xFF};
+        int lines = DebugCLI_GetHistoryCount();
+        int y = 10;
+        const char *buf = DebugCLI_ConsoleGetBuffer();
+        SDL_RenderCopy(renderer, fb_tex, NULL, &game_dst);
+        SDL_SetRenderDrawColor(renderer, 0x08, 0x18, 0x20, 255);
+        SDL_RenderFillRect(renderer, &side_bg);
+        SDL_SetRenderDrawColor(renderer, 0x34, 0x68, 0x56, 255);
+        SDL_RenderDrawLine(renderer, 160, 0, 160, 143);
+        draw_text_3x5(166, 2, "DEBUG CLI", fg, 16);
+        for (int i = lines - 1; i >= 0 && y < 134; i--) {
+            const char *ln = DebugCLI_GetHistoryLine(i);
+            if (!ln) continue;
+            draw_text_3x5(166, y, ln, fg, 22);
+            y += 6;
+        }
+        draw_text_3x5(166, 138, "> ", inp, 2);
+        draw_text_3x5(174, 138, buf ? buf : "", inp, 20);
+    }
+    SDL_RenderPresent(renderer);
 }
 
 void Display_LoadTileset(const uint8_t *gfx, int num_tiles) {
@@ -304,10 +397,7 @@ void Display_Render(void) {
     apply_shake_to_fb();
     apply_tile_overlay();
     apply_block_id_overlay(0, 0);
-    SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
-    SDL_RenderPresent(renderer);
+    present_fb();
 }
 
 void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride) {
@@ -392,10 +482,7 @@ void Display_RenderScrolled(int px, int py, const uint8_t *tile_map, int stride)
     apply_shake_to_fb();
     apply_tile_overlay();
     apply_block_id_overlay(px, py);
-    SDL_UpdateTexture(fb_tex, NULL, fb, SCREEN_WIDTH_PX * sizeof(uint32_t));
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, fb_tex, NULL, NULL);
-    SDL_RenderPresent(renderer);
+    present_fb();
 }
 
 void Display_SetOverlayEnabled(int on) {

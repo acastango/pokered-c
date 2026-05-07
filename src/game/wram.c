@@ -1,6 +1,7 @@
 /* wram.c — Global variable definitions matching pokered wram.asm layout */
 #include "../platform/hardware.h"
 #include "../data/event_flag_names.h"
+#include "session_log.h"
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -292,6 +293,7 @@ uint8_t CalcCheckSum(const uint8_t *data, uint16_t len) {
 }
 
 void Debug_LogEventFlagChange(uint16_t n, int new_value) {
+    SessionLog_EventFlagChange(n, new_value, EventFlagName(n));
     printf("[event] %s (#%u) -> %d map=%u pos=(%d,%d)\n",
            EventFlagName(n),
            (unsigned)n,

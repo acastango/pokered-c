@@ -46,6 +46,7 @@
 #include "music.h"
 #include "../platform/audio.h"
 #include "debug_cli.h"
+#include "session_log.h"
 #include "gate_scripts.h"
 #include "vermilion_gym_scripts.h"
 #include "pokedex.h"
@@ -222,6 +223,10 @@ static int       gWarpStepTimer = 0;
  * battle.  Checked when transition completes to call Battle_StartTrainer
  * instead of Battle_Start. */
 static int gPendingTrainerBattle = 0;
+static uint8_t gBattleLogTrainerClass = 0;
+static uint8_t gBattleLogTrainerNo = 0;
+static uint8_t gBattleLogWildSpecies = 0;
+static uint8_t gBattleLogEnemyLevel = 0;
 
 /* Debug: set to 1 to suppress wild encounters. */
 int gNoWilds = 0;
@@ -310,8 +315,10 @@ static void check_item_pickup(void) {
             }
             /* Play pickup jingle on successful overworld item collection. */
             Audio_PlaySFX_GetItem1();
+            SessionLog_ItemPickup(it->item_id, 1);
         } else {
             snprintf(pickup_msg, sizeof(pickup_msg), "No room for\nmore items!");
+            SessionLog_ItemPickup(it->item_id, 0);
         }
         Text_ShowASCII(pickup_msg);
         return;
@@ -354,6 +361,7 @@ static void check_npc_interact(void) {
     if (best_i < 0) return;
 
     NPC_FacePlayer(best_i);
+    SessionLog_NpcSpoke(best_i, fx, fy);
 
     /* Trainer NPC: bypass normal text dispatch.
      * Defeated → show after_text.  Undefeated → engage immediately.
@@ -659,10 +667,20 @@ void GameTick(void) {
         if (BattleTransition_Tick()) {
             /* Transition complete — launch battle. */
             if (gPendingTrainerBattle) {
+                gBattleLogTrainerClass = gEngagedTrainerClass;
+                gBattleLogTrainerNo = gEngagedTrainerNo;
                 gPendingTrainerBattle = 0;
                 Battle_StartTrainer(gEngagedTrainerClass, gEngagedTrainerNo);
+                gBattleLogWildSpecies = 0;
+                gBattleLogEnemyLevel = wEnemyMon.level;
+                SessionLog_BattleStart(1, gBattleLogTrainerClass, gBattleLogTrainerNo, 0, gBattleLogEnemyLevel);
             } else {
+                gBattleLogTrainerClass = 0;
+                gBattleLogTrainerNo = 0;
+                gBattleLogWildSpecies = wCurPartySpecies;
+                gBattleLogEnemyLevel = wCurEnemyLevel;
                 Battle_Start();
+                SessionLog_BattleStart(0, 0, 0, gBattleLogWildSpecies, gBattleLogEnemyLevel);
             }
             sBattleResultLatched = BATTLE_OUTCOME_NONE;
             BattleUI_Enter();
@@ -685,6 +703,12 @@ void GameTick(void) {
                 (saved_battle_result != BATTLE_OUTCOME_NONE)
                 ? saved_battle_result
                 : sBattleResultLatched;
+            SessionLog_BattleEnd(resolved_battle_result,
+                                 gBattleLogTrainerClass != 0,
+                                 gBattleLogTrainerClass,
+                                 gBattleLogTrainerNo,
+                                 gBattleLogWildSpecies,
+                                 gBattleLogEnemyLevel);
             /* Battle ended — restore overworld GFX and state.
              * Font_LoadHudTiles() overwrote tile_gfx slots 2-24 during battle;
              * Map_ReloadGfx() restores the tileset so the map renders correctly.
