@@ -1,8 +1,7 @@
-<iframe width="560" height="315" src="https://www.youtube.com/embed/9b1up4gAVDE?si=0DPnzTM3wQdSaKIT" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern platforms, built with SDL2.
+
 
 # pokered-c
-
+[![Gameplay Showcase](https://img.youtube.com/vi/9b1up4gAVDE/maxresdefault.jpg)](https://www.youtube.com/watch?v=9b1up4gAVDE)
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
 **Status:** Playable from intro through Vermilion/SS Anne, Celadon Rocket Game Corner/Hideout, and Lavender/Pokémon Tower core sequences (including rival + Marowak + Mr. Fuji rescue flow). Core Gen 1 battle flow, Pokédex/PC systems, TM/HM teaching, and ongoing ASM-fidelity polish are integrated.
