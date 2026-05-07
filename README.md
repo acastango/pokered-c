@@ -4,7 +4,7 @@ A faithful C port of [Pokémon Red](https://github.com/pret/pokered) for modern 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
-**Status:** Fully playable from intro through Cerulean and into the Vermilion/SS Anne chapter. Core Gen 1 battle flow, major early-game scripts, Pokédex/PC systems, and TM/HM teaching are integrated with ongoing ASM-fidelity polish.
+**Status:** Playable from intro through Vermilion/SS Anne, Celadon Rocket Game Corner/Hideout, and Lavender/Pokémon Tower core sequences (including rival + Marowak + Mr. Fuji rescue flow). Core Gen 1 battle flow, Pokédex/PC systems, TM/HM teaching, and ongoing ASM-fidelity polish are integrated.
 
 ## Release notes
 
@@ -21,7 +21,7 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - Field move hooks and key-item map hooks (including Poké Flute integration path)
 - Save/load
 
-### Story scripts (Pallet → Vermilion/SS Anne chapter)
+### Story scripts (Pallet → Rocket Hideout + Lavender/Pokémon Tower coverage)
 - **Intro & main menu** — Game Freak logo, title screen, new game / continue
 - **Pallet Town** — Oak intro, player naming
 - **Oak's Lab** — starter selection dialogue, rival pick, receive Pokédex, Oak's Parcel delivery chain
@@ -31,6 +31,8 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - **Route 22 / Cerulean / Route 24-25** — rival/event flows, Nugget Bridge chain, trainers, Bill's House sequence
 - **S.S. Anne chapter** — rival battle and captain/HM01 Cut sequence integrated with associated trainer/event scripting
 - **Vermilion Gym script path** — gym-specific script module and puzzle/event scaffolding integrated
+- **Celadon / Rocket Hideout** — Game Corner poster Rocket encounter + switch, staircase reveal behavior, spinner movement/animation/SFX flow, Lift Key drop sequence, elevator panel flow, Giovanni encounter + Silph Scope drop sequence
+- **Lavender / Pokémon Tower** — 2F rival sequence, 5F purified-zone behavior, 6F ghost Marowak reveal + battle flow, 7F Rocket encounters + Mr. Fuji rescue/warp chain, Mr. Fuji house Poké Flute reward flow
 - **Event flags** — persistent across save/load; completed events stay completed
 
 ### Battle engine (Gen 1 faithful)
@@ -45,6 +47,7 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 - Catch mechanic — Gen 1 catch rate formula, shake count
 - Trainer battles — trainer sprite slide-in/out, send-out text, win/loss handling, prize money, badge checks
 - 8 battle transition animations keyed on trainer/wild/dungeon/stronger-enemy
+- Move animation pipeline integrated and actively parity-polished against ASM behavior
 - Full battle UI: HP bars, status icons, party dots, move menu, bag/switch/run submenus
 
 ### UI screens
@@ -73,7 +76,7 @@ The original Game Boy assembly is the spec. Every mechanic is ported from the di
 ## What's missing / in progress
 
 ### Campaign coverage
-- Large portions beyond the current Vermilion/SS Anne chapter remain incomplete or partial
+- Large portions beyond current Vermilion/Celadon/Lavender coverage remain incomplete or partial
 - Late-game city arcs, Team Rocket mid/late story beats, and endgame routes are not fully scripted yet
 - Gym progression beyond currently integrated chapters is still in progress
 
