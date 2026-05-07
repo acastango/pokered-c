@@ -19,6 +19,9 @@
 #include "../game/pokemontower2f_scripts.h"
 #include "../game/pokemontower7f_scripts.h"
 #include "../game/mrfujis_house_scripts.h"
+#include "../game/celadon_city_scripts.h"
+#include "../game/saffron_city_scripts.h"
+#include "../game/fighting_dojo_scripts.h"
 
 static const map_warp_t kWarps_PalletTown[] = {
     {   5,   5, 0x25, 0 },  /* REDS_HOUSE_1F */
@@ -213,9 +216,9 @@ static const npc_event_t kNpcs_CeladonCity[] = {
     {  11,  28, 0x25, 0, "Heheh! This GYM\nis great! It's\nfull of women!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS1 */
     {  14,  19, 0x0d, 1, "The GAME CORNER\nis bad for our\ncity's image!", NULL },  /* SPRITE_GIRL, WALK, TEXT_CELADONCITY_GIRL */
     {  25,  22, 0x25, 0, "Moan! I blew it\nall at the slots!\fI knew I should\nhave cashed in my\ncoins for prizes!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS2 */
-    {  22,  16, 0x25, 0, "Hello, there!\fI've seen you,\nbut I never had a\nchance to talk!\fHere's a gift for\ndropping by!", NULL },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS3 */
+    {  22,  16, 0x25, 0, NULL, CeladonCity_Gramps3Script },  /* SPRITE_GRAMPS, STAY, TEXT_CELADONCITY_GRAMPS3 */
     {  32,  12, 0x2f, 0, "This is my trusted\npal, POLIWRATH!\fIt evolved from\nPOLIWHIRL when I\nused WATER STONE!", NULL },  /* SPRITE_FISHER, STAY, TEXT_CELADONCITY_FISHER */
-    {  30,  12, 0x05, 0, "POLIWRATH: Ribi\nribit!@", NULL },  /* SPRITE_MONSTER, STAY, TEXT_CELADONCITY_POLIWRATH */
+    {  30,  12, 0x05, 0, NULL, CeladonCity_PoliwrathScript },  /* SPRITE_MONSTER, STAY, TEXT_CELADONCITY_POLIWRATH */
     {  32,  29, 0x18, 1, "What are you\nstaring at?", NULL },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET1 */
     {  42,  14, 0x18, 1, "Keep out of TEAM\nROCKET's way!", NULL },  /* SPRITE_ROCKET, WALK, TEXT_CELADONCITY_ROCKET2 */
 };
@@ -230,6 +233,12 @@ static const sign_event_t kSigns_CeladonCity[] = {
     {  39,  21, "TRAINER TIPS\fGUARD SPEC.\nprotects POKEMON\nagainst SPECIAL\nattacks such as\nfire and water!\fGet your items at\nCELADON DEPT.\nSTORE!" },  /* TEXT_CELADONCITY_TRAINER_TIPS2 */
     {  33,  21, "Coins exchanged\nfor prizes!\nPRIZE EXCHANGE" },  /* TEXT_CELADONCITY_PRIZEEXCHANGE_SIGN */
     {  27,  21, "ROCKET GAME CORNER\nThe playground\nfor grown-ups!" },  /* TEXT_CELADONCITY_GAMECORNER_SIGN */
+};
+
+/* ASM hidden_events_for CELADON_CITY:
+ *   hidden_event 48, 15, HiddenItems, PP_UP */
+static const hidden_event_t kHiddenEvents_CeladonCity[] = {
+    { 48, 15, NULL, CeladonCity_HiddenPPUpScript },
 };
 
 static const map_warp_t kWarps_FuchsiaCity[] = {
@@ -2172,7 +2181,7 @@ static const map_warp_t kWarps_CeladonMart3F[] = {
 };
 
 static const npc_event_t kNpcs_CeladonMart3F[] = {
-    {  16,   5, 0x26, 0, "Oh, hi! I finally\nfinished POKEMON!\fNot done yet?\nThis might be\nuseful!", NULL },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART3F_CLERK */
+    {  16,   5, 0x26, 0, NULL, CeladonMart3F_ClerkScript },  /* SPRITE_CLERK, STAY, TEXT_CELADONMART3F_CLERK */
     {  11,   6, 0x37, 0, "Captured POKEMON\nare registered\nwith an ID No.\nand OT, the name\nof the Original\nTrainer that\ncaught it!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID1 */
     {   7,   2, 0x37, 0, "All right!\fMy buddy's going\nto trade me his\nKANGASKHAN for my\nGRAVELER!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID2 */
     {   8,   2, 0x37, 0, "Come on GRAVELER!\fI love GRAVELER!\nI collect them!\fHuh?\fGRAVELER turned\ninto a different\nPOKEMON!", NULL },  /* SPRITE_GAMEBOY_KID, STAY, TEXT_CELADONMART3F_GAMEBOY_KID3 */
@@ -2216,14 +2225,20 @@ static const map_warp_t kWarps_CeladonMartRoof[] = {
 
 static const npc_event_t kNpcs_CeladonMartRoof[] = {
     {  10,   4, 0x0c, 0, "My sister is a\ntrainer, believe\nit or not.\fBut, she's so\nimmature, she\ndrives me nuts!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CELADONMARTROOF_SUPER_NERD */
-    {   5,   5, 0x08, 1, "I'm thirsty!\nI want something\nto drink!", NULL },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONMARTROOF_LITTLE_GIRL */
+    {   5,   5, 0x08, 1, NULL, CeladonMartRoof_LittleGirlScript },  /* SPRITE_LITTLE_GIRL, WALK, TEXT_CELADONMARTROOF_LITTLE_GIRL */
 };
 
 static const sign_event_t kSigns_CeladonMartRoof[] = {
-    {  10,   1, NULL },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE1 */
-    {  11,   1, NULL },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE2 */
-    {  12,   2, NULL },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE3 */
+    {  10,   1, "A vending machine!\nHere's the menu!" },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE1 */
+    {  11,   1, "A vending machine!\nHere's the menu!" },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE2 */
+    {  12,   2, "A vending machine!\nHere's the menu!" },  /* TEXT_CELADONMARTROOF_VENDING_MACHINE3 */
     {  13,   2, "ROOFTOP SQUARE:\nVENDING MACHINES" },  /* TEXT_CELADONMARTROOF_CURRENT_FLOOR_SIGN */
+};
+
+static const hidden_event_t kHiddenEvents_CeladonMartRoof[] = {
+    { 10, 1, NULL, CeladonMartRoof_VendingMachineScript },
+    { 11, 1, NULL, CeladonMartRoof_VendingMachineScript },
+    { 12, 2, NULL, CeladonMartRoof_VendingMachineScript },
 };
 
 static const map_warp_t kWarps_CeladonMartElevator[] = {
@@ -2303,6 +2318,7 @@ static const map_warp_t kWarps_CeladonMansionRoofHouse[] = {
 
 static const npc_event_t kNpcs_CeladonMansionRoofHouse[] = {
     {   2,   2, 0x0e, 0, "I know everything\nabout the world\nof POKEMON in\nyour GAME BOY!\fGet together with\nyour friends and\ntrade POKEMON!", NULL },  /* SPRITE_HIKER, STAY, TEXT_CELADONMANSION_ROOF_HOUSE_HIKER */
+    {   4,   3, 0x3d, 0, NULL, CeladonMansionRoofHouse_EeveeScript },  /* SPRITE_POKE_BALL, STAY, TEXT_CELADONMANSION_ROOF_HOUSE_EEVEE_POKEBALL */
 };
 
 static const map_warp_t kWarps_CeladonPokecenter[] = {
@@ -2450,7 +2466,7 @@ static const npc_event_t kNpcs_CeladonDiner[] = {
     {   7,   2, 0x1c, 0, "My POKEMON are\nweak, so I often\nhave to go to the\nDRUG STORE.", NULL },  /* SPRITE_MIDDLE_AGED_WOMAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_WOMAN */
     {   1,   4, 0x0a, 0, "Psst! There's a\nbasement under\nthe GAME CORNER.", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CELADONDINER_MIDDLE_AGED_MAN */
     {   5,   3, 0x2f, 0, "Munch...\fThe man at that\ntable lost it all\nat the slots.", NULL },  /* SPRITE_FISHER, STAY, TEXT_CELADONDINER_FISHER */
-    {   0,   1, 0x24, 0, "Go ahead! Laugh!\fI'm flat out\nbusted!\fNo more slots for\nme! I'm going\nstraight!\fHere! I won't be\nneeding this any-\nmore!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CELADONDINER_GYM_GUIDE */
+    {   0,   1, 0x24, 0, NULL, CeladonDiner_GymGuideScript },  /* SPRITE_GYM_GUIDE, STAY, TEXT_CELADONDINER_GYM_GUIDE */
 };
 
 static const map_warp_t kWarps_CeladonChiefHouse[] = {
@@ -2970,6 +2986,32 @@ static const npc_event_t kNpcs_FightingDojo[] = {
     {   3,   6, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT2 */
     {   5,   5, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT3 */
     {   5,   7, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_FIGHTINGDOJO_BLACKBELT4 */
+    {   4,   1, 0x3d, 0, NULL, FightingDojo_HitmonleeBallScript },  /* SPRITE_POKE_BALL, STAY */
+    {   5,   1, 0x3d, 0, NULL, FightingDojo_HitmonchanBallScript },  /* SPRITE_POKE_BALL, STAY */
+};
+
+static const map_trainer_t kTrainers_FightingDojo[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 1, 3, 24, 5, 4, EVENT_BEAT_FIGHTING_DOJO_TRAINER_0,
+      "Nothing tough\nfrightens me!\fI break boulders\nfor training!",
+      "Our prime fighters\nlost!",
+      "I hurt my hand!" },
+    { 2, 3, 24, 3, 4, EVENT_BEAT_FIGHTING_DOJO_TRAINER_1,
+      "Come on! Nobody's\ngot your back!",
+      "I got crushed...",
+      "I give up!" },
+    { 3, 2, 24, 4, 3, EVENT_BEAT_FIGHTING_DOJO_TRAINER_2,
+      "Waaaarggh!\fI'm the karate\nking! Your fate\nrests with me!",
+      "Yow! I lost!",
+      "I'm beaten!" },
+    { 4, 2, 24, 2, 3, EVENT_BEAT_FIGHTING_DOJO_TRAINER_3,
+      "Hoargh!\fTake your shoes\noff!",
+      "I got kicked!",
+      "Aiyaaa!" },
+    { 0, 0, 24, 1, 3, EVENT_BEAT_KARATE_MASTER,
+      "Grunt!\fI am the KARATE\nMASTER! I am the\nLEADER here!\fYou wish to\nchallenge us?\nExpect no mercy!\fFwaaa!",
+      "Indeed, I have\nlost!\fBut, I beseech\nyou, do not take\nour emblem as\nyour trophy!\fIn return, I will\ngive you a prized\nfighting POKeMON!\fChoose whichever\none you like!",
+      "Hwaa!" },
 };
 
 static const map_warp_t kWarps_SaffronGym[] = {
@@ -3072,7 +3114,7 @@ static const map_warp_t kWarps_MrPsychicsHouse[] = {
 };
 
 static const npc_event_t kNpcs_MrPsychicsHouse[] = {
-    {   5,   3, 0x27, 0, "...Wait! Don't\nsay a word!\fYou wanted this!", NULL },  /* SPRITE_FISHING_GURU, STAY, TEXT_MRPSYCHICSHOUSE_MR_PSYCHIC */
+    {   5,   3, 0x27, 0, NULL, MrPsychicsHouse_MrPsychicScript },  /* SPRITE_FISHING_GURU, STAY, TEXT_MRPSYCHICSHOUSE_MR_PSYCHIC */
 };
 
 static const map_warp_t kWarps_Route15Gate1F[] = {
@@ -3136,8 +3178,8 @@ static const map_warp_t kWarps_Route16FlyHouse[] = {
 };
 
 static const npc_event_t kNpcs_Route16FlyHouse[] = {
-    {   2,   3, 0x1d, 0, "Oh, you found my\nsecret retreat!\fPlease don't tell\nanyone I'm here.\nI'll make it up\nto you with this!", NULL },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_ROUTE16FLYHOUSE_BRUNETTE_GIRL */
-    {   6,   4, 0x09, 1, "FEAROW: Kyueen!", NULL },  /* SPRITE_BIRD, WALK, TEXT_ROUTE16FLYHOUSE_FEAROW */
+    {   2,   3, 0x1d, 0, NULL, Route16FlyHouse_BrunetteScript },  /* SPRITE_BRUNETTE_GIRL, STAY, TEXT_ROUTE16FLYHOUSE_BRUNETTE_GIRL */
+    {   6,   4, 0x09, 1, NULL, Route16FlyHouse_FearowScript },  /* SPRITE_BIRD, WALK, TEXT_ROUTE16FLYHOUSE_FEAROW */
 };
 
 static const map_warp_t kWarps_Route12SuperRodHouse[] = {
@@ -3962,7 +4004,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x03] = { kWarps_CeruleanCity, 10, kNpcs_CeruleanCity, 11, kSigns_CeruleanCity, 6, NULL, 0, 0x0f },
     [0x04] = { kWarps_LavenderTown, 6, kNpcs_LavenderTown, 3, kSigns_LavenderTown, 6, NULL, 0, 0x2c },
     [0x05] = { kWarps_VermilionCity, 9, kNpcs_VermilionCity, 6, kSigns_VermilionCity, 7, NULL, 0, 0x43 },
-    [0x06] = { kWarps_CeladonCity, 13, kNpcs_CeladonCity, 9, kSigns_CeladonCity, 9, NULL, 0, 0x0f },
+    [0x06] = { kWarps_CeladonCity, 13, kNpcs_CeladonCity, 9, kSigns_CeladonCity, 9, NULL, 0, 0x0f, NULL, 0, kHiddenEvents_CeladonCity, 1 },
     [0x07] = { kWarps_FuchsiaCity, 9, kNpcs_FuchsiaCity, 9, kSigns_FuchsiaCity, 14, NULL, 0, 0x0f },
     [0x08] = { kWarps_CinnabarIsland, 5, kNpcs_CinnabarIsland, 2, kSigns_CinnabarIsland, 5, NULL, 0, 0x43 },
     [0x09] = { kWarps_IndigoPlateau, 2, NULL, 0, NULL, 0, NULL, 0, 0x0e },
@@ -4082,13 +4124,13 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x7b] = { kWarps_CeladonMart2F, 3, kNpcs_CeladonMart2F, 4, kSigns_CeladonMart2F, 1, NULL, 0, 0x0f },
     [0x7c] = { kWarps_CeladonMart3F, 3, kNpcs_CeladonMart3F, 5, kSigns_CeladonMart3F, 12, NULL, 0, 0x0f },
     [0x7d] = { kWarps_CeladonMart4F, 3, kNpcs_CeladonMart4F, 3, kSigns_CeladonMart4F, 1, NULL, 0, 0x0f },
-    [0x7e] = { kWarps_CeladonMartRoof, 1, kNpcs_CeladonMartRoof, 2, kSigns_CeladonMartRoof, 4, NULL, 0, 0x42 },
+    [0x7e] = { kWarps_CeladonMartRoof, 1, kNpcs_CeladonMartRoof, 2, kSigns_CeladonMartRoof, 4, NULL, 0, 0x42, NULL, 0, kHiddenEvents_CeladonMartRoof, 3 },
     [0x7f] = { kWarps_CeladonMartElevator, 2, NULL, 0, kSigns_CeladonMartElevator, 1, NULL, 0, 0x0f },
     [0x80] = { kWarps_CeladonMansion1F, 5, kNpcs_CeladonMansion1F, 4, kSigns_CeladonMansion1F, 1, NULL, 0, 0x0f },
     [0x81] = { kWarps_CeladonMansion2F, 4, NULL, 0, kSigns_CeladonMansion2F, 1, NULL, 0, 0x0f },
     [0x82] = { kWarps_CeladonMansion3F, 4, kNpcs_CeladonMansion3F, 4, kSigns_CeladonMansion3F, 4, NULL, 0, 0x0f },
     [0x83] = { kWarps_CeladonMansionRoof, 3, NULL, 0, kSigns_CeladonMansionRoof, 1, NULL, 0, 0x09 },
-    [0x84] = { kWarps_CeladonMansionRoofHouse, 2, kNpcs_CeladonMansionRoofHouse, 1, NULL, 0, NULL, 0, 0x0a },
+    [0x84] = { kWarps_CeladonMansionRoofHouse, 2, kNpcs_CeladonMansionRoofHouse, 2, NULL, 0, NULL, 0, 0x0a },
     [0x85] = { kWarps_CeladonPokecenter, 2, kNpcs_CeladonPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x86] = { kWarps_CeladonGym, 2, kNpcs_CeladonGym, 8, NULL, 0, NULL, 0, 0x03, kTrainers_CeladonGym, 7 },
     [0x87] = { kWarps_GameCorner, 3, kNpcs_GameCorner, 11, kSigns_GameCorner, 1, NULL, 0, 0x0f, NULL, 0, kHiddenEvents_GameCorner, 1 },
@@ -4133,7 +4175,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xae] = { kWarps_IndigoPlateauLobby, 3, kNpcs_IndigoPlateauLobby, 5, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_IndigoPlateauLobby, 1 },
     [0xaf] = { kWarps_CopycatsHouse1F, 3, kNpcs_CopycatsHouse1F, 3, NULL, 0, NULL, 0, 0x0a },
     [0xb0] = { kWarps_CopycatsHouse2F, 1, kNpcs_CopycatsHouse2F, 5, kSigns_CopycatsHouse2F, 2, NULL, 0, 0x0a },
-    [0xb1] = { kWarps_FightingDojo, 2, kNpcs_FightingDojo, 5, NULL, 0, NULL, 0, 0x03 },
+    [0xb1] = { kWarps_FightingDojo, 2, kNpcs_FightingDojo, 7, NULL, 0, NULL, 0, 0x03, kTrainers_FightingDojo, 5 },
     [0xb2] = { kWarps_SaffronGym, 32, kNpcs_SaffronGym, 9, NULL, 0, NULL, 0, 0x2e },
     [0xb3] = { kWarps_SaffronPidgeyHouse, 2, kNpcs_SaffronPidgeyHouse, 4, NULL, 0, NULL, 0, 0x0a },
     [0xb4] = { kWarps_SaffronMart, 2, kNpcs_SaffronMart, 3, NULL, 0, NULL, 0, 0x00 },

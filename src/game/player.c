@@ -399,6 +399,36 @@ void Player_ForceStepDown(void) {
     begin_step((int)wXCoord, (int)wYCoord + 1, 0, 1);
 }
 
+static int can_force_step_to(int nx, int ny) {
+    if (!Tile_IsPassable(Map_GetGameTile(nx, ny))) return 0;
+    if (Tile_IsPairBlocked(Map_GetGameTile((int)wXCoord, (int)wYCoord),
+                           Map_GetGameTile(nx, ny))) return 0;
+    if (NPC_IsBlocked(nx, ny)) return 0;
+    return 1;
+}
+
+void Player_ForceStepFromDoor(void) {
+    /* ASM default is DOWN from PlayerStepOutFromDoor. Keep that first. */
+    static const int dir_order[4] = {0, 3, 2, 1}; /* down, right, left, up */
+    static const int ddx[4] = { 0,  0, -1,  1 };
+    static const int ddy[4] = { 1, -1,  0,  0 };
+
+    for (int i = 0; i < 4; i++) {
+        int dir = dir_order[i];
+        int dx = ddx[dir];
+        int dy = ddy[dir];
+        int nx = (int)wXCoord + dx;
+        int ny = (int)wYCoord + dy;
+        if (!can_force_step_to(nx, ny)) continue;
+        gPlayerFacing = dir;
+        begin_step(nx, ny, dx, dy);
+        return;
+    }
+
+    /* Fallback: preserve old behavior if no valid neighbor was found. */
+    Player_ForceStepDown();
+}
+
 void Player_DoScriptedStep(int dir) {
     static const int ddx[4] = { 0,  0, -1,  1};
     static const int ddy[4] = { 1, -1,  0,  0};

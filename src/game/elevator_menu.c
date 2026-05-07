@@ -4,9 +4,11 @@
 #include "player.h"
 #include "text.h"
 #include "warp.h"
+#include "inventory.h"
 #include "../data/font_data.h"
 #include "../platform/hardware.h"
 #include "../platform/audio.h"
+#include <stdio.h>
 
 /* ASM list menu box (LIST_MENU_BOX): (4,2) to (19,12) */
 #define BOX_COL_L  4
@@ -38,6 +40,9 @@ static const uint8_t kLblB1F[] = { 0x81, 0xF7, 0x85, CHAR_TERM }; /* B1F */
 static const uint8_t kLblB2F[] = { 0x81, 0xF8, 0x85, CHAR_TERM }; /* B2F */
 static const uint8_t kLblB4F[] = { 0x81, 0xFA, 0x85, CHAR_TERM }; /* B4F */
 static const uint8_t kLblCancel[] = { 0x82, 0x80, 0x8D, 0x82, 0x84, 0x8B, CHAR_TERM }; /* CANCEL */
+static const uint8_t kLblFreshWater[] = { 0x85,0x91,0x84,0x92,0x87,0x7F,0x96,0x80,0x93,0x84,0x91, CHAR_TERM };
+static const uint8_t kLblSodaPop[] = { 0x92,0x8E,0x83,0x80,0x7F,0x8F,0x8E,0x8F, CHAR_TERM };
+static const uint8_t kLblLemonade[] = { 0x8B,0x84,0x8C,0x8E,0x8D,0x80,0x83,0x84, CHAR_TERM };
 
 static const floor_choice_t kRocketChoices[3] = {
     { RH_B1F_MAP, 24, 19, kLblB1F },
@@ -46,11 +51,12 @@ static const floor_choice_t kRocketChoices[3] = {
 };
 
 static int g_open = 0;
+static int g_mode = 0; /* 1=rocket elevator, 2=vending */
 static int g_cursor = 0;
 static int g_wait_a_release = 0;
 static int g_wait_neutral = 0;
 static uint8_t g_prev_held = 0;
-static int g_open_queued = 0;
+static int g_open_queued = 0; /* 1=rocket elevator, 2=vending */
 static int g_pending_tp = 0;
 static uint8_t g_tp_map = 0;
 static int g_tp_x = 0;
@@ -69,6 +75,11 @@ enum {
     ELEV_SHAKE_RUN,
     ELEV_SHAKE_DING_WAIT,
 };
+static uint8_t g_vend_item = 0;
+static uint16_t g_vend_price = 0;
+static int g_vend_sfx_loops = 0;
+static int g_vend_sfx_timer = 0;
+static char g_vend_msg[40];
 
 static void smset(int col, int row, uint8_t tile) {
     gScrollTileMap[(row + 2) * SCROLL_MAP_W + (col + 2)] = tile;
@@ -99,9 +110,16 @@ static void print_str(int col, int row, const uint8_t *s) {
 }
 
 static void draw_items(void) {
-    for (int i = 0; i < 3; i++)
-        print_str(ITEM_COL, ITEM_ROW0 + i * ITEM_STEP, kRocketChoices[i].label);
-    print_str(ITEM_COL, ITEM_ROW0 + 3 * ITEM_STEP, kLblCancel);
+    if (g_mode == 1) {
+        for (int i = 0; i < 3; i++)
+            print_str(ITEM_COL, ITEM_ROW0 + i * ITEM_STEP, kRocketChoices[i].label);
+        print_str(ITEM_COL, ITEM_ROW0 + 3 * ITEM_STEP, kLblCancel);
+    } else {
+        print_str(ITEM_COL, ITEM_ROW0 + 0 * ITEM_STEP, kLblFreshWater);
+        print_str(ITEM_COL, ITEM_ROW0 + 1 * ITEM_STEP, kLblSodaPop);
+        print_str(ITEM_COL, ITEM_ROW0 + 2 * ITEM_STEP, kLblLemonade);
+        print_str(ITEM_COL, ITEM_ROW0 + 3 * ITEM_STEP, kLblCancel);
+    }
 }
 
 static void set_cursor(int idx, uint8_t tile) {
@@ -111,6 +129,7 @@ static void set_cursor(int idx, uint8_t tile) {
 void ElevatorMenu_OpenRocketHideout(void) {
     g_shake_phase = ELEV_SHAKE_IDLE;
     g_open = 1;
+    g_mode = 1;
     g_cursor = 0;
     g_wait_a_release = 1;
     g_wait_neutral = 1;
@@ -134,11 +153,33 @@ void ElevatorMenu_QueueOpenRocketHideout(void) {
     g_open_queued = 1;
 }
 
+void ElevatorMenu_QueueOpenVending(void) {
+    g_shake_phase = ELEV_SHAKE_IDLE;
+    g_open_queued = 2;
+}
+
 void ElevatorMenu_TryOpenQueued(void) {
     if (!g_open_queued) return;
     if (g_open || Text_IsOpen()) return;
     Text_BlitBoxToBGAndHideWindow();
-    ElevatorMenu_OpenRocketHideout();
+    if (g_open_queued == 1) {
+        ElevatorMenu_OpenRocketHideout();
+    } else {
+        g_open = 1;
+        g_mode = 2;
+        g_cursor = 0;
+        g_wait_a_release = 1;
+        g_wait_neutral = 1;
+        g_prev_held = 0xFF;
+        g_pending_tp = 0;
+        for (int i = 4; i < MAX_SPRITES; i++) wShadowOAM[i].y = 0;
+        for (int i = 0; i < 4; i++) wShadowOAM[i].y = 0;
+        draw_box();
+        draw_items();
+        set_cursor(0, (uint8_t)Font_CharToTile(CHAR_ARROW));
+        hJoyPressed = 0;
+    }
+    g_open_queued = 0;
 }
 
 void ElevatorMenu_Tick(void) {
@@ -147,6 +188,21 @@ void ElevatorMenu_Tick(void) {
     g_prev_held = held;
 
     if (g_shake_phase != ELEV_SHAKE_IDLE) {
+        if (g_mode == 2) {
+            if (--g_vend_sfx_timer <= 0) {
+                g_vend_sfx_timer = 2;
+                Audio_PlaySFX_CollisionRetrigger();
+                if (--g_vend_sfx_loops <= 0) {
+                    char name[16];
+                    Inventory_DecodeASCII(g_vend_item, name, sizeof(name));
+                    snprintf(g_vend_msg, sizeof(g_vend_msg), "%s\npopped out!@", name);
+                    Text_ShowASCII(g_vend_msg);
+                    g_shake_phase = ELEV_SHAKE_IDLE;
+                    g_mode = 0;
+                }
+            }
+            return;
+        }
         if (g_shake_phase == ELEV_SHAKE_PRE_DELAY) {
             if (--g_shake_delay <= 0) {
                 g_shake_phase = ELEV_SHAKE_RUN;
@@ -233,22 +289,62 @@ void ElevatorMenu_Tick(void) {
             g_pending_tp = 0;
             Map_BuildScrollView();
             NPC_BuildView(0, 0);
+            if (g_mode == 2) Text_ShowASCII("Not thirsty!");
+            g_mode = 0;
             return;
         }
-        const floor_choice_t *f = &kRocketChoices[g_cursor];
+        if (g_mode == 1) {
+            const floor_choice_t *f = &kRocketChoices[g_cursor];
+            Audio_PlaySFX_PressAB();
+            Text_Close();
+            Warp_SetRocketElevatorDestination(f->map_id, f->x, f->y);
+            g_shake_base_scy = hSCY;
+            g_shake_base_scroll_y = gScrollPxY;
+            g_shake_off = 1;
+            g_shake_delay = 3;
+            g_shake_phase = ELEV_SHAKE_PRE_DELAY;
+            g_open = 0;
+            Player_SyncOAM();
+            Map_BuildScrollView();
+            NPC_BuildView(gScrollPxX, gScrollPxY);
+            return;
+        }
+
+        g_vend_item = (g_cursor == 0) ? 0x3C : (g_cursor == 1) ? 0x3D : 0x3E;
+        g_vend_price = (g_cursor == 0) ? 200 : (g_cursor == 1) ? 300 : 350;
+        uint32_t money = (uint32_t)(
+            ((wPlayerMoney[0] >> 4) & 0xF) * 100000u +
+            (wPlayerMoney[0] & 0xF) * 10000u +
+            ((wPlayerMoney[1] >> 4) & 0xF) * 1000u +
+            (wPlayerMoney[1] & 0xF) * 100u +
+            ((wPlayerMoney[2] >> 4) & 0xF) * 10u +
+            (wPlayerMoney[2] & 0xF));
         Audio_PlaySFX_PressAB();
         Text_Close();
-        Warp_SetRocketElevatorDestination(f->map_id, f->x, f->y);
-        g_shake_base_scy = hSCY;
-        g_shake_base_scroll_y = gScrollPxY;
-        g_shake_off = 1;
-        g_shake_delay = 3;
-        g_shake_phase = ELEV_SHAKE_PRE_DELAY;
         g_open = 0;
         Player_SyncOAM();
-        /* Clear both prompt/menu boxes before shake animation starts. */
+        g_pending_tp = 0;
         Map_BuildScrollView();
-        NPC_BuildView(gScrollPxX, gScrollPxY);
+        NPC_BuildView(0, 0);
+
+        if (money < g_vend_price) {
+            g_mode = 0;
+            Text_ShowASCII("Oops, not enough\nmoney!");
+            return;
+        }
+        if (Inventory_Add(g_vend_item, 1) != 0) {
+            g_mode = 0;
+            Text_ShowASCII("There's no more\nroom for stuff!");
+            return;
+        }
+        money -= g_vend_price;
+        wPlayerMoney[0] = (uint8_t)(((money / 100000u) << 4) | ((money / 10000u) % 10u));
+        wPlayerMoney[1] = (uint8_t)((((money / 1000u) % 10u) << 4) | ((money / 100u) % 10u));
+        wPlayerMoney[2] = (uint8_t)((((money / 10u) % 10u) << 4) | (money % 10u));
+        g_vend_sfx_loops = 60;
+        g_vend_sfx_timer = 2;
+        g_shake_phase = ELEV_SHAKE_RUN;
+        return;
     }
 }
 

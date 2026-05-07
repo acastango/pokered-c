@@ -154,10 +154,19 @@ void NPC_Load(void) {
         n = ev->num_npcs < MAX_NPCS ? ev->num_npcs : MAX_NPCS;
         for (int i = 0; i < n; i++) {
             const npc_event_t *npc = &ev->npcs[i];
+            uint8_t facing = 0; /* default: face down */
+            if (ev->trainers) {
+                for (int t = 0; t < ev->num_trainers; t++) {
+                    if (ev->trainers[t].npc_idx == i) {
+                        facing = (uint8_t)(ev->trainers[t].facing & 3);
+                        break;
+                    }
+                }
+            }
             npc_sprite[i]      = npc->sprite_id;
             npc_x[i]           = (uint8_t)npc->x;
             npc_y[i]           = (uint8_t)npc->y;
-            npc_facing[i]      = 0;   /* default: face down */
+            npc_facing[i]      = facing;
             npc_move_type[i]   = npc->movement;
             npc_move_timer[i]  = NPC_MOVE_DELAY_MIN;
             npc_walk_frames[i] = 0;

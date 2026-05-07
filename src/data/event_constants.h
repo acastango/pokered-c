@@ -541,3 +541,5 @@
 /* Hand-added: Saffron City gate guard — one flag covers all 4 gates. */
 #define EVENT_GAVE_SAFFRON_GUARDS_DRINK 2543u
 #define EVENT_BEAT_PALLET_TEST_TRAINER 2544u
+#define EVENT_GOT_EEVEE 2545u
+#define EVENT_FOUND_CELADON_CITY_HIDDEN_PP_UP 2546u

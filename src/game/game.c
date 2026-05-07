@@ -79,6 +79,8 @@
 #include "pokemontower7f_scripts.h"
 #include "mrfujis_house_scripts.h"
 #include "saffron_city_scripts.h"
+#include "celadon_city_scripts.h"
+#include "fighting_dojo_scripts.h"
 #include "yesno.h"
 #include "elevator_menu.h"
 
@@ -132,6 +134,8 @@ static void fire_map_onload_callbacks(void) {
     PokemonTower7FScripts_OnMapLoad();
     MrFujisHouseScripts_OnMapLoad();
     SaffronCityScripts_OnMapLoad();
+    CeladonGiftScripts_OnMapLoad();
+    FightingDojoScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
     PokeFlute_LoadMap();
@@ -1489,6 +1493,51 @@ void GameTick(void) {
         }
     }
 
+    /* ---- Celadon gift scripts (Coin Case multi-phase jingle timing) ---- */
+    {
+        CeladonGiftScripts_Tick();
+        if (CeladonGiftScripts_IsActive()) {
+            /* If this script just opened naming this frame, do not rebuild
+             * overworld tiles underneath it. */
+            if (NamingScreen_IsOpen()) return;
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                CeladonGiftScripts_PostRender();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Saffron one-time gift scripts (Mr. Psychic TM29) -------------- */
+    {
+        SaffronCityScripts_Tick();
+        if (SaffronCityScripts_IsActive()) {
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
+    /* ---- Fighting Dojo gift scripts (Hitmon prize + naming) ------------ */
+    {
+        FightingDojoScripts_Tick();
+        if (FightingDojoScripts_IsActive()) {
+            if (NamingScreen_IsOpen()) return;
+            NPC_Update();
+            if (!Text_IsOpen()) {
+                Map_BuildScrollView();
+                FightingDojoScripts_PostRender();
+                NPC_BuildView(gScrollPxX, gScrollPxY);
+            }
+            return;
+        }
+    }
+
     /* START: open pause menu (only when player is idle, no warp in progress) */
     if ((hJoyPressed & PAD_START) && !Player_IsMoving() && gWarpPhase == WARP_NONE) {
         Audio_PlaySFX_StartMenu();
@@ -1528,7 +1577,7 @@ void GameTick(void) {
     /* Door step-out: fire once on the first normal frame after arriving on a
      * door tile (mirrors PlayerStepOutFromDoor / BIT_STANDING_ON_DOOR). */
     if (Warp_HasDoorStep()) {
-        Player_ForceStepDown();
+        Player_ForceStepFromDoor();
     }
 
     /* Deferred south push from Viridian old man block — runs here so

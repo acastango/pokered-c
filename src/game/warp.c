@@ -47,6 +47,7 @@
 #include "rockethideout_b4f_scripts.h"
 #include "rockethideout_scripts.h"
 #include "game_corner_scripts.h"
+#include "celadon_city_scripts.h"
 #include "trainer_sight.h"
 #include "gate_scripts.h"
 #include "pokeflute.h"
@@ -146,6 +147,7 @@ static void fire_map_onload_callbacks(void) {
     RocketHideoutB4FScripts_OnMapLoad();
     RocketHideoutScripts_OnMapLoad();
     GameCornerScripts_OnMapLoad();
+    CeladonGiftScripts_OnMapLoad();
     Trainer_LoadMap();
     Gate_LoadMap();
     PokeFlute_LoadMap();

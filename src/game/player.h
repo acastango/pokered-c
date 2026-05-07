@@ -17,6 +17,9 @@ void Player_SetPos(int16_t x, int16_t y);
 void Player_Update(void);
 /* Force one step south without collision check (door step-out after warp). */
 void Player_ForceStepDown(void);
+/* Door step-out helper: prefer south (ASM default), but if blocked at stair
+ * exits, choose a valid side step so the player doesn't walk into a wall. */
+void Player_ForceStepFromDoor(void);
 
 /* Force one step in any direction without collision/connection/warp checks.
  * Used by map scripts (Pallet Town Oak walk-to-lab) for auto-walk sequences.

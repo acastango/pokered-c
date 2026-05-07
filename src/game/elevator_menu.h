@@ -7,6 +7,7 @@
 
 void ElevatorMenu_OpenRocketHideout(void);
 void ElevatorMenu_QueueOpenRocketHideout(void);
+void ElevatorMenu_QueueOpenVending(void);
 void ElevatorMenu_TryOpenQueued(void);
 void ElevatorMenu_Tick(void);
 int  ElevatorMenu_IsOpen(void);

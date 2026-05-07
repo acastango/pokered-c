@@ -79,6 +79,8 @@ void Audio_PlaySFX_HealingMachine(void) {}
 void Audio_PlaySFX_LevelUp(void) {}
 void Audio_PlaySFX_Purchase(void) {}
 void Audio_PlaySFX_Collision(void) {}
+void Audio_PlaySFX_CollisionRetrigger(void) {}
+void Audio_PlaySFX_SafariZonePA(void) {}
 void Audio_PlaySFX_GetKeyItem(void) {}
 int  Audio_IsSFXPlaying_GetKeyItem(void) { return 0; }
 void Audio_PlaySFX_SSAnneHorn(void) {}
@@ -121,5 +123,4 @@ void Display_SetBlockIDOverlay(int e) { (void)e; }
 int  Display_GetBlockIDOverlay(void)  { return 0; }
 void Display_SetBlockIDQueryFn(int (*fn)(int bx, int by)) { (void)fn; }
 void Display_SetBlockIDCam(int tx, int ty) { (void)tx; (void)ty; }
-
 

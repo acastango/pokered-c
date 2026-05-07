@@ -126,7 +126,9 @@ set(SOURCES
     src/game/pokemontower6f_scripts.c
     src/game/pokemontower7f_scripts.c
     src/game/mrfujis_house_scripts.c
+    src/game/celadon_city_scripts.c
     src/game/saffron_city_scripts.c
+    src/game/fighting_dojo_scripts.c
     src/game/elevator_menu.c
     src/data/tmhm_data.c
     src/data/dex_data.c
@@ -263,7 +265,10 @@ set(TEST_GAME_SOURCES
     src/game/pokemontower6f_scripts.c
     src/game/pokemontower7f_scripts.c
     src/game/mrfujis_house_scripts.c
+    src/game/celadon_city_scripts.c
     src/game/saffron_city_scripts.c
+    src/game/fighting_dojo_scripts.c
+    src/game/elevator_menu.c
     src/data/tmhm_data.c
     src/game/pokedex.c
     src/game/pallet_scripts.c
