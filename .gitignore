@@ -20,6 +20,7 @@ pokered-master/
 
 # mnemo memory tree (project-local, regenerates from codebase)
 .mnemo/
+plugins/mnemo/
 
 # Empty scratch file
 powershell
