@@ -74,7 +74,7 @@ static const song_t kSongs[] = {
     /* MUSIC_ROUTES1 */        { { &kRoutes1_Ch1,   &kRoutes1_Ch2,   &kRoutes1_Ch3   } },
     /* MUSIC_ROUTES2 */        { { &kRoutes2_Ch1,   &kRoutes2_Ch2,   &kRoutes2_Ch3   } },
     /* MUSIC_ROUTES3 */        { { &kRoutes3_Ch1,   &kRoutes3_Ch2,   &kRoutes3_Ch3   } },
-    /* MUSIC_ROUTES4 */        { { NULL,            NULL,            NULL            } },
+    /* MUSIC_ROUTES4 */        { { &kRoutes4_Ch1,   &kRoutes4_Ch2,   &kRoutes4_Ch3,   &kRoutes4_Ch4 } },
     /* MUSIC_INDIGO_PLATEAU */ { { NULL,            NULL,            NULL            } },
     /* MUSIC_OAKS_LAB */       { { &kOaksLab_Ch1,   &kOaksLab_Ch2,   &kOaksLab_Ch3   } },
     /* MUSIC_DUNGEON1 */       { { &kDungeon1_Ch1,  &kDungeon1_Ch2,  &kDungeon1_Ch3  } },
@@ -101,6 +101,7 @@ static const song_t kSongs[] = {
     /* MUSIC_MEET_PROF_OAK */     { { &kMeetProfOak_Ch1,       &kMeetProfOak_Ch2,       &kMeetProfOak_Ch3       } },
     /* MUSIC_INTRO_BATTLE */      { { &kIntroBattle_Ch1,       &kIntroBattle_Ch2,       &kIntroBattle_Ch3,      &kIntroBattle_Ch4 } },
     /* MUSIC_GAME_CORNER */       { { &kGameCorner_Ch1,        &kGameCorner_Ch2,        &kGameCorner_Ch3        } },
+    /* MUSIC_BIKE_RIDING */       { { &kBikeRiding_Ch1,        &kBikeRiding_Ch2,        &kBikeRiding_Ch3        } },
 };
 #define NUM_SONGS  ((int)(sizeof(kSongs)/sizeof(kSongs[0])))
 

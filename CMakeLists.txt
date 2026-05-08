@@ -73,6 +73,7 @@ set(SOURCES
     src/game/session_log.c
     src/game/pokemon.c
     src/game/bag_menu.c
+    src/game/bicycle.c
     src/game/party_menu.c
     src/game/pokecenter.c
     src/game/pokemart.c
@@ -146,6 +147,7 @@ set(SOURCES
     src/data/splash_screen_data.c
     src/data/intro_scene_data.c
     src/data/player_sprite.c
+    src/data/bike_sprite.c
     src/data/pokemon_sprites.c
     src/data/ghost_front_sprite.c
     src/data/cry_data.c
@@ -199,6 +201,7 @@ set(TEST_GAME_SOURCES
     src/game/text.c
     src/game/naming_screen.c
     src/game/inventory.c
+    src/game/bicycle.c
     src/game/session_log.c
     src/game/party_menu.c
     src/game/summary_screen.c
@@ -224,6 +227,7 @@ set(TEST_GAME_SOURCES
     src/data/font_data.c
     src/data/pokedex_tiles.c
     src/data/player_sprite.c
+    src/data/bike_sprite.c
     src/data/pokemon_sprites.c
     src/game/battle/battle_damage.c
     src/game/battle/battle_effects.c

@@ -463,6 +463,7 @@ def main():
         ('wildbattle', 'Music_WildBattle',  3),
         ('cities1',    'Music_Cities1',     3),
         ('routes3',    'Music_Routes3',     3),
+        ('routes4',    'Music_Routes4',     4),
         ('gym',        'Music_Gym',         3),
         ('pokecenter', 'Music_Pokecenter',  3),
         ('dungeon1',   'Music_Dungeon1',    3),
@@ -489,6 +490,7 @@ def main():
         ('titlescreen',       'Music_TitleScreen',       4),
         ('safarizone',        'Music_SafariZone',        3),
         ('surfing',           'Music_Surfing',           3),
+        ('bikeriding',        'Music_BikeRiding',        4),
         ('introbattle',       'Music_IntroBattle',       4),
         ('gamecorner',        'Music_GameCorner',        3),
     ]

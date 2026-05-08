@@ -1,0 +1,188 @@
+{
+  "PowerPlant": [],
+  "VictoryRoad1F": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 32,
+      "trainer_no": 5,
+      "sight": 2,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_1_TRAINER_0",
+      "before": "I wonder if you\nare good enough\nfor me!",
+      "after": "I never wanted to\nlose to anybody!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 31,
+      "trainer_no": 5,
+      "sight": 2,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_1_TRAINER_1",
+      "before": "I can see you're\ngood! Let me see\nexactly how good!",
+      "after": "I concede, you're\nbetter than me!"
+    }
+  ],
+  "VictoryRoad2F": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 24,
+      "trainer_no": 9,
+      "sight": 4,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_0",
+      "before": "",
+      "after": "If you get stuck,\ntry moving some\nboulders around!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 21,
+      "trainer_no": 2,
+      "sight": 3,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_1",
+      "before": "Ah, so you wish\nto challenge the\nELITE FOUR?",
+      "after": "<RIVAL> also came\nthrough here!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 0,
+      "trainer_class": 22,
+      "trainer_no": 5,
+      "sight": 3,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_2",
+      "before": "Come on!\nI'll whip you!",
+      "after": "You earned the\nright to be on\nVICTORY ROAD!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 0,
+      "trainer_class": 7,
+      "trainer_no": 6,
+      "sight": 1,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_3",
+      "before": "If you can get\nthrough here, you\ncan go meet the\nELITE FOUR!",
+      "after": "I can beat you\nwhen it comes to\nknowledge about\nPOKEMON!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 2,
+      "trainer_class": 21,
+      "trainer_no": 5,
+      "sight": 3,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_2_TRAINER_4",
+      "before": "Is VICTORY ROAD\ntoo tough?",
+      "after": "Many trainers give\nup the challenge\nhere."
+    }
+  ],
+  "VictoryRoad3F": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 31,
+      "trainer_no": 2,
+      "sight": 1,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_3_TRAINER_0",
+      "before": "I heard rumors of\na child prodigy!",
+      "after": "You beat GIOVANNI\nof TEAM ROCKET?"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 3,
+      "trainer_class": 32,
+      "trainer_no": 2,
+      "sight": 4,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_3_TRAINER_1",
+      "before": "I'll show you just\nhow good you are!",
+      "after": "You showed me just\nhow good I was!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 31,
+      "trainer_no": 3,
+      "sight": 4,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_3_TRAINER_2",
+      "before": "Only the chosen\ncan pass here!",
+      "after": "All trainers here\nare headed to the\nPOKEMON LEAGUE!\nBe careful!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 32,
+      "trainer_no": 3,
+      "sight": 4,
+      "flag": "EVENT_BEAT_VICTORY_ROAD_3_TRAINER_3",
+      "before": "Trainers live to\nseek stronger\nopponents!",
+      "after": "By fighting tough\nbattles, you get\nstronger!"
+    }
+  ],
+  "PokemonMansion1F": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 28,
+      "trainer_no": 4,
+      "sight": 3,
+      "flag": "EVENT_BEAT_MANSION_1_TRAINER_0",
+      "before": "Who are you? There\nshouldn't be\nanyone here.",
+      "after": "A key? I don't\nknow what you're\ntalking about."
+    }
+  ],
+  "PokemonMansion2F": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 11,
+      "trainer_no": 7,
+      "sight": 0,
+      "flag": "EVENT_BEAT_MANSION_2_TRAINER_0",
+      "before": "I can't get out!\nThis old place is\none big puzzle!",
+      "after": "Switches open and\nclose alternating\nsets of doors!"
+    }
+  ],
+  "PokemonMansion3F": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 11,
+      "trainer_no": 8,
+      "sight": 0,
+      "flag": "EVENT_BEAT_MANSION_3_TRAINER_0",
+      "before": "This place is\nlike, huge!",
+      "after": "I wonder where\nmy partner went."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 28,
+      "trainer_no": 12,
+      "sight": 2,
+      "flag": "EVENT_BEAT_MANSION_3_TRAINER_1",
+      "before": "My mentor once\nlived here.",
+      "after": "So, you're stuck?\nTry jumping off\nover there!"
+    }
+  ],
+  "PokemonMansionB1F": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 11,
+      "trainer_no": 9,
+      "sight": 0,
+      "flag": "EVENT_BEAT_MANSION_4_TRAINER_0",
+      "before": "Uh-oh. Where am\nI now?",
+      "after": "You can find stuff\nlying around."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 28,
+      "trainer_no": 13,
+      "sight": 3,
+      "flag": "EVENT_BEAT_MANSION_4_TRAINER_1",
+      "before": "This place is\nideal for a lab.",
+      "after": "I like it here!\nIt's conducive to\nmy studies!"
+    }
+  ],
+  "CeruleanCaveB1F": []
+}

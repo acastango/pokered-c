@@ -17,6 +17,7 @@
 #include "npc.h"
 #include "tmhm.h"
 #include "pokeflute.h"
+#include "bicycle.h"
 #include "town_map.h"
 #include "../platform/hardware.h"
 #include "../data/font_data.h"
@@ -293,6 +294,13 @@ void BagMenu_Tick(void) {
                     } else if (id == ITEM_POKE_FLUTE) {
                         PokeFlute_Use();
                         bag_close();
+                    } else if (id == ITEM_BICYCLE) {
+                        if (Bicycle_UseFromBag())
+                            bag_close();
+                        else {
+                            gBagState = BAG_LIST;
+                            erase_action_submenu();
+                        }
                     } else {
                         /* Overworld: no effect for other items yet */
                         gBagState = BAG_LIST;

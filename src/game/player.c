@@ -50,7 +50,9 @@
 #include "../platform/display.h"
 #include "../game/constants.h"
 #include "../data/player_sprite.h"
+#include "../data/bike_sprite.h"
 #include "../platform/audio.h"
+#include "bicycle.h"
 #include "pallet_scripts.h"
 #include "oakslab_scripts.h"
 #include "viridian_mart_scripts.h"
@@ -63,7 +65,8 @@
 #include <stdio.h>
 
 #define PLAYER_TILE_BASE   64   /* sprite tile slots 64-67 (after 16 NPCs × 4 = 64) */
-#define WALK_FRAMES         8   /* frames per step = original wWalkCounter (8 VBlanks) */
+#define WALK_FRAMES         8   /* walk: 8 frames/step = original wWalkCounter */
+#define BIKE_WALK_FRAMES    4   /* bike: DoBikeSpeedup runs AdvancePlayerSprite twice */
 
 /* ---- Ledge jump shadow OAM ---------------------------------------- */
 /* Mirrors LoadHoppingShadowOAM from engine/overworld/ledges.asm.
@@ -193,6 +196,7 @@ int gScrollPxX    = 0;
 int gScrollPxY    = 0;
 
 static int gWalkTimer        = 0;  /* counts WALK_FRAMES..1 while animating */
+static int gWalkStepPxMul    = 1;  /* per-frame pixel delta multiplier (1 walk, 2 bike) */
 int        gStepJustCompleted = 0; /* set to 1 on the frame a step finishes; caller clears */
 static int gWalkDX           = 0;  /* step direction of current/last step */
 static int gWalkDY           = 0;
@@ -257,7 +261,8 @@ static void update_shadow_oam(void) {
 }
 
 static void load_player_frame(int frame_idx) {
-    const uint8_t (*fr)[PLAYER_TILE_BYTES] = gPlayerGfx[frame_idx];
+    const uint8_t (*fr)[PLAYER_TILE_BYTES] =
+        Bicycle_ShouldUseBikeSprite() ? gBikePlayerGfx[frame_idx] : gPlayerGfx[frame_idx];
     Display_LoadSpriteTile(PLAYER_TILE_BASE + 0, fr[0]);
     Display_LoadSpriteTile(PLAYER_TILE_BASE + 1, fr[1]);
     Display_LoadSpriteTile(PLAYER_TILE_BASE + 2, fr[2]);
@@ -356,6 +361,8 @@ static void advance_anim(void) {
  *   Map edge (camera clamped):       BG static, sprite slides 1px/frame across it.
  */
 static void begin_step(int nx, int ny, int dx, int dy) {
+    const int step_frames = Bicycle_IsSpeedupActive() ? BIKE_WALK_FRAMES : WALK_FRAMES;
+    const int step_px_mul = WALK_FRAMES / step_frames; /* 8->1, 4->2 */
     int old_cam_x = gCamX;
     int old_cam_y = gCamY;
 
@@ -384,7 +391,8 @@ static void begin_step(int nx, int ny, int dx, int dy) {
     gPlayerOffPxX = (gBgScrollDX - tdx) * TILE_PX;
     gPlayerOffPxY = (gBgScrollDY - tdy) * TILE_PX;
 
-    gWalkTimer = WALK_FRAMES;
+    gWalkTimer = step_frames;
+    gWalkStepPxMul = step_px_mul;
 }
 
 /* ---- Public API ------------------------------------------ */
@@ -495,11 +503,11 @@ void Player_Update(void) {
             }
         }
         /* Background scrolls from initial offset toward 0 (1 px per frame = 1px/VBlank). */
-        gScrollPxX    -= gBgScrollDX;
-        gScrollPxY    -= gBgScrollDY;
+        gScrollPxX    -= gBgScrollDX * gWalkStepPxMul;
+        gScrollPxY    -= gBgScrollDY * gWalkStepPxMul;
         /* Sprite slides from old screen position toward new (1 px per frame). */
-        gPlayerOffPxX += (gWalkDX - gBgScrollDX);
-        gPlayerOffPxY += (gWalkDY - gBgScrollDY);
+        gPlayerOffPxX += (gWalkDX - gBgScrollDX) * gWalkStepPxMul;
+        gPlayerOffPxY += (gWalkDY - gBgScrollDY) * gWalkStepPxMul;
         if (!s_spinner_spin_active) {
             advance_anim();
         }
@@ -650,7 +658,8 @@ void Player_Update(void) {
             gScrollPxY    = dy * 2 * TILE_PX;
             gPlayerOffPxX = 0;
             gPlayerOffPxY = 0;
-            gWalkTimer    = WALK_FRAMES;
+            gWalkTimer    = Bicycle_IsSpeedupActive() ? BIKE_WALK_FRAMES : WALK_FRAMES;
+            gWalkStepPxMul = WALK_FRAMES / gWalkTimer;
         } else {
             /* No outdoor connection — player is at the edge of an indoor map
              * (or an outdoor map boundary with no neighbour).  Check for an

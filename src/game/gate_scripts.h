@@ -36,3 +36,9 @@ void Gate_Route23_Cascade(void);    /* Route 23 guard 6 (southernmost) — BADGE
 void Gate_SaffronGuard_Interact(void); /* Routes 5/6/7/8 counter guard A-press */
 void Gate_SaffronStepCheck(void);      /* step trigger — blocks corridor until drink given */
 void Gate_SaffronDoPush(void);         /* deferred push — call before Player_Update each frame */
+
+/* Cycling Road gate scripts (Route 16/18 Gate 1F) */
+void Gate_Route16CyclingGuard(void);   /* conditional guard text by bike possession */
+void Gate_Route18CyclingGuard(void);   /* conditional guard text by bike possession */
+void Gate_CyclingRoadStepCheck(void);  /* step trigger intercept when no bicycle in bag */
+void Gate_CyclingRoadTick(void);       /* deferred scripted movement/text sequence */

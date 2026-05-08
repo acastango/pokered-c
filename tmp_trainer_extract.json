@@ -1,0 +1,1162 @@
+{
+  "Route8": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 8,
+      "trainer_no": 3,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_0",
+      "before": "You look good at\nPOKEMON, but\nhow's your chem?",
+      "after": "I am better at\nschool than this!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 1,
+      "trainer_class": 17,
+      "trainer_no": 5,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_1",
+      "before": "All right! Let's\nroll the dice!",
+      "after": "Lady Luck's not\nwith me today!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 1,
+      "trainer_class": 8,
+      "trainer_no": 4,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_2",
+      "before": "You need strategy\nto win at this!",
+      "after": "Go with GRIMER\nfirst...and...\n...and...then..."
+    },
+    {
+      "npc_idx": 3,
+      "facing": 2,
+      "trainer_class": 3,
+      "trainer_no": 13,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_3",
+      "before": "I like NIDORAN, so\nI collect them!",
+      "after": "When POKEMON grow\nup they get ugly!\nThey shouldn't\nevolve!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 3,
+      "trainer_class": 8,
+      "trainer_no": 5,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_4",
+      "before": "School is fun, but\nso are POKEMON.",
+      "after": "We're stuck here\nbecause of the\ngates at SAFFRON."
+    },
+    {
+      "npc_idx": 5,
+      "facing": 2,
+      "trainer_class": 3,
+      "trainer_no": 14,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_5",
+      "before": "MEOWTH is so cute,\nmeow, meow, meow!",
+      "after": "I think PIDGEY\nand RATTATA\nare cute too!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 3,
+      "trainer_class": 3,
+      "trainer_no": 15,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_6",
+      "before": "We must look\nsilly standing\nhere like this!",
+      "after": "SAFFRON's gate\nkeeper won't let\nus through.\nHe's so mean!"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 0,
+      "trainer_class": 17,
+      "trainer_no": 7,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_7",
+      "before": "I'm a rambling,\ngambling dude!",
+      "after": "Gambling and\nPOKEMON are like\neating peanuts!\nJust can't stop!"
+    },
+    {
+      "npc_idx": 8,
+      "facing": 2,
+      "trainer_class": 3,
+      "trainer_no": 16,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_8_TRAINER_8",
+      "before": "What's a cute,\nround and fluffy\nPOKEMON?",
+      "after": "I heard that\nCLEFAIRY evolves\nwhen it's exposed\nto a MOON STONE."
+    }
+  ],
+  "Route9": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 6,
+      "trainer_no": 5,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_0",
+      "before": "You have POKEMON\nwith you!\nYou're mine!",
+      "after": "You need light to\nget through that\ndark tunnel ahead."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 5,
+      "trainer_no": 7,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_1",
+      "before": "Who's that walking\nwith those good\nlooking POKEMON?",
+      "after": "Keep walking!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 3,
+      "trainer_class": 5,
+      "trainer_no": 8,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_2",
+      "before": "I'm taking ROCK\nTUNNEL to go to\nLAVENDER...",
+      "after": "Are you off to\nROCK TUNNEL too?"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 6,
+      "trainer_no": 6,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_3",
+      "before": "Don't you dare\ncondescend me!",
+      "after": "You're obviously\ntalented! Good\nluck to you!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 2,
+      "trainer_class": 9,
+      "trainer_no": 11,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_4",
+      "before": "Bwahaha!\nGreat! I was\nbored, eh!",
+      "after": "You sure had guts\nstanding up to me\nthere, eh?"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 2,
+      "trainer_class": 9,
+      "trainer_no": 6,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_5",
+      "before": "Hahaha!\nAren't you a\nlittle toughie!",
+      "after": "Hahaha! Kids\nshould be tough!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 0,
+      "trainer_class": 2,
+      "trainer_no": 13,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_6",
+      "before": "I got up early\nevery day to\nraise my POKEMON\nfrom cocoons!",
+      "after": "I have to collect\nmore than bugs to\nget stronger..."
+    },
+    {
+      "npc_idx": 7,
+      "facing": 3,
+      "trainer_class": 9,
+      "trainer_no": 5,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_7",
+      "before": "Hahahaha!\nCome on, dude!",
+      "after": "Hahahaha!\nUs hearty guys\nalways laugh!"
+    },
+    {
+      "npc_idx": 8,
+      "facing": 3,
+      "trainer_class": 2,
+      "trainer_no": 14,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_9_TRAINER_8",
+      "before": "Go, my super bug\nPOKEMON!",
+      "after": "If you don't like\nbug POKEMON, you\nbug me!"
+    }
+  ],
+  "Route10": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 7,
+      "trainer_no": 1,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_0",
+      "before": "Wow, are you a\nPOKEMANIAC too?\nWant to see my\ncollection?",
+      "after": "I have more rare\nPOKEMON at home!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 1,
+      "trainer_class": 9,
+      "trainer_no": 7,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_1",
+      "before": "Ha-hahah-ah-ha!",
+      "after": "Haha-ha-choo!\nHa-choo!\nSnort! Snivel!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 7,
+      "trainer_no": 2,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_2",
+      "before": "Hi kid, want to\nsee my POKEMON?",
+      "after": "I don't like you\nfor beating me!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 2,
+      "trainer_class": 6,
+      "trainer_no": 7,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_3",
+      "before": "I've been to a\nPOKEMON GYM a few\ntimes. But, I\nlost each time.",
+      "after": "I noticed some\nPOKEMANIACs\nprowling around."
+    },
+    {
+      "npc_idx": 4,
+      "facing": 0,
+      "trainer_class": 9,
+      "trainer_no": 8,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_4",
+      "before": "Ah! This mountain\nair is delicious!",
+      "after": "I feel bloated on\nmountain air!"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 8,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_10_TRAINER_5",
+      "before": "I'm feeling a bit\nfaint from this\ntough hike.",
+      "after": "The POKEMON here\nare so chunky!\nThere should be a\npink one with a\nfloral pattern!"
+    }
+  ],
+  "Route11": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 17,
+      "trainer_no": 1,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_0",
+      "before": "Win, lose or draw!",
+      "after": "POKEMON is life!\nAnd to live is to\ngamble!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 17,
+      "trainer_no": 2,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_1",
+      "before": "Competition! I\ncan't get enough!",
+      "after": "You can't be a\ncoward in the\nworld of POKEMON!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 1,
+      "trainer_no": 9,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_2",
+      "before": "Let's go, but\ndon't cheat!",
+      "after": "I did my best! I\nhave no regrets!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 0,
+      "trainer_class": 12,
+      "trainer_no": 2,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_3",
+      "before": "Careful!\nI'm laying down\nsome cables!",
+      "after": "Spread the word\nto save energy!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 1,
+      "trainer_class": 1,
+      "trainer_no": 10,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_4",
+      "before": "I just became a\ntrainer! But, I\nthink I can win!",
+      "after": ""
+    },
+    {
+      "npc_idx": 5,
+      "facing": 0,
+      "trainer_class": 17,
+      "trainer_no": 3,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_5",
+      "before": "Fwahaha! I have\nnever lost!",
+      "after": "Luck of the draw!\nJust luck!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 1,
+      "trainer_class": 17,
+      "trainer_no": 4,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_6",
+      "before": "I have never won\nbefore...",
+      "after": "It's just luck.\nLuck of the draw."
+    },
+    {
+      "npc_idx": 7,
+      "facing": 3,
+      "trainer_class": 1,
+      "trainer_no": 11,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_7",
+      "before": "I'm the best in\nmy class!",
+      "after": "There's a fat\nPOKEMON that\ncomes down from\nthe mountains.\n\nIt's strong if\nyou can get it."
+    },
+    {
+      "npc_idx": 8,
+      "facing": 2,
+      "trainer_class": 12,
+      "trainer_no": 3,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_8",
+      "before": "Watch out for\nlive wires!",
+      "after": "Well, better get\nback to work."
+    },
+    {
+      "npc_idx": 9,
+      "facing": 1,
+      "trainer_class": 1,
+      "trainer_no": 12,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_11_TRAINER_9",
+      "before": "My POKEMON should\nbe ready by now!",
+      "after": "I better go find\nstronger ones!"
+    }
+  ],
+  "Route12": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 14,
+      "trainer_no": 3,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_0",
+      "before": "Yeah! I got a\nbite, here!",
+      "after": "Hang on! My line's\nsnagged!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 1,
+      "trainer_class": 14,
+      "trainer_no": 4,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_1",
+      "before": "Be patient!\nFishing is a\nwaiting game!",
+      "after": "With a better ROD,\nI could catch\nbetter POKEMON!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 5,
+      "trainer_no": 9,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_2",
+      "before": "Have you found a\nMOON STONE?",
+      "after": "I could have made\nmy POKEMON evolve\nwith MOON STONE!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 1,
+      "trainer_class": 20,
+      "trainer_no": 2,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_3",
+      "before": "Electricity is my\nspecialty!",
+      "after": "Water conducts\nelectricity, so\nyou should zap\nsea POKEMON!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 2,
+      "trainer_class": 14,
+      "trainer_no": 5,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_4",
+      "before": "The FISHING FOOL\nvs. POKEMON KID!",
+      "after": "You beat me at\nPOKEMON, but I'm\ngood at fishing!"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 3,
+      "trainer_class": 14,
+      "trainer_no": 6,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_5",
+      "before": "I'd rather be\nworking!",
+      "after": "It's all right.\nLosing doesn't\nbug me any more."
+    },
+    {
+      "npc_idx": 6,
+      "facing": 0,
+      "trainer_class": 14,
+      "trainer_no": 11,
+      "sight": 1,
+      "flag": "EVENT_BEAT_ROUTE_12_TRAINER_6",
+      "before": "You never know\nwhat you could\ncatch!",
+      "after": "I catch MAGIKARP\nall the time, but\nthey're so weak!"
+    }
+  ],
+  "Route13": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 23,
+      "trainer_no": 1,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_0",
+      "before": "My bird POKEMON\nwant to scrap!",
+      "after": "My POKEMON look\nhappy even though\nthey lost."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 12,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_1",
+      "before": "I'm told I'm good\nfor a kid!",
+      "after": "I want to become\na good trainer.\nI'll train hard."
+    },
+    {
+      "npc_idx": 2,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 13,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_2",
+      "before": "Wow! Your BADGEs\nare too cool!",
+      "after": "You got those\nBADGEs from GYM\nLEADERs. I know!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 2,
+      "trainer_class": 6,
+      "trainer_no": 14,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_3",
+      "before": "My cute POKEMON\nwish to make your\nacquaintance.",
+      "after": "You have to make\nPOKEMON fight to\ntoughen them up!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 15,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_4",
+      "before": "I found CARBOS in\na cave once.",
+      "after": "CARBOS boosted\nthe SPEED of my\nPOKEMON."
+    },
+    {
+      "npc_idx": 5,
+      "facing": 3,
+      "trainer_class": 23,
+      "trainer_no": 2,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_5",
+      "before": "The wind's blowing\nmy way!",
+      "after": "I'm beat. I guess\nI'll FLY home."
+    },
+    {
+      "npc_idx": 6,
+      "facing": 0,
+      "trainer_class": 18,
+      "trainer_no": 4,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_6",
+      "before": "Sure, I'll play\nwith you!",
+      "after": "I wonder which is\nstronger, male or\nfemale POKEMON?"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 0,
+      "trainer_class": 18,
+      "trainer_no": 5,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_7",
+      "before": "Do you want to\nPOKEMON with me?",
+      "after": "I don't know\nanything about\nPOKEMON. I just\nlike cool ones!"
+    },
+    {
+      "npc_idx": 8,
+      "facing": 1,
+      "trainer_class": 10,
+      "trainer_no": 1,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_8",
+      "before": "What're you\nlookin' at?",
+      "after": "Get lost!"
+    },
+    {
+      "npc_idx": 9,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 3,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_13_TRAINER_9",
+      "before": "I always go with\nbird POKEMON!",
+      "after": "I wish I could\nfly like PIDGEY\nand PIDGEOTTO..."
+    }
+  ],
+  "Route14": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 23,
+      "trainer_no": 14,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_0",
+      "before": "You need to use\nTMs to teach good\nmoves to POKEMON!",
+      "after": "You have some HMs\nright? POKEMON\ncan't ever forget\nthose moves."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 23,
+      "trainer_no": 15,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_1",
+      "before": "My bird POKEMON\nshould be ready\nfor battle.",
+      "after": "They need to learn\nbetter moves."
+    },
+    {
+      "npc_idx": 2,
+      "facing": 0,
+      "trainer_class": 23,
+      "trainer_no": 16,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_2",
+      "before": "TMs are on sale\nin CELADON!\nBut, only a few\npeople have HMs!",
+      "after": "Teach POKEMON\nmoves of the same\nelement type for\nmore power."
+    },
+    {
+      "npc_idx": 3,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 17,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_3",
+      "before": "Have you taught\nyour bird POKEMON\nhow to FLY?",
+      "after": "Bird POKEMON are\nmy true love!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 2,
+      "trainer_class": 23,
+      "trainer_no": 4,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_4",
+      "before": "Have you heard of\nthe legendary\nPOKEMON?",
+      "after": "The 3 legendary\nPOKEMON are all\nbirds of prey."
+    },
+    {
+      "npc_idx": 5,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 5,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_5",
+      "before": "I'm not into it,\nbut OK! Let's go!",
+      "after": "Winning, losing,\nit doesn't matter\nin the long run!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 0,
+      "trainer_class": 10,
+      "trainer_no": 13,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_6",
+      "before": "C'mon, c'mon.\nLet's go, let's\ngo, let's go!",
+      "after": "What, what, what?\nWhat do you want?"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 3,
+      "trainer_class": 10,
+      "trainer_no": 14,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_7",
+      "before": "Perfect! I need to\nburn some time!",
+      "after": "Raising POKEMON\nis a drag, man."
+    },
+    {
+      "npc_idx": 8,
+      "facing": 2,
+      "trainer_class": 10,
+      "trainer_no": 15,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_8",
+      "before": "We ride out here\nbecause there's\nmore room!",
+      "after": "It's cool you\nmade your POKEMON\nso strong!\n\nMight is right!\nAnd you know it!"
+    },
+    {
+      "npc_idx": 9,
+      "facing": 3,
+      "trainer_class": 10,
+      "trainer_no": 2,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_14_TRAINER_9",
+      "before": "POKEMON fight?\nCool! Rumble!",
+      "after": "You know who'd\nwin, you and me\none on one!"
+    }
+  ],
+  "Route15": [
+    {
+      "npc_idx": 0,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 20,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_0",
+      "before": "Let me try out the\nPOKEMON I just\ngot in a trade!",
+      "after": "You can't change\nthe nickname of\nany POKEMON you\nget in a trade.\n\nOnly the Original\nTrainer can."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 6,
+      "trainer_no": 21,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_1",
+      "before": "You look gentle,\nso I think I can\nbeat you!",
+      "after": "I'm afraid of\nBIKERs, they look\nso ugly and mean!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 6,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_2",
+      "before": "When I whistle, I\ncan summon bird\nPOKEMON!",
+      "after": "Maybe I'm not cut\nout for battles."
+    },
+    {
+      "npc_idx": 3,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 7,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_3",
+      "before": "Hmm? My birds are\nshivering! You're\ngood, aren't you?",
+      "after": "Did you know moves\nlike EARTHQUAKE\ndon't have any\neffect on birds?"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 0,
+      "trainer_class": 18,
+      "trainer_no": 9,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_4",
+      "before": "Oh, you're a\nlittle cutie!",
+      "after": "I forgive you!\nI can take it!"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 3,
+      "trainer_class": 18,
+      "trainer_no": 10,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_5",
+      "before": "I raise POKEMON\nbecause I live\nalone!",
+      "after": "I just like going\nhome to be with\nmy POKEMON!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 0,
+      "trainer_class": 10,
+      "trainer_no": 3,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_6",
+      "before": "Hey kid! C'mon!\nI just got these!",
+      "after": "You only live\nonce, so I live\nas an outlaw!\nTEAM ROCKET RULES!"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 0,
+      "trainer_class": 10,
+      "trainer_no": 4,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_7",
+      "before": "Fork over all your\ncash when you\nlose to me, kid!",
+      "after": "I was just joking\nabout the money!"
+    },
+    {
+      "npc_idx": 8,
+      "facing": 3,
+      "trainer_class": 6,
+      "trainer_no": 22,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_8",
+      "before": "What's cool?\nTrading POKEMON!",
+      "after": "I trade POKEMON\nwith my friends!"
+    },
+    {
+      "npc_idx": 9,
+      "facing": 1,
+      "trainer_class": 6,
+      "trainer_no": 23,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_15_TRAINER_9",
+      "before": "Want to play with\nmy POKEMON?",
+      "after": "I'll go train with\nweaker people.@\n\nROUTE 15\nWest to FUCHSIA\nCITY"
+    }
+  ],
+  "Route19": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 15,
+      "trainer_no": 2,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_0",
+      "before": "Have to warm up\nbefore my swim!",
+      "after": "Thanks, kid! I'm\nready for a swim!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 15,
+      "trainer_no": 3,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_1",
+      "before": "Wait! You'll have\na heart attack!",
+      "after": "Watch out for\nTENTACOOL!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 15,
+      "trainer_no": 4,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_2",
+      "before": "I love swimming!\nWhat about you?",
+      "after": "I can beat POKEMON\nat swimming!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 15,
+      "trainer_no": 5,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_3",
+      "before": "What's beyond the\nhorizon?",
+      "after": "I see a couple of\nislands!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 1,
+      "trainer_class": 15,
+      "trainer_no": 6,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_4",
+      "before": "I tried diving\nfor POKEMON, but\nit was a no go!",
+      "after": "You have to fish\nfor sea POKEMON!"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 0,
+      "trainer_class": 15,
+      "trainer_no": 7,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_5",
+      "before": "I look at the\nsea to forget!",
+      "after": "I'm looking at the\nsea to forget!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 2,
+      "trainer_class": 18,
+      "trainer_no": 12,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_6",
+      "before": "Oh, I just love\nyour ride! Can I\nhave it if I win?",
+      "after": "It's still a long\nway to go to\nSEAFOAM ISLANDS."
+    },
+    {
+      "npc_idx": 7,
+      "facing": 3,
+      "trainer_class": 18,
+      "trainer_no": 13,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_7",
+      "before": "Swimming's great!\nSunburns aren't!",
+      "after": "My boy friend\nwanted to swim to\nSEAFOAM ISLANDS."
+    },
+    {
+      "npc_idx": 8,
+      "facing": 1,
+      "trainer_class": 15,
+      "trainer_no": 8,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_8",
+      "before": "These waters are\ntreacherous!",
+      "after": "I got a cramp!\nGlub, glub..."
+    },
+    {
+      "npc_idx": 9,
+      "facing": 0,
+      "trainer_class": 18,
+      "trainer_no": 14,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_19_TRAINER_9",
+      "before": "I swam here, but\nI'm tired.",
+      "after": "LAPRAS is so big,\nit must keep you\ndry on water."
+    }
+  ],
+  "Route20": [
+    {
+      "npc_idx": 0,
+      "facing": 1,
+      "trainer_class": 15,
+      "trainer_no": 9,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_0",
+      "before": "The water is\nshallow here.",
+      "after": "I wish I could\nride my POKEMON."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 1,
+      "trainer_class": 18,
+      "trainer_no": 15,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_1",
+      "before": "SEAFOAM is a\nquiet getaway!",
+      "after": "There's a huge\ncavern underneath\nthis island."
+    },
+    {
+      "npc_idx": 2,
+      "facing": 0,
+      "trainer_class": 18,
+      "trainer_no": 6,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_2",
+      "before": "I love floating\nwith the fishes!",
+      "after": "Want to float\nwith me?"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 6,
+      "trainer_no": 24,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_3",
+      "before": "Are you on\nvacation too?",
+      "after": "SEAFOAM used to\nbe one island!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 0,
+      "trainer_class": 15,
+      "trainer_no": 10,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_4",
+      "before": "Check out my buff\nphysique!",
+      "after": "I should've been\nbuffing up my\nPOKEMON, not me!"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 1,
+      "trainer_class": 15,
+      "trainer_no": 11,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_5",
+      "before": "Why are you\nriding a POKEMON?\nCan't you swim?",
+      "after": "Riding a POKEMON\nsure looks fun!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 1,
+      "trainer_class": 23,
+      "trainer_no": 11,
+      "sight": 2,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_6",
+      "before": "I rode my bird\nPOKEMON here!",
+      "after": "My birds can't\nFLY me back!"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 1,
+      "trainer_class": 18,
+      "trainer_no": 7,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_7",
+      "before": "My boy friend gave\nme big pearls!",
+      "after": "Will my pearls\ngrow bigger\ninside CLOYSTER?"
+    },
+    {
+      "npc_idx": 8,
+      "facing": 0,
+      "trainer_class": 6,
+      "trainer_no": 16,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_8",
+      "before": "I swam here from\nCINNABAR ISLAND!",
+      "after": "POKEMON have\ntaken over an\nabandoned mansion\non CINNABAR!"
+    },
+    {
+      "npc_idx": 9,
+      "facing": 1,
+      "trainer_class": 18,
+      "trainer_no": 8,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_20_TRAINER_9",
+      "before": "CINNABAR, in the\nwest, has a LAB\nfor POKEMON.",
+      "after": "CINNABAR is a \nvolcanic island!"
+    }
+  ],
+  "Route21": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 14,
+      "trainer_no": 7,
+      "sight": 0,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_0",
+      "before": "You want to know\nif the fish are\nbiting?",
+      "after": "I can't catch\nanything good!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 14,
+      "trainer_no": 9,
+      "sight": 0,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_1",
+      "before": "I got a big haul!\nWanna go for it?",
+      "after": "I seem to only\ncatch MAGIKARP!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 1,
+      "trainer_class": 15,
+      "trainer_no": 12,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_2",
+      "before": "The sea cleanses\nmy body and soul!",
+      "after": "I like the\nmountains too!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 16,
+      "trainer_no": 9,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_3",
+      "before": "What's wrong with\nme swimming?",
+      "after": "I look like what?\nA studded inner\ntube? Get lost!"
+    },
+    {
+      "npc_idx": 4,
+      "facing": 0,
+      "trainer_class": 15,
+      "trainer_no": 13,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_4",
+      "before": "I caught all my\nPOKEMON at sea!",
+      "after": "Where'd you catch\nyour POKEMON?"
+    },
+    {
+      "npc_idx": 5,
+      "facing": 3,
+      "trainer_class": 15,
+      "trainer_no": 14,
+      "sight": 4,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_5",
+      "before": "Right now, I'm in\na triathlon meet!",
+      "after": "I'm beat!\nBut, I still have\nthe bike race and\nmarathon left!"
+    },
+    {
+      "npc_idx": 6,
+      "facing": 2,
+      "trainer_class": 15,
+      "trainer_no": 15,
+      "sight": 3,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_6",
+      "before": "Ahh! Feel the sun\nand the wind!",
+      "after": "I'm sunburnt to a\ncrisp!"
+    },
+    {
+      "npc_idx": 7,
+      "facing": 2,
+      "trainer_class": 14,
+      "trainer_no": 8,
+      "sight": 0,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_7",
+      "before": "Hey, don't scare\naway the fish!",
+      "after": "I was just angry\nthat I couldn't\ncatch anything."
+    },
+    {
+      "npc_idx": 8,
+      "facing": 3,
+      "trainer_class": 14,
+      "trainer_no": 10,
+      "sight": 0,
+      "flag": "EVENT_BEAT_ROUTE_21_TRAINER_8",
+      "before": "Keep me company\n'til I get a hit!",
+      "after": "Oh wait! I got a\nbite! Yeah!"
+    }
+  ],
+  "PokemonTower4F": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 45,
+      "trainer_no": 9,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_4_TRAINER_0",
+      "before": "GHOST! No!\nKwaaah!",
+      "after": "I must have been\ndreaming..."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 45,
+      "trainer_no": 10,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_4_TRAINER_1",
+      "before": "Be cursed with\nme! Kwaaah!",
+      "after": "We can't crack\nthe identity of\nthe GHOSTs."
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 45,
+      "trainer_no": 12,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_4_TRAINER_2",
+      "before": "Huhuhu...\nBeat me not!",
+      "after": "May the departed\nsouls of POKEMON\nrest in peace..."
+    }
+  ],
+  "PokemonTower5F": [
+    {
+      "npc_idx": 0,
+      "facing": 2,
+      "trainer_class": 45,
+      "trainer_no": 14,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_5_TRAINER_0",
+      "before": "Give...me...\nyour...soul...",
+      "after": "I was under\npossession!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 45,
+      "trainer_no": 16,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_5_TRAINER_1",
+      "before": "You...shall...\njoin...us...",
+      "after": "I was possessed!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 3,
+      "trainer_class": 45,
+      "trainer_no": 17,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_5_TRAINER_2",
+      "before": "Zombies!",
+      "after": "I regained my\nsenses!"
+    },
+    {
+      "npc_idx": 3,
+      "facing": 3,
+      "trainer_class": 45,
+      "trainer_no": 18,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_5_TRAINER_3",
+      "before": "Urgah...\nUrff....",
+      "after": "I fell to evil\nspirits despite\nmy training!"
+    }
+  ],
+  "PokemonTower6F": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 45,
+      "trainer_no": 19,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_6_TRAINER_0",
+      "before": "Give...me...\nblood...",
+      "after": "I feel anemic and\nweak..."
+    },
+    {
+      "npc_idx": 1,
+      "facing": 0,
+      "trainer_class": 45,
+      "trainer_no": 20,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_6_TRAINER_1",
+      "before": "Urff... Kwaah!",
+      "after": "Hair didn't fall\nout! It was an\nevil spirit!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 2,
+      "trainer_class": 45,
+      "trainer_no": 21,
+      "sight": 2,
+      "flag": "EVENT_BEAT_POKEMONTOWER_6_TRAINER_2",
+      "before": "Ke..ke...ke...\nke..ke...ke!!",
+      "after": "What's going on\nhere?"
+    }
+  ],
+  "PokemonTower7F": [
+    {
+      "npc_idx": 0,
+      "facing": 3,
+      "trainer_class": 30,
+      "trainer_no": 19,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_7_TRAINER_0",
+      "before": "What do you want?\nWhy are you here?",
+      "after": "I'm not going to\nforget this!"
+    },
+    {
+      "npc_idx": 1,
+      "facing": 2,
+      "trainer_class": 30,
+      "trainer_no": 20,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_7_TRAINER_1",
+      "before": "This old guy came\nand complained\nabout us harming\nuseless POKEMON!\n\nWe're talking it\nover as adults!",
+      "after": "POKEMON are only\ngood for making\nmoney!\n\nStay out of our\nbusiness!"
+    },
+    {
+      "npc_idx": 2,
+      "facing": 3,
+      "trainer_class": 30,
+      "trainer_no": 21,
+      "sight": 3,
+      "flag": "EVENT_BEAT_POKEMONTOWER_7_TRAINER_2",
+      "before": "You're not saving\nanyone, kid!",
+      "after": "You're not getting\naway with this!"
+    }
+  ]
+}

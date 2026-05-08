@@ -437,6 +437,16 @@ static const npc_event_t kNpcs_Route4[] = {
     {  63,   3, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE4_COOLTRAINER_F2 */
 };
 
+/* Route 4 trainers — ASM parity from scripts/Route4.asm and
+ * data/maps/objects/Route4.asm. */
+static const map_trainer_t kTrainers_Route4[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 1, 3, 3, 4, 3, EVENT_BEAT_ROUTE_4_TRAINER_0,
+      "I came to get my\nmushroom POKEMON!",
+      "There might not\nbe any more\nmushrooms here.\n\nI think I got\nthem all.",
+      NULL },
+};
+
 static const sign_event_t kSigns_Route4[] = {
     {  12,   5, NULL },  /* TEXT_ROUTE4_POKECENTER_SIGN */
     {  17,   7, "MT.MOON\nTunnel Entrance" },  /* TEXT_ROUTE4_MT_MOON_SIGN */
@@ -542,6 +552,49 @@ static const npc_event_t kNpcs_Route8[] = {
     {  51,  12, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE8_COOLTRAINER_F4 */
 };
 
+/* Route8 trainers — ASM parity from scripts/Route8.asm and
+ * data/maps/objects/Route8.asm. */
+static const map_trainer_t kTrainers_Route8[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 8, 3, 4, EVENT_BEAT_ROUTE_8_TRAINER_0,
+      "You look good at\nPOKEMON, but\nhow's your chem?",
+      "I am better at\nschool than this!",
+      NULL },
+    { 1, 1, 17, 5, 4, EVENT_BEAT_ROUTE_8_TRAINER_1,
+      "All right! Let's\nroll the dice!",
+      "Lady Luck's not\nwith me today!",
+      NULL },
+    { 2, 1, 8, 4, 4, EVENT_BEAT_ROUTE_8_TRAINER_2,
+      "You need strategy\nto win at this!",
+      "Go with GRIMER\nfirst...and...\n...and...then...",
+      NULL },
+    { 3, 2, 3, 13, 2, EVENT_BEAT_ROUTE_8_TRAINER_3,
+      "I like NIDORAN, so\nI collect them!",
+      "When POKEMON grow\nup they get ugly!\nThey shouldn't\nevolve!",
+      NULL },
+    { 4, 3, 8, 5, 3, EVENT_BEAT_ROUTE_8_TRAINER_4,
+      "School is fun, but\nso are POKEMON.",
+      "We're stuck here\nbecause of the\ngates at SAFFRON.",
+      NULL },
+    { 5, 2, 3, 14, 3, EVENT_BEAT_ROUTE_8_TRAINER_5,
+      "MEOWTH is so cute,\nmeow, meow, meow!",
+      "I think PIDGEY\nand RATTATA\nare cute too!",
+      NULL },
+    { 6, 3, 3, 15, 2, EVENT_BEAT_ROUTE_8_TRAINER_6,
+      "We must look\nsilly standing\nhere like this!",
+      "SAFFRON's gate\nkeeper won't let\nus through.\nHe's so mean!",
+      NULL },
+    { 7, 0, 17, 7, 2, EVENT_BEAT_ROUTE_8_TRAINER_7,
+      "I'm a rambling,\ngambling dude!",
+      "Gambling and\nPOKEMON are like\neating peanuts!\nJust can't stop!",
+      NULL },
+    { 8, 2, 3, 16, 4, EVENT_BEAT_ROUTE_8_TRAINER_8,
+      "What's a cute,\nround and fluffy\nPOKEMON?",
+      "I heard that\nCLEFAIRY evolves\nwhen it's exposed\nto a MOON STONE.",
+      NULL },
+};
+
+
 static const sign_event_t kSigns_Route8[] = {
     {  17,   3, "UNDERGROUND PATH\nCELADON CITY -\nLAVENDER TOWN" },  /* TEXT_ROUTE8_UNDERGROUND_SIGN */
 };
@@ -557,6 +610,49 @@ static const npc_event_t kNpcs_Route9[] = {
     {  45,  15, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE9_HIKER3 */
     {  40,   8, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE9_YOUNGSTER2 */
 };
+
+/* Route9 trainers — ASM parity from scripts/Route9.asm and
+ * data/maps/objects/Route9.asm. */
+static const map_trainer_t kTrainers_Route9[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 6, 5, 3, EVENT_BEAT_ROUTE_9_TRAINER_0,
+      "You have POKEMON\nwith you!\nYou're mine!",
+      "You need light to\nget through that\ndark tunnel ahead.",
+      NULL },
+    { 1, 2, 5, 7, 2, EVENT_BEAT_ROUTE_9_TRAINER_1,
+      "Who's that walking\nwith those good\nlooking POKEMON?",
+      "Keep walking!",
+      NULL },
+    { 2, 3, 5, 8, 4, EVENT_BEAT_ROUTE_9_TRAINER_2,
+      "I'm taking ROCK\nTUNNEL to go to\nLAVENDER...",
+      "Are you off to\nROCK TUNNEL too?",
+      NULL },
+    { 3, 3, 6, 6, 2, EVENT_BEAT_ROUTE_9_TRAINER_3,
+      "Don't you dare\ncondescend me!",
+      "You're obviously\ntalented! Good\nluck to you!",
+      NULL },
+    { 4, 2, 9, 11, 2, EVENT_BEAT_ROUTE_9_TRAINER_4,
+      "Bwahaha!\nGreat! I was\nbored, eh!",
+      "You sure had guts\nstanding up to me\nthere, eh?",
+      NULL },
+    { 5, 2, 9, 6, 3, EVENT_BEAT_ROUTE_9_TRAINER_5,
+      "Hahaha!\nAren't you a\nlittle toughie!",
+      "Hahaha! Kids\nshould be tough!",
+      NULL },
+    { 6, 0, 2, 13, 4, EVENT_BEAT_ROUTE_9_TRAINER_6,
+      "I got up early\nevery day to\nraise my POKEMON\nfrom cocoons!",
+      "I have to collect\nmore than bugs to\nget stronger...",
+      NULL },
+    { 7, 3, 9, 5, 2, EVENT_BEAT_ROUTE_9_TRAINER_7,
+      "Hahahaha!\nCome on, dude!",
+      "Hahahaha!\nUs hearty guys\nalways laugh!",
+      NULL },
+    { 8, 3, 2, 14, 2, EVENT_BEAT_ROUTE_9_TRAINER_8,
+      "Go, my super bug\nPOKEMON!",
+      "If you don't like\nbug POKEMON, you\nbug me!",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route9[] = {
     {  25,   7, "ROUTE 9\nCERULEAN CITY-\nROCK TUNNEL" },  /* TEXT_ROUTE9_SIGN */
@@ -581,6 +677,37 @@ static const npc_event_t kNpcs_Route10[] = {
     {   3,  61, 0x0e, 0, NULL, NULL },  /* SPRITE_HIKER, STAY, TEXT_ROUTE10_HIKER2 */
     {   7,  54, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE10_COOLTRAINER_F2 */
 };
+
+/* Route10 trainers — ASM parity from scripts/Route10.asm and
+ * data/maps/objects/Route10.asm. */
+static const map_trainer_t kTrainers_Route10[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 7, 1, 4, EVENT_BEAT_ROUTE_10_TRAINER_0,
+      "Wow, are you a\nPOKEMANIAC too?\nWant to see my\ncollection?",
+      "I have more rare\nPOKEMON at home!",
+      NULL },
+    { 1, 1, 9, 7, 3, EVENT_BEAT_ROUTE_10_TRAINER_1,
+      "Ha-hahah-ah-ha!",
+      "Haha-ha-choo!\nHa-choo!\nSnort! Snivel!",
+      NULL },
+    { 2, 2, 7, 2, 4, EVENT_BEAT_ROUTE_10_TRAINER_2,
+      "Hi kid, want to\nsee my POKEMON?",
+      "I don't like you\nfor beating me!",
+      NULL },
+    { 3, 2, 6, 7, 3, EVENT_BEAT_ROUTE_10_TRAINER_3,
+      "I've been to a\nPOKEMON GYM a few\ntimes. But, I\nlost each time.",
+      "I noticed some\nPOKEMANIACs\nprowling around.",
+      NULL },
+    { 4, 0, 9, 8, 2, EVENT_BEAT_ROUTE_10_TRAINER_4,
+      "Ah! This mountain\nair is delicious!",
+      "I feel bloated on\nmountain air!",
+      NULL },
+    { 5, 0, 6, 8, 2, EVENT_BEAT_ROUTE_10_TRAINER_5,
+      "I'm feeling a bit\nfaint from this\ntough hike.",
+      "The POKEMON here\nare so chunky!\nThere should be a\npink one with a\nfloral pattern!",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route10[] = {
     {   7,  19, "ROCK TUNNEL" },  /* TEXT_ROUTE10_ROCKTUNNEL_NORTH_SIGN */
@@ -610,6 +737,53 @@ static const npc_event_t kNpcs_Route11[] = {
     {  22,  12, 0x04, 0, NULL, NULL },  /* SPRITE_YOUNGSTER, STAY, TEXT_ROUTE11_YOUNGSTER4 */
 };
 
+/* Route11 trainers — ASM parity from scripts/Route11.asm and
+ * data/maps/objects/Route11.asm. */
+static const map_trainer_t kTrainers_Route11[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 17, 1, 3, EVENT_BEAT_ROUTE_11_TRAINER_0,
+      "Win, lose or draw!",
+      "POKEMON is life!\nAnd to live is to\ngamble!",
+      NULL },
+    { 1, 0, 17, 2, 2, EVENT_BEAT_ROUTE_11_TRAINER_1,
+      "Competition! I\ncan't get enough!",
+      "You can't be a\ncoward in the\nworld of POKEMON!",
+      NULL },
+    { 2, 2, 1, 9, 3, EVENT_BEAT_ROUTE_11_TRAINER_2,
+      "Let's go, but\ndon't cheat!",
+      "I did my best! I\nhave no regrets!",
+      NULL },
+    { 3, 0, 12, 2, 3, EVENT_BEAT_ROUTE_11_TRAINER_3,
+      "Careful!\nI'm laying down\nsome cables!",
+      "Spread the word\nto save energy!",
+      NULL },
+    { 4, 1, 1, 10, 4, EVENT_BEAT_ROUTE_11_TRAINER_4,
+      "I just became a\ntrainer! But, I\nthink I can win!",
+      "",
+      NULL },
+    { 5, 0, 17, 3, 3, EVENT_BEAT_ROUTE_11_TRAINER_5,
+      "Fwahaha! I have\nnever lost!",
+      "Luck of the draw!\nJust luck!",
+      NULL },
+    { 6, 1, 17, 4, 3, EVENT_BEAT_ROUTE_11_TRAINER_6,
+      "I have never won\nbefore...",
+      "It's just luck.\nLuck of the draw.",
+      NULL },
+    { 7, 3, 1, 11, 4, EVENT_BEAT_ROUTE_11_TRAINER_7,
+      "I'm the best in\nmy class!",
+      "There's a fat\nPOKEMON that\ncomes down from\nthe mountains.\n\nIt's strong if\nyou can get it.",
+      NULL },
+    { 8, 2, 12, 3, 3, EVENT_BEAT_ROUTE_11_TRAINER_8,
+      "Watch out for\nlive wires!",
+      "Well, better get\nback to work.",
+      NULL },
+    { 9, 1, 1, 12, 4, EVENT_BEAT_ROUTE_11_TRAINER_9,
+      "My POKEMON should\nbe ready by now!",
+      "I better go find\nstronger ones!",
+      NULL },
+};
+
+
 static const sign_event_t kSigns_Route11[] = {
     {   1,   5, "DIGLETT's CAVE" },  /* TEXT_ROUTE11_DIGLETTSCAVE_SIGN */
 };
@@ -631,6 +805,41 @@ static const npc_event_t kNpcs_Route12[] = {
     {   9,  52, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER4 */
     {   6,  87, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE12_FISHER5 */
 };
+
+/* Route12 trainers — ASM parity from scripts/Route12.asm and
+ * data/maps/objects/Route12.asm. */
+static const map_trainer_t kTrainers_Route12[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 14, 3, 4, EVENT_BEAT_ROUTE_12_TRAINER_0,
+      "Yeah! I got a\nbite, here!",
+      "Hang on! My line's\nsnagged!",
+      NULL },
+    { 1, 1, 14, 4, 4, EVENT_BEAT_ROUTE_12_TRAINER_1,
+      "Be patient!\nFishing is a\nwaiting game!",
+      "With a better ROD,\nI could catch\nbetter POKEMON!",
+      NULL },
+    { 2, 2, 5, 9, 4, EVENT_BEAT_ROUTE_12_TRAINER_2,
+      "Have you found a\nMOON STONE?",
+      "I could have made\nmy POKEMON evolve\nwith MOON STONE!",
+      NULL },
+    { 3, 1, 20, 2, 4, EVENT_BEAT_ROUTE_12_TRAINER_3,
+      "Electricity is my\nspecialty!",
+      "Water conducts\nelectricity, so\nyou should zap\nsea POKEMON!",
+      NULL },
+    { 4, 2, 14, 5, 4, EVENT_BEAT_ROUTE_12_TRAINER_4,
+      "The FISHING FOOL\nvs. POKEMON KID!",
+      "You beat me at\nPOKEMON, but I'm\ngood at fishing!",
+      NULL },
+    { 5, 3, 14, 6, 4, EVENT_BEAT_ROUTE_12_TRAINER_5,
+      "I'd rather be\nworking!",
+      "It's all right.\nLosing doesn't\nbug me any more.",
+      NULL },
+    { 6, 0, 14, 11, 1, EVENT_BEAT_ROUTE_12_TRAINER_6,
+      "You never know\nwhat you could\ncatch!",
+      "I catch MAGIKARP\nall the time, but\nthey're so weak!",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route12[] = {
     {  13,  13, "ROUTE 12 \nNorth to LAVENDER" },  /* TEXT_ROUTE12_SIGN */
@@ -655,6 +864,53 @@ static const npc_event_t kNpcs_Route13[] = {
     {   7,  13, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE13_COOLTRAINER_M3 */
 };
 
+/* Route13 trainers — ASM parity from scripts/Route13.asm and
+ * data/maps/objects/Route13.asm. */
+static const map_trainer_t kTrainers_Route13[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 23, 1, 2, EVENT_BEAT_ROUTE_13_TRAINER_0,
+      "My bird POKEMON\nwant to scrap!",
+      "My POKEMON look\nhappy even though\nthey lost.",
+      NULL },
+    { 1, 0, 6, 12, 2, EVENT_BEAT_ROUTE_13_TRAINER_1,
+      "I'm told I'm good\nfor a kid!",
+      "I want to become\na good trainer.\nI'll train hard.",
+      NULL },
+    { 2, 0, 6, 13, 2, EVENT_BEAT_ROUTE_13_TRAINER_2,
+      "Wow! Your BADGEs\nare too cool!",
+      "You got those\nBADGEs from GYM\nLEADERs. I know!",
+      NULL },
+    { 3, 2, 6, 14, 2, EVENT_BEAT_ROUTE_13_TRAINER_3,
+      "My cute POKEMON\nwish to make your\nacquaintance.",
+      "You have to make\nPOKEMON fight to\ntoughen them up!",
+      NULL },
+    { 4, 0, 6, 15, 4, EVENT_BEAT_ROUTE_13_TRAINER_4,
+      "I found CARBOS in\na cave once.",
+      "CARBOS boosted\nthe SPEED of my\nPOKEMON.",
+      NULL },
+    { 5, 3, 23, 2, 2, EVENT_BEAT_ROUTE_13_TRAINER_5,
+      "The wind's blowing\nmy way!",
+      "I'm beat. I guess\nI'll FLY home.",
+      NULL },
+    { 6, 0, 18, 4, 4, EVENT_BEAT_ROUTE_13_TRAINER_6,
+      "Sure, I'll play\nwith you!",
+      "I wonder which is\nstronger, male or\nfemale POKEMON?",
+      NULL },
+    { 7, 0, 18, 5, 2, EVENT_BEAT_ROUTE_13_TRAINER_7,
+      "Do you want to\nPOKEMON with me?",
+      "I don't know\nanything about\nPOKEMON. I just\nlike cool ones!",
+      NULL },
+    { 8, 1, 10, 1, 2, EVENT_BEAT_ROUTE_13_TRAINER_8,
+      "What're you\nlookin' at?",
+      "Get lost!",
+      NULL },
+    { 9, 1, 23, 3, 4, EVENT_BEAT_ROUTE_13_TRAINER_9,
+      "I always go with\nbird POKEMON!",
+      "I wish I could\nfly like PIDGEY\nand PIDGEOTTO...",
+      NULL },
+};
+
+
 static const sign_event_t kSigns_Route13[] = {
     {  15,  13, "TRAINER TIPS\fLook to the left\nof that post!" },  /* TEXT_ROUTE13_TRAINER_TIPS1 */
     {  33,   5, "TRAINER TIPS\fUse SELECT to\nswitch items in\nthe ITEM window!" },  /* TEXT_ROUTE13_TRAINER_TIPS2 */
@@ -673,6 +929,53 @@ static const npc_event_t kNpcs_Route14[] = {
     {  15,  30, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER3 */
     {   4,  31, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE14_BIKER4 */
 };
+
+/* Route14 trainers — ASM parity from scripts/Route14.asm and
+ * data/maps/objects/Route14.asm. */
+static const map_trainer_t kTrainers_Route14[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 23, 14, 2, EVENT_BEAT_ROUTE_14_TRAINER_0,
+      "You need to use\nTMs to teach good\nmoves to POKEMON!",
+      "You have some HMs\nright? POKEMON\ncan't ever forget\nthose moves.",
+      NULL },
+    { 1, 0, 23, 15, 2, EVENT_BEAT_ROUTE_14_TRAINER_1,
+      "My bird POKEMON\nshould be ready\nfor battle.",
+      "They need to learn\nbetter moves.",
+      NULL },
+    { 2, 0, 23, 16, 4, EVENT_BEAT_ROUTE_14_TRAINER_2,
+      "TMs are on sale\nin CELADON!\nBut, only a few\npeople have HMs!",
+      "Teach POKEMON\nmoves of the same\nelement type for\nmore power.",
+      NULL },
+    { 3, 1, 23, 17, 3, EVENT_BEAT_ROUTE_14_TRAINER_3,
+      "Have you taught\nyour bird POKEMON\nhow to FLY?",
+      "Bird POKEMON are\nmy true love!",
+      NULL },
+    { 4, 2, 23, 4, 3, EVENT_BEAT_ROUTE_14_TRAINER_4,
+      "Have you heard of\nthe legendary\nPOKEMON?",
+      "The 3 legendary\nPOKEMON are all\nbirds of prey.",
+      NULL },
+    { 5, 1, 23, 5, 4, EVENT_BEAT_ROUTE_14_TRAINER_5,
+      "I'm not into it,\nbut OK! Let's go!",
+      "Winning, losing,\nit doesn't matter\nin the long run!",
+      NULL },
+    { 6, 0, 10, 13, 4, EVENT_BEAT_ROUTE_14_TRAINER_6,
+      "C'mon, c'mon.\nLet's go, let's\ngo, let's go!",
+      "What, what, what?\nWhat do you want?",
+      NULL },
+    { 7, 3, 10, 14, 4, EVENT_BEAT_ROUTE_14_TRAINER_7,
+      "Perfect! I need to\nburn some time!",
+      "Raising POKEMON\nis a drag, man.",
+      NULL },
+    { 8, 2, 10, 15, 3, EVENT_BEAT_ROUTE_14_TRAINER_8,
+      "We ride out here\nbecause there's\nmore room!",
+      "It's cool you\nmade your POKEMON\nso strong!\n\nMight is right!\nAnd you know it!",
+      NULL },
+    { 9, 3, 10, 2, 4, EVENT_BEAT_ROUTE_14_TRAINER_9,
+      "POKEMON fight?\nCool! Rumble!",
+      "You know who'd\nwin, you and me\none on one!",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route14[] = {
     {  17,  13, "ROUTE 14\nWest to FUCHSIA\nCITY" },  /* TEXT_ROUTE14_SIGN */
@@ -697,6 +1000,53 @@ static const npc_event_t kNpcs_Route15[] = {
     {  37,   5, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F3 */
     {  18,  13, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROUTE15_COOLTRAINER_F4 */
 };
+
+/* Route15 trainers — ASM parity from scripts/Route15.asm and
+ * data/maps/objects/Route15.asm. */
+static const map_trainer_t kTrainers_Route15[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 6, 20, 2, EVENT_BEAT_ROUTE_15_TRAINER_0,
+      "Let me try out the\nPOKEMON I just\ngot in a trade!",
+      "You can't change\nthe nickname of\nany POKEMON you\nget in a trade.\n\nOnly the Original\nTrainer can.",
+      NULL },
+    { 1, 2, 6, 21, 3, EVENT_BEAT_ROUTE_15_TRAINER_1,
+      "You look gentle,\nso I think I can\nbeat you!",
+      "I'm afraid of\nBIKERs, they look\nso ugly and mean!",
+      NULL },
+    { 2, 1, 23, 6, 3, EVENT_BEAT_ROUTE_15_TRAINER_2,
+      "When I whistle, I\ncan summon bird\nPOKEMON!",
+      "Maybe I'm not cut\nout for battles.",
+      NULL },
+    { 3, 1, 23, 7, 3, EVENT_BEAT_ROUTE_15_TRAINER_3,
+      "Hmm? My birds are\nshivering! You're\ngood, aren't you?",
+      "Did you know moves\nlike EARTHQUAKE\ndon't have any\neffect on birds?",
+      NULL },
+    { 4, 0, 18, 9, 2, EVENT_BEAT_ROUTE_15_TRAINER_4,
+      "Oh, you're a\nlittle cutie!",
+      "I forgive you!\nI can take it!",
+      NULL },
+    { 5, 3, 18, 10, 3, EVENT_BEAT_ROUTE_15_TRAINER_5,
+      "I raise POKEMON\nbecause I live\nalone!",
+      "I just like going\nhome to be with\nmy POKEMON!",
+      NULL },
+    { 6, 0, 10, 3, 3, EVENT_BEAT_ROUTE_15_TRAINER_6,
+      "Hey kid! C'mon!\nI just got these!",
+      "You only live\nonce, so I live\nas an outlaw!\nTEAM ROCKET RULES!",
+      NULL },
+    { 7, 0, 10, 4, 3, EVENT_BEAT_ROUTE_15_TRAINER_7,
+      "Fork over all your\ncash when you\nlose to me, kid!",
+      "I was just joking\nabout the money!",
+      NULL },
+    { 8, 3, 6, 22, 3, EVENT_BEAT_ROUTE_15_TRAINER_8,
+      "What's cool?\nTrading POKEMON!",
+      "I trade POKEMON\nwith my friends!",
+      NULL },
+    { 9, 1, 6, 23, 3, EVENT_BEAT_ROUTE_15_TRAINER_9,
+      "Want to play with\nmy POKEMON?",
+      "I'll go train with\nweaker people.@\n\nROUTE 15\nWest to FUCHSIA\nCITY",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route15[] = {
     {  39,   9, "ROUTE 15\nWest to FUCHSIA\nCITY" },  /* TEXT_ROUTE15_SIGN */
@@ -728,6 +1078,36 @@ static const npc_event_t kNpcs_Route16[] = {
     {  26,  10, 0x43, 0, "A sleeping POKEMON\nblocks the way!", NULL },  /* SPRITE_SNORLAX, STAY, TEXT_ROUTE16_SNORLAX */
 };
 
+/* Route 16 trainers — ASM parity from scripts/Route16.asm and
+ * data/maps/objects/Route16.asm. */
+static const map_trainer_t kTrainers_Route16[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 10, 5, 3, EVENT_BEAT_ROUTE_16_TRAINER_0,
+      "What do you want?",
+      "We like just\nhanging here,\nwhat's it to you?",
+      NULL },
+    { 1, 3, 16, 1, 2, EVENT_BEAT_ROUTE_16_TRAINER_1,
+      "Nice BIKE!\nHand it over!",
+      "Forget it, who\nneeds your BIKE!",
+      NULL },
+    { 2, 1, 16, 2, 2, EVENT_BEAT_ROUTE_16_TRAINER_2,
+      "Come out and play,\nlittle mouse!",
+      "I hate losing!\nGet away from me!",
+      NULL },
+    { 3, 2, 10, 6, 2, EVENT_BEAT_ROUTE_16_TRAINER_3,
+      "Hey, you just\nbumped me!",
+      "You can also get\nto FUCHSIA from\nVERMILION using a\ncoastal road.",
+      NULL },
+    { 4, 3, 16, 3, 2, EVENT_BEAT_ROUTE_16_TRAINER_4,
+      "I'm feeling\nhungry and mean!",
+      "I like my POKEMON\nferocious! They\ntear up enemies!",
+      NULL },
+    { 5, 3, 10, 7, 4, EVENT_BEAT_ROUTE_16_TRAINER_5,
+      "Sure, I'll go!",
+      "I like harassing\npeople with my\nvicious POKEMON!",
+      NULL },
+};
+
 static const sign_event_t kSigns_Route16[] = {
     {  27,  11, "Enjoy the slope!\nCYCLING ROAD" },  /* TEXT_ROUTE16_CYCLING_ROAD_SIGN */
     {   5,  17, "ROUTE 16\nCELADON CITY -\nFUCHSIA CITY" },  /* TEXT_ROUTE16_SIGN */
@@ -744,6 +1124,52 @@ static const npc_event_t kNpcs_Route17[] = {
     {  14,  98, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER8 */
     {   5,  98, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER9 */
     {  10, 118, 0x12, 0, NULL, NULL },  /* SPRITE_BIKER, STAY, TEXT_ROUTE17_BIKER10 */
+};
+
+/* Route 17 trainers — ASM parity from scripts/Route17.asm and
+ * data/maps/objects/Route17.asm. */
+static const map_trainer_t kTrainers_Route17[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 16, 4, 3, EVENT_BEAT_ROUTE_17_TRAINER_0,
+      "There's no money\nin fighting kids!",
+      "Good stuff is\nlying around on\nCYCLING ROAD!",
+      NULL },
+    { 1, 3, 16, 5, 4, EVENT_BEAT_ROUTE_17_TRAINER_1,
+      "What do you want,\nkiddo?",
+      "I could belly-\nbump you outta\nhere!",
+      NULL },
+    { 2, 1, 10, 8, 4, EVENT_BEAT_ROUTE_17_TRAINER_2,
+      "You heading to\nFUCHSIA?",
+      "I love racing\ndownhill!",
+      NULL },
+    { 3, 2, 10, 9, 4, EVENT_BEAT_ROUTE_17_TRAINER_3,
+      "We're BIKERs!\nHighway stars!",
+      "Are you looking\nfor adventure?",
+      NULL },
+    { 4, 3, 10, 10, 3, EVENT_BEAT_ROUTE_17_TRAINER_4,
+      "Let VOLTORB\nelectrify you!",
+      "I got my VOLTORB\nat the abandoned\nPOWER PLANT.",
+      NULL },
+    { 5, 2, 16, 6, 2, EVENT_BEAT_ROUTE_17_TRAINER_5,
+      "My POKEMON won't\nevolve! Why?",
+      "Maybe some POKEMON\nneed element\nSTONEs to evolve.",
+      NULL },
+    { 6, 3, 16, 7, 4, EVENT_BEAT_ROUTE_17_TRAINER_6,
+      "I need a little\nexercise!",
+      "I'm sure I lost\nweight there!",
+      NULL },
+    { 7, 3, 16, 8, 2, EVENT_BEAT_ROUTE_17_TRAINER_7,
+      "Be a rebel!",
+      "Be ready to fight\nfor your beliefs!",
+      NULL },
+    { 8, 2, 10, 11, 3, EVENT_BEAT_ROUTE_17_TRAINER_8,
+      "Nice BIKE!\nHow's it handle?",
+      "The slope makes\nit hard to steer!",
+      NULL },
+    { 9, 0, 10, 12, 4, EVENT_BEAT_ROUTE_17_TRAINER_9,
+      "Get lost kid!\nI'm bushed!",
+      "I need to catch\na few Zs!",
+      NULL },
 };
 
 static const sign_event_t kSigns_Route17[] = {
@@ -768,6 +1194,24 @@ static const npc_event_t kNpcs_Route18[] = {
     {  42,  13, 0x07, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_M, STAY, TEXT_ROUTE18_COOLTRAINER_M3 */
 };
 
+/* Route 18 trainers — ASM parity from scripts/Route18.asm and
+ * data/maps/objects/Route18.asm. */
+static const map_trainer_t kTrainers_Route18[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 23, 8, 3, EVENT_BEAT_ROUTE_18_TRAINER_0,
+      "I always check\nevery grassy area\nfor new POKEMON.",
+      "I wish I had a\nBIKE!",
+      NULL },
+    { 1, 2, 23, 9, 3, EVENT_BEAT_ROUTE_18_TRAINER_1,
+      "Kurukkoo!\nHow do you like\nmy bird call?",
+      "I also collect sea\nPOKEMON on\nweekends!",
+      NULL },
+    { 2, 2, 23, 10, 4, EVENT_BEAT_ROUTE_18_TRAINER_2,
+      "This is my turf!\nGet out of here!",
+      "This is my fave\nPOKEMON hunting\narea!",
+      NULL },
+};
+
 static const sign_event_t kSigns_Route18[] = {
     {  43,   7, "ROUTE 18\nCELADON CITY -\nFUCHSIA CITY" },  /* TEXT_ROUTE18_SIGN */
     {  33,   5, "CYCLING ROAD\nNo pedestrians\npermitted!" },  /* TEXT_ROUTE18_CYCLING_ROAD_SIGN */
@@ -785,6 +1229,53 @@ static const npc_event_t kNpcs_Route19[] = {
     {   9,  42, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER7 */
     {  10,  44, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE19_SWIMMER8 */
 };
+
+/* Route19 trainers — ASM parity from scripts/Route19.asm and
+ * data/maps/objects/Route19.asm. */
+static const map_trainer_t kTrainers_Route19[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 15, 2, 4, EVENT_BEAT_ROUTE_19_TRAINER_0,
+      "Have to warm up\nbefore my swim!",
+      "Thanks, kid! I'm\nready for a swim!",
+      NULL },
+    { 1, 2, 15, 3, 3, EVENT_BEAT_ROUTE_19_TRAINER_1,
+      "Wait! You'll have\na heart attack!",
+      "Watch out for\nTENTACOOL!",
+      NULL },
+    { 2, 2, 15, 4, 3, EVENT_BEAT_ROUTE_19_TRAINER_2,
+      "I love swimming!\nWhat about you?",
+      "I can beat POKEMON\nat swimming!",
+      NULL },
+    { 3, 3, 15, 5, 4, EVENT_BEAT_ROUTE_19_TRAINER_3,
+      "What's beyond the\nhorizon?",
+      "I see a couple of\nislands!",
+      NULL },
+    { 4, 1, 15, 6, 4, EVENT_BEAT_ROUTE_19_TRAINER_4,
+      "I tried diving\nfor POKEMON, but\nit was a no go!",
+      "You have to fish\nfor sea POKEMON!",
+      NULL },
+    { 5, 0, 15, 7, 4, EVENT_BEAT_ROUTE_19_TRAINER_5,
+      "I look at the\nsea to forget!",
+      "I'm looking at the\nsea to forget!",
+      NULL },
+    { 6, 2, 18, 12, 3, EVENT_BEAT_ROUTE_19_TRAINER_6,
+      "Oh, I just love\nyour ride! Can I\nhave it if I win?",
+      "It's still a long\nway to go to\nSEAFOAM ISLANDS.",
+      NULL },
+    { 7, 3, 18, 13, 4, EVENT_BEAT_ROUTE_19_TRAINER_7,
+      "Swimming's great!\nSunburns aren't!",
+      "My boy friend\nwanted to swim to\nSEAFOAM ISLANDS.",
+      NULL },
+    { 8, 1, 15, 8, 4, EVENT_BEAT_ROUTE_19_TRAINER_8,
+      "These waters are\ntreacherous!",
+      "I got a cramp!\nGlub, glub...",
+      NULL },
+    { 9, 0, 18, 14, 4, EVENT_BEAT_ROUTE_19_TRAINER_9,
+      "I swam here, but\nI'm tired.",
+      "LAPRAS is so big,\nit must keep you\ndry on water.",
+      NULL },
+};
+
 
 static const sign_event_t kSigns_Route19[] = {
     {  11,   9, "SEA ROUTE 19\nFUCHSIA CITY -\nSEAFOAM ISLANDS" },  /* TEXT_ROUTE19_SIGN */
@@ -808,6 +1299,53 @@ static const npc_event_t kNpcs_Route20[] = {
     {  15,   8, 0x22, 0, NULL, NULL },  /* SPRITE_SWIMMER, STAY, TEXT_ROUTE20_SWIMMER9 */
 };
 
+/* Route20 trainers — ASM parity from scripts/Route20.asm and
+ * data/maps/objects/Route20.asm. */
+static const map_trainer_t kTrainers_Route20[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 1, 15, 9, 4, EVENT_BEAT_ROUTE_20_TRAINER_0,
+      "The water is\nshallow here.",
+      "I wish I could\nride my POKEMON.",
+      NULL },
+    { 1, 1, 18, 15, 4, EVENT_BEAT_ROUTE_20_TRAINER_1,
+      "SEAFOAM is a\nquiet getaway!",
+      "There's a huge\ncavern underneath\nthis island.",
+      NULL },
+    { 2, 0, 18, 6, 2, EVENT_BEAT_ROUTE_20_TRAINER_2,
+      "I love floating\nwith the fishes!",
+      "Want to float\nwith me?",
+      NULL },
+    { 3, 3, 6, 24, 4, EVENT_BEAT_ROUTE_20_TRAINER_3,
+      "Are you on\nvacation too?",
+      "SEAFOAM used to\nbe one island!",
+      NULL },
+    { 4, 0, 15, 10, 3, EVENT_BEAT_ROUTE_20_TRAINER_4,
+      "Check out my buff\nphysique!",
+      "I should've been\nbuffing up my\nPOKEMON, not me!",
+      NULL },
+    { 5, 1, 15, 11, 4, EVENT_BEAT_ROUTE_20_TRAINER_5,
+      "Why are you\nriding a POKEMON?\nCan't you swim?",
+      "Riding a POKEMON\nsure looks fun!",
+      NULL },
+    { 6, 1, 23, 11, 2, EVENT_BEAT_ROUTE_20_TRAINER_6,
+      "I rode my bird\nPOKEMON here!",
+      "My birds can't\nFLY me back!",
+      NULL },
+    { 7, 1, 18, 7, 4, EVENT_BEAT_ROUTE_20_TRAINER_7,
+      "My boy friend gave\nme big pearls!",
+      "Will my pearls\ngrow bigger\ninside CLOYSTER?",
+      NULL },
+    { 8, 0, 6, 16, 3, EVENT_BEAT_ROUTE_20_TRAINER_8,
+      "I swam here from\nCINNABAR ISLAND!",
+      "POKEMON have\ntaken over an\nabandoned mansion\non CINNABAR!",
+      NULL },
+    { 9, 1, 18, 8, 4, EVENT_BEAT_ROUTE_20_TRAINER_9,
+      "CINNABAR, in the\nwest, has a LAB\nfor POKEMON.",
+      "CINNABAR is a \nvolcanic island!",
+      NULL },
+};
+
+
 static const sign_event_t kSigns_Route20[] = {
     {  51,   7, "SEAFOAM ISLANDS" },  /* TEXT_ROUTE20_SEAFOAM_ISLANDS_WEST_SIGN */
     {  57,  11, "SEAFOAM ISLANDS" },  /* TEXT_ROUTE20_SEAFOAM_ISLANDS_EAST_SIGN */
@@ -824,6 +1362,49 @@ static const npc_event_t kNpcs_Route21[] = {
     {  14,  56, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER3 */
     {  17,  57, 0x2f, 0, NULL, NULL },  /* SPRITE_FISHER, STAY, TEXT_ROUTE21_FISHER4 */
 };
+
+/* Route21 trainers — ASM parity from scripts/Route21.asm and
+ * data/maps/objects/Route21.asm. */
+static const map_trainer_t kTrainers_Route21[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 14, 7, 0, EVENT_BEAT_ROUTE_21_TRAINER_0,
+      "You want to know\nif the fish are\nbiting?",
+      "I can't catch\nanything good!",
+      NULL },
+    { 1, 0, 14, 9, 0, EVENT_BEAT_ROUTE_21_TRAINER_1,
+      "I got a big haul!\nWanna go for it?",
+      "I seem to only\ncatch MAGIKARP!",
+      NULL },
+    { 2, 1, 15, 12, 4, EVENT_BEAT_ROUTE_21_TRAINER_2,
+      "The sea cleanses\nmy body and soul!",
+      "I like the\nmountains too!",
+      NULL },
+    { 3, 3, 16, 9, 4, EVENT_BEAT_ROUTE_21_TRAINER_3,
+      "What's wrong with\nme swimming?",
+      "I look like what?\nA studded inner\ntube? Get lost!",
+      NULL },
+    { 4, 0, 15, 13, 4, EVENT_BEAT_ROUTE_21_TRAINER_4,
+      "I caught all my\nPOKEMON at sea!",
+      "Where'd you catch\nyour POKEMON?",
+      NULL },
+    { 5, 3, 15, 14, 4, EVENT_BEAT_ROUTE_21_TRAINER_5,
+      "Right now, I'm in\na triathlon meet!",
+      "I'm beat!\nBut, I still have\nthe bike race and\nmarathon left!",
+      NULL },
+    { 6, 2, 15, 15, 3, EVENT_BEAT_ROUTE_21_TRAINER_6,
+      "Ahh! Feel the sun\nand the wind!",
+      "I'm sunburnt to a\ncrisp!",
+      NULL },
+    { 7, 2, 14, 8, 0, EVENT_BEAT_ROUTE_21_TRAINER_7,
+      "Hey, don't scare\naway the fish!",
+      "I was just angry\nthat I couldn't\ncatch anything.",
+      NULL },
+    { 8, 3, 14, 10, 0, EVENT_BEAT_ROUTE_21_TRAINER_8,
+      "Keep me company\n'til I get a hit!",
+      "Oh wait! I got a\nbite! Yeah!",
+      NULL },
+};
+
 
 static const map_warp_t kWarps_Route22[] = {
     {   8,   5, 0xc1, 0 },  /* ROUTE_22_GATE */
@@ -1629,6 +2210,40 @@ static const npc_event_t kNpcs_RockTunnel1F[] = {
     {  32,  24, 0x06, 0, NULL, NULL },  /* SPRITE_COOLTRAINER_F, STAY, TEXT_ROCKTUNNEL1F_COOLTRAINER_F3 */
 };
 
+/* Rock Tunnel 1F trainers — ASM parity from scripts/RockTunnel1F.asm and
+ * data/maps/objects/RockTunnel1F.asm. */
+static const map_trainer_t kTrainers_RockTunnel1F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 9, 12, 4, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_0,
+      "This tunnel goes\na long way, kid!",
+      "Watch for ONIX!\nIt can put the\nsqueeze on you!",
+      NULL },
+    { 1, 0, 9, 13, 4, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_1,
+      "Hmm. Maybe I'm\nlost in here...",
+      "That sleeping\nPOKEMON on ROUTE\n12 forced me to\ntake this detour.",
+      NULL },
+    { 2, 2, 9, 14, 3, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_2,
+      "Outsiders like\nyou need to show\nme some respect!",
+      "You're talented\nenough to hike!",
+      NULL },
+    { 3, 2, 7, 7, 3, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_3,
+      "POKEMON fight!\nReady, go!",
+      "Oh well, I'll get\na ZUBAT as I go!",
+      NULL },
+    { 4, 2, 6, 17, 4, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_4,
+      "Eek! Don't try\nanything funny in\nthe dark!",
+      "I saw a MACHOP\nin this tunnel!",
+      NULL },
+    { 5, 0, 6, 18, 4, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_5,
+      "I came this far\nfor POKEMON!",
+      "You looked cute\nand harmless!",
+      NULL },
+    { 6, 3, 6, 19, 4, EVENT_BEAT_ROCK_TUNNEL_1_TRAINER_6,
+      "You have POKEMON!\nLet's start!",
+      "Whew! I'm all\nsweaty now!",
+      NULL },
+};
+
 static const sign_event_t kSigns_RockTunnel1F[] = {
     {  11,  29, "ROCK TUNNEL\nCERULEAN CITY -\nLAVENDER TOWN" },  /* TEXT_ROCKTUNNEL1F_SIGN */
 };
@@ -2103,6 +2718,20 @@ static const npc_event_t kNpcs_VictoryRoad1F[] = {
     {   2,  10, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD1F_BOULDER3 */
 };
 
+/* VictoryRoad1F trainers — ASM parity from scripts/VictoryRoad1F.asm and
+ * data/maps/objects/VictoryRoad1F.asm. */
+static const map_trainer_t kTrainers_VictoryRoad1F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 32, 5, 2, EVENT_BEAT_VICTORY_ROAD_1_TRAINER_0,
+      "I wonder if you\nare good enough\nfor me!",
+      "I never wanted to\nlose to anybody!",
+      NULL },
+    { 1, 0, 31, 5, 2, EVENT_BEAT_VICTORY_ROAD_1_TRAINER_1,
+      "I can see you're\ngood! Let me see\nexactly how good!",
+      "I concede, you're\nbetter than me!",
+      NULL },
+};
+
 static const item_event_t kItems_VictoryRoad1F[] = {
     {  11,   0, 0xf3 },  /* TM_SKY_ATTACK */
     {   9,   2, 0x28 },  /* RARE_CANDY */
@@ -2538,6 +3167,24 @@ static const npc_event_t kNpcs_PokemonTower3F[] = {
     {  10,  13, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER3F_CHANNELER3 */
 };
 
+/* Pokemon Tower 3F trainers — ASM parity from scripts/PokemonTower3F.asm and
+ * data/maps/objects/PokemonTower3F.asm. */
+static const map_trainer_t kTrainers_PokemonTower3F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 45, 5, 2, EVENT_BEAT_POKEMONTOWER_3_TRAINER_0,
+      "Urrg...Awaa...\nHuhu...graa..",
+      "The GHOSTs can be\nidentified by the\nSILPH SCOPE.",
+      NULL },
+    { 1, 0, 45, 6, 3, EVENT_BEAT_POKEMONTOWER_3_TRAINER_1,
+      "Kekeke....\nKwaaah!",
+      "Sorry! I was\npossessed!",
+      NULL },
+    { 2, 0, 45, 8, 2, EVENT_BEAT_POKEMONTOWER_3_TRAINER_2,
+      "Be gone!\nEvil spirit!",
+      "My friends were\npossessed too!",
+      NULL },
+};
+
 static const item_event_t kItems_PokemonTower3F[] = {
     {  12,   1, 0x1d },  /* ESCAPE_ROPE */
 };
@@ -2552,6 +3199,25 @@ static const npc_event_t kNpcs_PokemonTower4F[] = {
     {  15,   7, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER2 */
     {  14,  12, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER4F_CHANNELER3 */
 };
+
+/* PokemonTower4F trainers — ASM parity from scripts/PokemonTower4F.asm and
+ * data/maps/objects/PokemonTower4F.asm. */
+static const map_trainer_t kTrainers_PokemonTower4F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 45, 9, 2, EVENT_BEAT_POKEMONTOWER_4_TRAINER_0,
+      "GHOST! No!\nKwaaah!",
+      "I must have been\ndreaming...",
+      NULL },
+    { 1, 0, 45, 10, 2, EVENT_BEAT_POKEMONTOWER_4_TRAINER_1,
+      "Be cursed with\nme! Kwaaah!",
+      "We can't crack\nthe identity of\nthe GHOSTs.",
+      NULL },
+    { 2, 2, 45, 12, 2, EVENT_BEAT_POKEMONTOWER_4_TRAINER_2,
+      "Huhuhu...\nBeat me not!",
+      "May the departed\nsouls of POKEMON\nrest in peace...",
+      NULL },
+};
+
 
 static const item_event_t kItems_PokemonTower4F[] = {
     {  12,  10, 0x52 },  /* ELIXER */
@@ -2572,6 +3238,29 @@ static const npc_event_t kNpcs_PokemonTower5F[] = {
     {   9,  16, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER5F_CHANNELER5 */
 };
 
+/* PokemonTower5F trainers — ASM parity from scripts/PokemonTower5F.asm and
+ * data/maps/objects/PokemonTower5F.asm. */
+static const map_trainer_t kTrainers_PokemonTower5F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 45, 14, 2, EVENT_BEAT_POKEMONTOWER_5_TRAINER_0,
+      "Give...me...\nyour...soul...",
+      "I was under\npossession!",
+      NULL },
+    { 1, 2, 45, 16, 3, EVENT_BEAT_POKEMONTOWER_5_TRAINER_1,
+      "You...shall...\njoin...us...",
+      "I was possessed!",
+      NULL },
+    { 2, 3, 45, 17, 2, EVENT_BEAT_POKEMONTOWER_5_TRAINER_2,
+      "Zombies!",
+      "I regained my\nsenses!",
+      NULL },
+    { 3, 3, 45, 18, 2, EVENT_BEAT_POKEMONTOWER_5_TRAINER_3,
+      "Urgah...\nUrff....",
+      "I fell to evil\nspirits despite\nmy training!",
+      NULL },
+};
+
+
 static const item_event_t kItems_PokemonTower5F[] = {
     {   6,  14, 0x31 },  /* NUGGET */
 };
@@ -2586,6 +3275,25 @@ static const npc_event_t kNpcs_PokemonTower6F[] = {
     {   9,   5, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER2 */
     {  16,   5, 0x19, 0, NULL, NULL },  /* SPRITE_CHANNELER, STAY, TEXT_POKEMONTOWER6F_CHANNELER3 */
 };
+
+/* PokemonTower6F trainers — ASM parity from scripts/PokemonTower6F.asm and
+ * data/maps/objects/PokemonTower6F.asm. */
+static const map_trainer_t kTrainers_PokemonTower6F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 45, 19, 3, EVENT_BEAT_POKEMONTOWER_6_TRAINER_0,
+      "Give...me...\nblood...",
+      "I feel anemic and\nweak...",
+      NULL },
+    { 1, 0, 45, 20, 3, EVENT_BEAT_POKEMONTOWER_6_TRAINER_1,
+      "Urff... Kwaah!",
+      "Hair didn't fall\nout! It was an\nevil spirit!",
+      NULL },
+    { 2, 2, 45, 21, 2, EVENT_BEAT_POKEMONTOWER_6_TRAINER_2,
+      "Ke..ke...ke...\nke..ke...ke!!",
+      "What's going on\nhere?",
+      NULL },
+};
+
 
 static const item_event_t kItems_PokemonTower6F[] = {
     {   6,   8, 0x28 },  /* RARE_CANDY */
@@ -2602,6 +3310,25 @@ static const npc_event_t kNpcs_PokemonTower7F[] = {
     {   9,   7, 0x18, 0, NULL, PokemonTower7F_Rocket3Script },  /* SPRITE_ROCKET, STAY, TEXT_POKEMONTOWER7F_ROCKET3 */
     {  10,   3, 0x16, 0, NULL, PokemonTower7F_MrFujiScript },  /* SPRITE_MR_FUJI, STAY, TEXT_POKEMONTOWER7F_MR_FUJI */
 };
+
+/* PokemonTower7F trainers — ASM parity from scripts/PokemonTower7F.asm and
+ * data/maps/objects/PokemonTower7F.asm. */
+static const map_trainer_t kTrainers_PokemonTower7F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 3, 30, 19, 3, EVENT_BEAT_POKEMONTOWER_7_TRAINER_0,
+      "What do you want?\nWhy are you here?",
+      "I'm not going to\nforget this!",
+      NULL },
+    { 1, 2, 30, 20, 3, EVENT_BEAT_POKEMONTOWER_7_TRAINER_1,
+      "This old guy came\nand complained\nabout us harming\nuseless POKEMON!\n\nWe're talking it\nover as adults!",
+      "POKEMON are only\ngood for making\nmoney!\n\nStay out of our\nbusiness!",
+      NULL },
+    { 2, 3, 30, 21, 3, EVENT_BEAT_POKEMONTOWER_7_TRAINER_2,
+      "You're not saving\nanyone, kid!",
+      "You're not getting\naway with this!",
+      NULL },
+};
+
 
 static const map_warp_t kWarps_MrFujisHouse[] = {
     {   2,   7, 0xff, 2 },  /* LAST_MAP */
@@ -2829,6 +3556,16 @@ static const map_warp_t kWarps_PokemonMansion1F[] = {
 
 static const npc_event_t kNpcs_PokemonMansion1F[] = {
     {  17,  17, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSION1F_SCIENTIST */
+};
+
+/* PokemonMansion1F trainers — ASM parity from scripts/PokemonMansion1F.asm and
+ * data/maps/objects/PokemonMansion1F.asm. */
+static const map_trainer_t kTrainers_PokemonMansion1F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 28, 4, 3, EVENT_BEAT_MANSION_1_TRAINER_0,
+      "Who are you? There\nshouldn't be\nanyone here.",
+      "A key? I don't\nknow what you're\ntalking about.",
+      NULL },
 };
 
 static const item_event_t kItems_PokemonMansion1F[] = {
@@ -3154,7 +3891,7 @@ static const map_warp_t kWarps_Route16Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route16Gate1F[] = {
-    {   4,   5, 0x31, 0, "No pedestrians\nare allowed on\nCYCLING ROAD!", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE16GATE1F_GUARD */
+    {   4,   5, 0x31, 0, NULL, Gate_Route16CyclingGuard },  /* SPRITE_GUARD, STAY, TEXT_ROUTE16GATE1F_GUARD */
     {   4,   3, 0x0b, 0, "How'd you get in?\nGood effort!", NULL },  /* SPRITE_GAMBLER, STAY, TEXT_ROUTE16GATE1F_GAMBLER */
 };
 
@@ -3200,7 +3937,7 @@ static const map_warp_t kWarps_Route18Gate1F[] = {
 };
 
 static const npc_event_t kNpcs_Route18Gate1F[] = {
-    {   4,   1, 0x31, 0, "You need a BICYCLE\nfor CYCLING ROAD!", NULL },  /* SPRITE_GUARD, STAY, TEXT_ROUTE18GATE1F_GUARD */
+    {   4,   1, 0x31, 0, NULL, Gate_Route18CyclingGuard },  /* SPRITE_GUARD, STAY, TEXT_ROUTE18GATE1F_GUARD */
 };
 
 static const map_warp_t kWarps_Route18Gate2F[] = {
@@ -3264,6 +4001,32 @@ static const npc_event_t kNpcs_VictoryRoad2F[] = {
     {  23,  16, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD2F_BOULDER3 */
 };
 
+/* VictoryRoad2F trainers — ASM parity from scripts/VictoryRoad2F.asm and
+ * data/maps/objects/VictoryRoad2F.asm. */
+static const map_trainer_t kTrainers_VictoryRoad2F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 24, 9, 4, EVENT_BEAT_VICTORY_ROAD_2_TRAINER_0,
+      "",
+      "If you get stuck,\ntry moving some\nboulders around!",
+      NULL },
+    { 1, 2, 21, 2, 3, EVENT_BEAT_VICTORY_ROAD_2_TRAINER_1,
+      "Ah, so you wish\nto challenge the\nELITE FOUR?",
+      "<RIVAL> also came\nthrough here!",
+      NULL },
+    { 2, 0, 22, 5, 3, EVENT_BEAT_VICTORY_ROAD_2_TRAINER_2,
+      "Come on!\nI'll whip you!",
+      "You earned the\nright to be on\nVICTORY ROAD!",
+      NULL },
+    { 3, 0, 7, 6, 1, EVENT_BEAT_VICTORY_ROAD_2_TRAINER_3,
+      "If you can get\nthrough here, you\ncan go meet the\nELITE FOUR!",
+      "I can beat you\nwhen it comes to\nknowledge about\nPOKEMON!",
+      NULL },
+    { 4, 2, 21, 5, 3, EVENT_BEAT_VICTORY_ROAD_2_TRAINER_4,
+      "Is VICTORY ROAD\ntoo tough?",
+      "Many trainers give\nup the challenge\nhere.",
+      NULL },
+};
+
 static const item_event_t kItems_VictoryRoad2F[] = {
     {  27,   5, 0xd9 },  /* TM_SUBMISSION */
     {  18,   9, 0x34 },  /* FULL_HEAL */
@@ -3314,6 +4077,28 @@ static const npc_event_t kNpcs_VictoryRoad3F[] = {
     {  13,  12, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER2 */
     {  24,  10, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER3 */
     {  22,  15, 0x3f, 0, NULL, NULL },  /* SPRITE_BOULDER, STAY, TEXT_VICTORYROAD3F_BOULDER4 */
+};
+
+/* VictoryRoad3F trainers — ASM parity from scripts/VictoryRoad3F.asm and
+ * data/maps/objects/VictoryRoad3F.asm. */
+static const map_trainer_t kTrainers_VictoryRoad3F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 2, 31, 2, 1, EVENT_BEAT_VICTORY_ROAD_3_TRAINER_0,
+      "I heard rumors of\na child prodigy!",
+      "You beat GIOVANNI\nof TEAM ROCKET?",
+      NULL },
+    { 1, 3, 32, 2, 4, EVENT_BEAT_VICTORY_ROAD_3_TRAINER_1,
+      "I'll show you just\nhow good you are!",
+      "You showed me just\nhow good I was!",
+      NULL },
+    { 2, 2, 31, 3, 4, EVENT_BEAT_VICTORY_ROAD_3_TRAINER_2,
+      "Only the chosen\ncan pass here!",
+      "All trainers here\nare headed to the\nPOKEMON LEAGUE!\nBe careful!",
+      NULL },
+    { 3, 3, 32, 3, 4, EVENT_BEAT_VICTORY_ROAD_3_TRAINER_3,
+      "Trainers live to\nseek stronger\nopponents!",
+      "By fighting tough\nbattles, you get\nstronger!",
+      NULL },
 };
 
 static const item_event_t kItems_VictoryRoad3F[] = {
@@ -3630,6 +4415,16 @@ static const npc_event_t kNpcs_PokemonMansion2F[] = {
     {   3,  22, 0x41, 0, "Diary: July 10\nWe christened the\nnewly discovered\nPOKEMON, MEW.", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION2F_DIARY2 */
 };
 
+/* PokemonMansion2F trainers — ASM parity from scripts/PokemonMansion2F.asm and
+ * data/maps/objects/PokemonMansion2F.asm. */
+static const map_trainer_t kTrainers_PokemonMansion2F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 11, 7, 0, EVENT_BEAT_MANSION_2_TRAINER_0,
+      "I can't get out!\nThis old place is\none big puzzle!",
+      "Switches open and\nclose alternating\nsets of doors!",
+      NULL },
+};
+
 static const item_event_t kItems_PokemonMansion2F[] = {
     {  28,   7, 0x27 },  /* CALCIUM */
 };
@@ -3646,6 +4441,20 @@ static const npc_event_t kNpcs_PokemonMansion3F[] = {
     {   6,  12, 0x41, 0, "Diary: Feb. 6\nMEW gave birth.\fWe named the\nnewborn MEWTWO.", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSION3F_DIARY */
 };
 
+/* PokemonMansion3F trainers — ASM parity from scripts/PokemonMansion3F.asm and
+ * data/maps/objects/PokemonMansion3F.asm. */
+static const map_trainer_t kTrainers_PokemonMansion3F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 11, 8, 0, EVENT_BEAT_MANSION_3_TRAINER_0,
+      "This place is\nlike, huge!",
+      "I wonder where\nmy partner went.",
+      NULL },
+    { 1, 2, 28, 12, 2, EVENT_BEAT_MANSION_3_TRAINER_1,
+      "My mentor once\nlived here.",
+      "So, you're stuck?\nTry jumping off\nover there!",
+      NULL },
+};
+
 static const item_event_t kItems_PokemonMansion3F[] = {
     {   1,  16, 0x11 },  /* MAX_POTION */
     {  25,   5, 0x25 },  /* IRON */
@@ -3659,6 +4468,20 @@ static const npc_event_t kNpcs_PokemonMansionB1F[] = {
     {  16,  23, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_POKEMONMANSIONB1F_BURGLAR */
     {  27,  11, 0x20, 0, NULL, NULL },  /* SPRITE_SCIENTIST, STAY, TEXT_POKEMONMANSIONB1F_SCIENTIST */
     {  16,  20, 0x41, 0, "\nMEWTWO is far too\npowerful.\fWe have failed to\ncurb its vicious\ntendencies...", NULL },  /* SPRITE_POKEDEX, STAY, TEXT_POKEMONMANSIONB1F_DIARY */
+};
+
+/* PokemonMansionB1F trainers — ASM parity from scripts/PokemonMansionB1F.asm and
+ * data/maps/objects/PokemonMansionB1F.asm. */
+static const map_trainer_t kTrainers_PokemonMansionB1F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 11, 9, 0, EVENT_BEAT_MANSION_4_TRAINER_0,
+      "Uh-oh. Where am\nI now?",
+      "You can find stuff\nlying around.",
+      NULL },
+    { 1, 0, 28, 13, 3, EVENT_BEAT_MANSION_4_TRAINER_1,
+      "This place is\nideal for a lab.",
+      "I like it here!\nIt's conducive to\nmy studies!",
+      NULL },
 };
 
 static const item_event_t kItems_PokemonMansionB1F[] = {
@@ -3896,6 +4719,44 @@ static const npc_event_t kNpcs_RockTunnelB1F[] = {
     {  26,  30, 0x0c, 0, NULL, NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_ROCKTUNNELB1F_SUPER_NERD3 */
 };
 
+/* Rock Tunnel B1F trainers — ASM parity from scripts/RockTunnelB1F.asm and
+ * data/maps/objects/RockTunnelB1F.asm. */
+static const map_trainer_t kTrainers_RockTunnelB1F[] = {
+    /* npc_idx, facing, class, no, sight, flag, before_text, after_text, end_text */
+    { 0, 0, 6, 9, 4, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_0,
+      "Hikers leave twigs\nas trail markers.",
+      "I want to go\nhome!",
+      NULL },
+    { 1, 0, 9, 9, 3, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_1,
+      "Hahaha! Can you\nbeat my power?",
+      "I go for power\nbecause I hate\nthinking!",
+      NULL },
+    { 2, 0, 7, 3, 3, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_2,
+      "You have a\nPOKEDEX?\nI want one too!",
+      "When you finish\nyour POKEDEX, can\nI have it?",
+      NULL },
+    { 3, 3, 7, 4, 4, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_3,
+      "Do you know about\ncostume players?",
+      "Costume players\ndress up as\nPOKEMON for fun.",
+      NULL },
+    { 4, 0, 9, 10, 3, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_4,
+      "My POKEMON\ntechniques will\nleave you crying!",
+      "In mountains,\nyou'll often find\nrock-type POKEMON.",
+      NULL },
+    { 5, 3, 6, 10, 4, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_5,
+      "I don't often\ncome here, but I\nwill fight you.",
+      "I like tiny\nPOKEMON, big ones\nare too scary!",
+      NULL },
+    { 6, 3, 9, 11, 3, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_6,
+      "Hit me with your\nbest shot!",
+      "I'll raise my\nPOKEMON to beat\nyours, kid!",
+      NULL },
+    { 7, 0, 7, 5, 3, EVENT_BEAT_ROCK_TUNNEL_2_TRAINER_7,
+      "I draw POKEMON\nwhen I'm home.",
+      "I'm an artist,\nnot a fighter.",
+      NULL },
+};
+
 static const map_warp_t kWarps_SilphCo9F[] = {
     {  14,   0, 0xea, 0 },  /* SILPH_CO_10F */
     {  16,   0, 0xd5, 0 },  /* SILPH_CO_8F */
@@ -4013,24 +4874,24 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x0c] = { NULL, 0, kNpcs_Route1, 2, kSigns_Route1, 1, NULL, 0, 0x0b },
     [0x0d] = { kWarps_Route2, 6, NULL, 0, kSigns_Route2, 2, kItems_Route2, 2, 0x0f },
     [0x0e] = { NULL, 0, kNpcs_Route3, 9, kSigns_Route3, 1, NULL, 0, 0x2c, kTrainers_Route3, 8 },
-    [0x0f] = { kWarps_Route4, 3, kNpcs_Route4, 2, kSigns_Route4, 3, kItems_Route4, 1, 0x2c },
+    [0x0f] = { kWarps_Route4, 3, kNpcs_Route4, 2, kSigns_Route4, 3, kItems_Route4, 1, 0x2c, kTrainers_Route4, 1 },
     [0x10] = { kWarps_Route5, 5, NULL, 0, kSigns_Route5, 1, NULL, 0, 0x0a },
     [0x11] = { kWarps_Route6, 4, kNpcs_Route6, 6, kSigns_Route6, 1, NULL, 0, 0x0f, kTrainers_Route6, 6 },
     [0x12] = { kWarps_Route7, 5, NULL, 0, kSigns_Route7, 1, NULL, 0, 0x0f },
-    [0x13] = { kWarps_Route8, 5, kNpcs_Route8, 9, kSigns_Route8, 1, NULL, 0, 0x2c },
-    [0x14] = { NULL, 0, kNpcs_Route9, 9, kSigns_Route9, 1, kItems_Route9, 1, 0x2c },
-    [0x15] = { kWarps_Route10, 4, kNpcs_Route10, 6, kSigns_Route10, 4, NULL, 0, 0x2c },
-    [0x16] = { kWarps_Route11, 5, kNpcs_Route11, 10, kSigns_Route11, 1, NULL, 0, 0x0f },
-    [0x17] = { kWarps_Route12, 4, kNpcs_Route12, 8, kSigns_Route12, 2, kItems_Route12, 2, 0x43 },
-    [0x18] = { NULL, 0, kNpcs_Route13, 10, kSigns_Route13, 3, NULL, 0, 0x43 },
-    [0x19] = { NULL, 0, kNpcs_Route14, 10, kSigns_Route14, 1, NULL, 0, 0x43 },
-    [0x1a] = { kWarps_Route15, 4, kNpcs_Route15, 10, kSigns_Route15, 1, kItems_Route15, 1, 0x43 },
-    [0x1b] = { kWarps_Route16, 9, kNpcs_Route16, 7, kSigns_Route16, 2, NULL, 0, 0x0f },
-    [0x1c] = { NULL, 0, kNpcs_Route17, 10, kSigns_Route17, 6, NULL, 0, 0x43 },
-    [0x1d] = { kWarps_Route18, 4, kNpcs_Route18, 3, kSigns_Route18, 2, NULL, 0, 0x43 },
-    [0x1e] = { NULL, 0, kNpcs_Route19, 10, kSigns_Route19, 1, NULL, 0, 0x43 },
-    [0x1f] = { kWarps_Route20, 2, kNpcs_Route20, 10, kSigns_Route20, 2, NULL, 0, 0x43 },
-    [0x20] = { NULL, 0, kNpcs_Route21, 9, NULL, 0, NULL, 0, 0x43 },
+    [0x13] = { kWarps_Route8, 5, kNpcs_Route8, 9, kSigns_Route8, 1, NULL, 0, 0x2c, kTrainers_Route8, 9 },
+    [0x14] = { NULL, 0, kNpcs_Route9, 9, kSigns_Route9, 1, kItems_Route9, 1, 0x2c, kTrainers_Route9, 9 },
+    [0x15] = { kWarps_Route10, 4, kNpcs_Route10, 6, kSigns_Route10, 4, NULL, 0, 0x2c, kTrainers_Route10, 6 },
+    [0x16] = { kWarps_Route11, 5, kNpcs_Route11, 10, kSigns_Route11, 1, NULL, 0, 0x0f, kTrainers_Route11, 10 },
+    [0x17] = { kWarps_Route12, 4, kNpcs_Route12, 8, kSigns_Route12, 2, kItems_Route12, 2, 0x43, kTrainers_Route12, 7 },
+    [0x18] = { NULL, 0, kNpcs_Route13, 10, kSigns_Route13, 3, NULL, 0, 0x43, kTrainers_Route13, 10 },
+    [0x19] = { NULL, 0, kNpcs_Route14, 10, kSigns_Route14, 1, NULL, 0, 0x43, kTrainers_Route14, 10 },
+    [0x1a] = { kWarps_Route15, 4, kNpcs_Route15, 10, kSigns_Route15, 1, kItems_Route15, 1, 0x43, kTrainers_Route15, 10 },
+    [0x1b] = { kWarps_Route16, 9, kNpcs_Route16, 7, kSigns_Route16, 2, NULL, 0, 0x0f, kTrainers_Route16, 6 },
+    [0x1c] = { NULL, 0, kNpcs_Route17, 10, kSigns_Route17, 6, NULL, 0, 0x43, kTrainers_Route17, 10 },
+    [0x1d] = { kWarps_Route18, 4, kNpcs_Route18, 3, kSigns_Route18, 2, NULL, 0, 0x43, kTrainers_Route18, 3 },
+    [0x1e] = { NULL, 0, kNpcs_Route19, 10, kSigns_Route19, 1, NULL, 0, 0x43, kTrainers_Route19, 10 },
+    [0x1f] = { kWarps_Route20, 2, kNpcs_Route20, 10, kSigns_Route20, 2, NULL, 0, 0x43, kTrainers_Route20, 10 },
+    [0x20] = { NULL, 0, kNpcs_Route21, 9, NULL, 0, NULL, 0, 0x43, kTrainers_Route21, 9 },
     [0x21] = { kWarps_Route22, 1, kNpcs_Route22, 2, kSigns_Route22, 1, NULL, 0, 0x2c },
     [0x22] = { kWarps_Route23, 4, kNpcs_Route23, 7, kSigns_Route23, 1, NULL, 0, 0x0f },
     [0x23] = { NULL, 0, kNpcs_Route24, 7, NULL, 0, kItems_Route24, 1, 0x2c, kTrainers_Route24, 6 },
@@ -4080,7 +4941,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x4f] = { kWarps_Route8Gate, 4, kNpcs_Route8Gate, 1, NULL, 0, NULL, 0, 0x0a },
     [0x50] = { kWarps_UndergroundPathRoute8, 3, kNpcs_UndergroundPathRoute8, 1, NULL, 0, NULL, 0, 0x0a },
     [0x51] = { kWarps_RockTunnelPokecenter, 2, kNpcs_RockTunnelPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
-    [0x52] = { kWarps_RockTunnel1F, 8, kNpcs_RockTunnel1F, 7, kSigns_RockTunnel1F, 1, NULL, 0, 0x03 },
+    [0x52] = { kWarps_RockTunnel1F, 8, kNpcs_RockTunnel1F, 7, kSigns_RockTunnel1F, 1, NULL, 0, 0x03, kTrainers_RockTunnel1F, 7 },
     [0x53] = { kWarps_PowerPlant, 3, kNpcs_PowerPlant, 1, NULL, 0, kItems_PowerPlant, 13, 0x2e },
     [0x54] = { kWarps_Route11Gate1F, 5, kNpcs_Route11Gate1F, 1, NULL, 0, NULL, 0, 0x0a },
     [0x55] = { kWarps_DiglettsCaveRoute11, 3, kNpcs_DiglettsCaveRoute11, 1, NULL, 0, NULL, 0, 0x7d },
@@ -4106,7 +4967,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x69] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6a] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6b] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
-    [0x6c] = { kWarps_VictoryRoad1F, 3, kNpcs_VictoryRoad1F, 5, NULL, 0, kItems_VictoryRoad1F, 2, 0x7d },
+    [0x6c] = { kWarps_VictoryRoad1F, 3, kNpcs_VictoryRoad1F, 5, NULL, 0, kItems_VictoryRoad1F, 2, 0x7d, kTrainers_VictoryRoad1F, 2 },
     [0x6d] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6e] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
     [0x6f] = { kWarps_LancesRoom, 3, kNpcs_LancesRoom, 1, NULL, 0, NULL, 0, 0x03 },
@@ -4142,11 +5003,11 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0x8d] = { kWarps_LavenderPokecenter, 2, kNpcs_LavenderPokecenter, 4, NULL, 0, NULL, 0, 0x00, NULL, 0, kHiddenEvents_Pokecenter, 1 },
     [0x8e] = { kWarps_PokemonTower1F, 3, kNpcs_PokemonTower1F, 5, NULL, 0, NULL, 0, 0x01 },
     [0x8f] = { kWarps_PokemonTower2F, 2, kNpcs_PokemonTower2F, 2, NULL, 0, NULL, 0, 0x01 },
-    [0x90] = { kWarps_PokemonTower3F, 2, kNpcs_PokemonTower3F, 3, NULL, 0, kItems_PokemonTower3F, 1, 0x01 },
-    [0x91] = { kWarps_PokemonTower4F, 2, kNpcs_PokemonTower4F, 3, NULL, 0, kItems_PokemonTower4F, 3, 0x01 },
-    [0x92] = { kWarps_PokemonTower5F, 2, kNpcs_PokemonTower5F, 5, NULL, 0, kItems_PokemonTower5F, 1, 0x01 },
-    [0x93] = { kWarps_PokemonTower6F, 2, kNpcs_PokemonTower6F, 3, NULL, 0, kItems_PokemonTower6F, 2, 0x01 },
-    [0x94] = { kWarps_PokemonTower7F, 1, kNpcs_PokemonTower7F, 4, NULL, 0, NULL, 0, 0x01 },
+    [0x90] = { kWarps_PokemonTower3F, 2, kNpcs_PokemonTower3F, 3, NULL, 0, kItems_PokemonTower3F, 1, 0x01, kTrainers_PokemonTower3F, 3 },
+    [0x91] = { kWarps_PokemonTower4F, 2, kNpcs_PokemonTower4F, 3, NULL, 0, kItems_PokemonTower4F, 3, 0x01, kTrainers_PokemonTower4F, 3 },
+    [0x92] = { kWarps_PokemonTower5F, 2, kNpcs_PokemonTower5F, 5, NULL, 0, kItems_PokemonTower5F, 1, 0x01, kTrainers_PokemonTower5F, 4 },
+    [0x93] = { kWarps_PokemonTower6F, 2, kNpcs_PokemonTower6F, 3, NULL, 0, kItems_PokemonTower6F, 2, 0x01, kTrainers_PokemonTower6F, 3 },
+    [0x94] = { kWarps_PokemonTower7F, 1, kNpcs_PokemonTower7F, 4, NULL, 0, NULL, 0, 0x01, kTrainers_PokemonTower7F, 3 },
     [0x95] = { kWarps_MrFujisHouse, 2, kNpcs_MrFujisHouse, 6, NULL, 0, NULL, 0, 0x0a },
     [0x96] = { kWarps_LavenderMart, 2, kNpcs_LavenderMart, 3, NULL, 0, NULL, 0, 0x00 },
     [0x97] = { kWarps_LavenderCuboneHouse, 2, kNpcs_LavenderCuboneHouse, 2, NULL, 0, NULL, 0, 0x0a },
@@ -4163,7 +5024,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xa2] = { kWarps_SeafoamIslandsB4F, 4, kNpcs_SeafoamIslandsB4F, 3, kSigns_SeafoamIslandsB4F, 2, NULL, 0, 0x7d },
     [0xa3] = { kWarps_VermilionOldRodHouse, 2, kNpcs_VermilionOldRodHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0xa4] = { kWarps_FuchsiaGoodRodHouse, 3, kNpcs_FuchsiaGoodRodHouse, 1, NULL, 0, NULL, 0, 0x0c },
-    [0xa5] = { kWarps_PokemonMansion1F, 8, kNpcs_PokemonMansion1F, 1, NULL, 0, kItems_PokemonMansion1F, 2, 0x2e },
+    [0xa5] = { kWarps_PokemonMansion1F, 8, kNpcs_PokemonMansion1F, 1, NULL, 0, kItems_PokemonMansion1F, 2, 0x2e, kTrainers_PokemonMansion1F, 1 },
     [0xa6] = { kWarps_CinnabarGym, 2, kNpcs_CinnabarGym, 9, NULL, 0, NULL, 0, 0x2e },
     [0xa7] = { kWarps_CinnabarLab, 5, kNpcs_CinnabarLab, 1, kSigns_CinnabarLab, 4, NULL, 0, 0x17 },
     [0xa8] = { kWarps_CinnabarLabTradeRoom, 2, kNpcs_CinnabarLabTradeRoom, 3, NULL, 0, NULL, 0, 0x17 },
@@ -4192,11 +5053,11 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xbf] = { kWarps_Route18Gate2F, 1, kNpcs_Route18Gate2F, 1, kSigns_Route18Gate2F, 2, NULL, 0, 0x0a },
     [0xc0] = { kWarps_SeafoamIslands1F, 7, kNpcs_SeafoamIslands1F, 2, NULL, 0, NULL, 0, 0x7d },
     [0xc1] = { kWarps_Route22Gate, 4, kNpcs_Route22Gate, 1, NULL, 0, NULL, 0, 0x0a },
-    [0xc2] = { kWarps_VictoryRoad2F, 7, kNpcs_VictoryRoad2F, 9, NULL, 0, kItems_VictoryRoad2F, 4, 0x7d },
+    [0xc2] = { kWarps_VictoryRoad2F, 7, kNpcs_VictoryRoad2F, 9, NULL, 0, kItems_VictoryRoad2F, 4, 0x7d, kTrainers_VictoryRoad2F, 5 },
     [0xc3] = { kWarps_Route12Gate2F, 1, kNpcs_Route12Gate2F, 1, kSigns_Route12Gate2F, 2, NULL, 0, 0x0a },
     [0xc4] = { kWarps_VermilionTradeHouse, 2, kNpcs_VermilionTradeHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0xc5] = { kWarps_DiglettsCave, 2, NULL, 0, NULL, 0, NULL, 0, 0x19 },
-    [0xc6] = { kWarps_VictoryRoad3F, 4, kNpcs_VictoryRoad3F, 8, NULL, 0, kItems_VictoryRoad3F, 2, 0x7d },
+    [0xc6] = { kWarps_VictoryRoad3F, 4, kNpcs_VictoryRoad3F, 8, NULL, 0, kItems_VictoryRoad3F, 2, 0x7d, kTrainers_VictoryRoad3F, 4 },
     [0xc7] = { kWarps_RocketHideoutB1F, 5, kNpcs_RocketHideoutB1F, 5, NULL, 0, kItems_RocketHideoutB1F, 2, 0x2e, kTrainers_RocketHideoutB1F, 5 },
     [0xc8] = { kWarps_RocketHideoutB2F, 5, kNpcs_RocketHideoutB2F, 1, NULL, 0, kItems_RocketHideoutB2F, 4, 0x2e, kTrainers_RocketHideoutB2F, 1 },
     [0xc9] = { kWarps_RocketHideoutB3F, 2, kNpcs_RocketHideoutB3F, 2, NULL, 0, kItems_RocketHideoutB3F, 2, 0x2e, kTrainers_RocketHideoutB3F, 2 },
@@ -4212,9 +5073,9 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xd3] = { kWarps_SilphCo6F, 5, kNpcs_SilphCo6F, 8, NULL, 0, kItems_SilphCo6F, 2, 0x2e },
     [0xd4] = { kWarps_SilphCo7F, 6, kNpcs_SilphCo7F, 9, NULL, 0, kItems_SilphCo7F, 2, 0x2e },
     [0xd5] = { kWarps_SilphCo8F, 7, kNpcs_SilphCo8F, 4, NULL, 0, NULL, 0, 0x2e },
-    [0xd6] = { kWarps_PokemonMansion2F, 4, kNpcs_PokemonMansion2F, 3, NULL, 0, kItems_PokemonMansion2F, 1, 0x01 },
-    [0xd7] = { kWarps_PokemonMansion3F, 3, kNpcs_PokemonMansion3F, 3, NULL, 0, kItems_PokemonMansion3F, 2, 0x01 },
-    [0xd8] = { kWarps_PokemonMansionB1F, 1, kNpcs_PokemonMansionB1F, 3, NULL, 0, kItems_PokemonMansionB1F, 5, 0x01 },
+    [0xd6] = { kWarps_PokemonMansion2F, 4, kNpcs_PokemonMansion2F, 3, NULL, 0, kItems_PokemonMansion2F, 1, 0x01, kTrainers_PokemonMansion2F, 1 },
+    [0xd7] = { kWarps_PokemonMansion3F, 3, kNpcs_PokemonMansion3F, 3, NULL, 0, kItems_PokemonMansion3F, 2, 0x01, kTrainers_PokemonMansion3F, 2 },
+    [0xd8] = { kWarps_PokemonMansionB1F, 1, kNpcs_PokemonMansionB1F, 3, NULL, 0, kItems_PokemonMansionB1F, 5, 0x01, kTrainers_PokemonMansionB1F, 2 },
     [0xd9] = { kWarps_SafariZoneEast, 5, NULL, 0, kSigns_SafariZoneEast, 3, kItems_SafariZoneEast, 4, 0x00 },
     [0xda] = { kWarps_SafariZoneNorth, 9, NULL, 0, kSigns_SafariZoneNorth, 5, kItems_SafariZoneNorth, 2, 0x00 },
     [0xdb] = { kWarps_SafariZoneWest, 8, NULL, 0, kSigns_SafariZoneWest, 4, kItems_SafariZoneWest, 4, 0x00 },
@@ -4230,7 +5091,7 @@ const map_events_t gMapEvents[NUM_MAPS] = {
     [0xe5] = { kWarps_NameRatersHouse, 2, kNpcs_NameRatersHouse, 1, NULL, 0, NULL, 0, 0x0a },
     [0xe6] = { kWarps_CeruleanBadgeHouse, 3, kNpcs_CeruleanBadgeHouse, 1, NULL, 0, NULL, 0, 0x0c },
     [0xe7] = { kWarps_Route16Gate1F, 9, kNpcs_Route16Gate1F, 2, NULL, 0, NULL, 0, 0x0a },
-    [0xe8] = { kWarps_RockTunnelB1F, 4, kNpcs_RockTunnelB1F, 8, NULL, 0, NULL, 0, 0x03 },
+    [0xe8] = { kWarps_RockTunnelB1F, 4, kNpcs_RockTunnelB1F, 8, NULL, 0, NULL, 0, 0x03, kTrainers_RockTunnelB1F, 8 },
     [0xe9] = { kWarps_SilphCo9F, 5, kNpcs_SilphCo9F, 4, NULL, 0, NULL, 0, 0x2e },
     [0xea] = { kWarps_SilphCo10F, 6, kNpcs_SilphCo10F, 3, NULL, 0, kItems_SilphCo10F, 3, 0x2e },
     [0xeb] = { kWarps_SilphCo11F, 4, kNpcs_SilphCo11F, 5, NULL, 0, NULL, 0, 0x0d },

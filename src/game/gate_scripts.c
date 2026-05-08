@@ -14,6 +14,7 @@
 #include "player.h"
 #include "music.h"
 #include "inventory.h"
+#include "bicycle.h"
 #include "../platform/hardware.h"
 #include "../data/event_constants.h"
 
@@ -28,6 +29,21 @@ extern int16_t wXCoord, wYCoord;
 #define MAP_ROUTE6GATE      0x49
 #define MAP_ROUTE7GATE      0x4c
 #define MAP_ROUTE8GATE      0x4f
+#define MAP_ROUTE16GATE1F   0xba
+#define MAP_ROUTE18GATE1F   0xbe
+
+typedef enum {
+    CRS_IDLE = 0,
+    CRS_WAIT_TEXT1,
+    CRS_MOVE_UP,
+    CRS_WAIT_TEXT2,
+    CRS_MOVE_RIGHT,
+} CyclingRoadState;
+
+static CyclingRoadState s_cycling_state = CRS_IDLE;
+static int s_cycling_up_steps = 0;
+static int s_cycling_map = 0;
+static int s_cycling_coord_index = 0; /* 1-based, mirrors ASM wCoordIndex usage */
 
 /* ---- helpers -------------------------------------------------------- */
 
@@ -43,6 +59,18 @@ static void pass_guard(uint16_t event_flag) {
  * Hides badge guards whose pass-event is already set, so re-entering
  * a gate building does not restore a guard the player already passed. */
 void Gate_LoadMap(void) {
+    /* pokered Route16/18 gate scripts clear always-on-bike on entry. */
+    if (wCurMap == MAP_ROUTE16GATE1F || wCurMap == MAP_ROUTE18GATE1F) {
+        Bicycle_ClearAlwaysOnBike();
+    } else {
+        /* Defensive cleanup if a cycling-gate script was interrupted by warp/map change. */
+        s_cycling_state = CRS_IDLE;
+        s_cycling_up_steps = 0;
+        s_cycling_map = 0;
+        s_cycling_coord_index = 0;
+        wJoyIgnore = 0;
+    }
+
     switch (wCurMap) {
 
     case MAP_ROUTE22GATE:
@@ -536,4 +564,102 @@ void Gate_SaffronDoPush(void) {
     int dir = s_saffron_push_dir;
     s_saffron_push_dir = -1;
     Player_DoScriptedStep(dir);
+}
+
+/* ---- Cycling Road gate scripts (Route 16/18 Gate 1F) ------------------ */
+
+static int is_currently_on_bike(void) {
+    return wWalkBikeSurfState == 1;
+}
+
+void Gate_Route16CyclingGuard(void) {
+    if (is_currently_on_bike()) {
+        Text_ShowASCII("CYCLING ROAD is a\ndownhill course\nby the sea. It's\na great ride.");
+    } else {
+        Text_ShowASCII("No pedestrians\nare allowed on\nCYCLING ROAD!");
+    }
+}
+
+void Gate_Route18CyclingGuard(void) {
+    if (is_currently_on_bike()) {
+        Text_ShowASCII("CYCLING ROAD is\nall uphill from\nhere.");
+    } else {
+        Text_ShowASCII("You need a BICYCLE\nfor CYCLING ROAD!");
+    }
+}
+
+void Gate_CyclingRoadStepCheck(void) {
+    if (s_cycling_state != CRS_IDLE) return;
+    if (is_currently_on_bike()) return;
+
+    if (wCurMap == MAP_ROUTE16GATE1F && wXCoord == 4 && wYCoord >= 7 && wYCoord <= 10) {
+        s_cycling_map = MAP_ROUTE16GATE1F;
+        s_cycling_coord_index = (int)wYCoord - 7 + 1; /* y7..10 => 1..4 */
+        s_cycling_up_steps = s_cycling_coord_index - 1; /* cp $1 => next_to_counter */
+        hJoyHeld = 0; /* ASM: xor a / ldh [hJoyHeld], a */
+        Text_ShowASCII("Excuse me! Wait\nup please!");
+        s_cycling_state = CRS_WAIT_TEXT1;
+        return;
+    }
+
+    if (wCurMap == MAP_ROUTE18GATE1F && wXCoord == 4 && wYCoord >= 3 && wYCoord <= 6) {
+        s_cycling_map = MAP_ROUTE18GATE1F;
+        s_cycling_coord_index = (int)wYCoord - 3 + 1; /* y3..6 => 1..4 */
+        s_cycling_up_steps = s_cycling_coord_index - 1; /* cp $1 => next_to_counter */
+        hJoyHeld = 0; /* ASM: xor a / ldh [hJoyHeld], a */
+        Text_ShowASCII("Excuse me!");
+        s_cycling_state = CRS_WAIT_TEXT1;
+        return;
+    }
+}
+
+void Gate_CyclingRoadTick(void) {
+    if (s_cycling_state == CRS_IDLE) return;
+    if (wCurMap != s_cycling_map) {
+        wJoyIgnore = 0;
+        s_cycling_up_steps = 0;
+        s_cycling_map = 0;
+        s_cycling_coord_index = 0;
+        s_cycling_state = CRS_IDLE;
+        return;
+    }
+
+    if (s_cycling_state == CRS_WAIT_TEXT1) {
+        if (Text_IsOpen()) return;
+        s_cycling_state = CRS_MOVE_UP;
+        return;
+    }
+
+    if (s_cycling_state == CRS_MOVE_UP) {
+        if (Player_IsMoving()) return;
+        if (s_cycling_up_steps > 0) {
+            Player_DoScriptedStep(DIR_UP);
+            s_cycling_up_steps--;
+            return;
+        }
+        /* ASM Route16/18Gate1FPlayerMovingUpScript: set PAD_CTRL_PAD ignore
+         * once the simulated UP sequence is complete, before guard handling. */
+        wJoyIgnore = PAD_CTRL_PAD;
+        if (s_cycling_map == MAP_ROUTE16GATE1F)
+            Text_ShowASCII("No pedestrians\nare allowed on\nCYCLING ROAD!");
+        else
+            Text_ShowASCII("You need a BICYCLE\nfor CYCLING ROAD!");
+        s_cycling_state = CRS_WAIT_TEXT2;
+        return;
+    }
+
+    if (s_cycling_state == CRS_WAIT_TEXT2) {
+        if (Text_IsOpen()) return;
+        s_cycling_state = CRS_MOVE_RIGHT;
+        return;
+    }
+
+    if (s_cycling_state == CRS_MOVE_RIGHT) {
+        if (Player_IsMoving()) return;
+        Player_DoScriptedStep(DIR_RIGHT);
+        /* ASM Route16/18Gate1FPlayerMovingRightScript cleanup. */
+        wJoyIgnore = 0;
+        s_cycling_coord_index = 0;
+        s_cycling_state = CRS_IDLE;
+    }
 }
