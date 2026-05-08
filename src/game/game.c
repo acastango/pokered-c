@@ -68,6 +68,7 @@
 #include "tmhm.h"
 #include "field_moves.h"
 #include "pokeflute.h"
+#include "bicycle.h"
 #include "naming_screen.h"
 #include "name_rater_scripts.h"
 #include "rockethideout_b4f_scripts.h"
@@ -114,6 +115,7 @@ static int gStartupHasSave = 0;
  * changes: enter_overworld, battle-end reload, warp fade-out, and debug
  * teleport.  NPC_Load() must have already been called before this. */
 static void fire_map_onload_callbacks(void) {
+    Bicycle_OnMapLoad();
     PalletScripts_OnMapLoad();
     OaksLabScripts_OnMapLoad();
     ViridianMartScripts_OnMapLoad();
@@ -243,11 +245,13 @@ static void check_wild_encounter(void) {
     const wild_mons_t *w = &gWildGrass[wCurMap];
     if (!w->rate) return;
 
-    /* Grass tile check: wGrassTile is set by Map_Load from the tileset header.
-     * 0xFF = no grass for this tileset (towns, indoor maps, etc.). */
-    if (wGrassTile == 0xFF) return;
-    uint8_t cur_tile = Map_GetGameTile((int)wXCoord, (int)wYCoord);
-    if (cur_tile != wGrassTile) return;
+    /* Tile-gated encounters only apply on grass maps.
+     * If tileset has no grass tile (0xFF), treat as cave-style encounters:
+     * roll by step anywhere walkable as long as map rate is nonzero. */
+    if (wGrassTile != 0xFF) {
+        uint8_t cur_tile = Map_GetGameTile((int)wXCoord, (int)wYCoord);
+        if (cur_tile != wGrassTile) return;
+    }
 
     /* Encounter probability: rate/256 per step (simplified) */
     uint8_t roll = (uint8_t)(hRandomAdd ^ hRandomSub ^ hFrameCounter);
@@ -1586,6 +1590,7 @@ void GameTick(void) {
     Gate_ViridianDoPush();
     Gate_SaffronDoPush();
     Gate_Route22DoPush();
+    Gate_CyclingRoadTick();
     VermilionScripts_DoPush();
     Gate_PewterTick();
 
@@ -1630,6 +1635,7 @@ void GameTick(void) {
         Gate_ViridianStepCheck();
         Gate_Route22StepCheck();
         Gate_SaffronStepCheck();
+        Gate_CyclingRoadStepCheck();
         Gate_PewterEastCheck();
         MtMoon_StepCheck();
         Route22Scripts_StepCheck();
