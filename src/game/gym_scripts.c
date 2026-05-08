@@ -51,6 +51,10 @@ static const char kBrockBadgeInfo[] =
 #define SURGE_NO                  1
 #define ERIKA_CLASS              37   /* trainer_const ERIKA = $25 */
 #define ERIKA_NO                  1
+#define KOGA_CLASS               38   /* trainer_const KOGA = $26 */
+#define KOGA_NO                   1
+#define JUGGLER_CLASS            21   /* OPP_JUGGLER - OPP_ID_OFFSET */
+#define TAMER_CLASS              22   /* OPP_TAMER - OPP_ID_OFFSET */
 #define CERULEAN_TRAINER0_NO      1
 #define CERULEAN_TRAINER1_CLASS  15   /* SWIMMER = $0F */
 #define CERULEAN_TRAINER1_NO      1
@@ -102,6 +106,15 @@ typedef enum {
     GS_ERIKA_TM_WAIT,      /* wait for "[PLAYER] received TM21!" */
     GS_ERIKA_TM_EXPLAIN,   /* show TM21 explanation */
     GS_ERIKA_TM_EXP_WAIT,
+
+    /* Koga (Fuchsia) */
+    GS_KOGA_PRE_TEXT,
+    GS_KOGA_PRE_WAIT,
+    GS_KOGA_POST_TEXT,
+    GS_KOGA_POST_WAIT,
+    GS_KOGA_TM_WAIT,
+    GS_KOGA_TM_EXPLAIN,
+    GS_KOGA_TM_EXP_WAIT,
 
     /* Generic guide / info text */
     GS_GUIDE_TEXT,
@@ -287,6 +300,75 @@ static const char kErikaTMExplain[] =
 static const char kErikaAfter[] =
     "You are cataloging\n#MON? I must\nsay I'm impressed."
     "\fI would never\ncollect #MON\nif they were\nunattractive.";
+
+/* ---- Koga / Fuchsia Gym dialogue --------------------------------- */
+static const char kKogaPre[] =
+    "KOGA: Fwahahaha!"
+    "\fA mere child like\nyou dares to\nchallenge me?"
+    "\fVery well, I\nshall show you\ntrue terror as a\nninja master!"
+    "\fYou shall feel\nthe despair of\npoison and sleep\ntechniques!";
+
+static const char kKogaDefeatQuote[] =
+    "Humph!"
+    "\fYou have proven\nyour worth!"
+    "\fHere! Take the\nSOULBADGE!";
+
+static char kKogaBadgeRecv[48];
+static const char kKogaBadgeInfo[] =
+    "Now that you have\nthe SOULBADGE,\nthe DEFENSE of\nyour #MON\nincreases!"
+    "\fIt also lets you\nSURF outside of\nbattle!"
+    "\fAh! Take this\ntoo!";
+static char kKogaTMText[48];
+static const char kKogaTMExplain[] =
+    "TM06 contains\nTOXIC!"
+    "\fIt is a secret\ntechnique over\n400 years old!";
+static const char kKogaNoRoom[] =
+    "Make space for\nthis, child!";
+static const char kKogaAfter[] =
+    "When afflicted by\nTOXIC, #MON\nsuffer more and\nmore as battle\nprogresses!"
+    "\fIt will surely\nterrorize foes!";
+
+/* ---- Fuchsia gym trainers (Koga underlings) ---------------------- */
+static const char kFuchsiaT1Pre[] =
+    "Strength isn't\nthe key for\n#MON!"
+    "\fIt's strategy!"
+    "\fI'll show you how\nstrategy can beat\nbrute strength!";
+static const char kFuchsiaT1End[]   = "What?\nExtraordinary!";
+static const char kFuchsiaT1After[] = "So, you mix brawn\nwith brains?\nGood strategy!";
+
+static const char kFuchsiaT2Pre[] =
+    "I wanted to become\na ninja, so I\njoined this GYM!";
+static const char kFuchsiaT2End[]   = "I'm done\nfor!";
+static const char kFuchsiaT2After[] =
+    "I will keep on\ntraining under\nKOGA, my ninja\nmaster!";
+
+static const char kFuchsiaT3Pre[] =
+    "Let's see you\nbeat my special\ntechniques!";
+static const char kFuchsiaT3End[]   = "You\nhad me fooled!";
+static const char kFuchsiaT3After[] =
+    "I like poison and\nsleep techniques,\nas they linger\nafter battle!";
+
+static const char kFuchsiaT4Pre[] =
+    "Stop right there!"
+    "\fOur invisible\nwalls have you\nfrustrated?";
+static const char kFuchsiaT4End[]   = "Whoa!\nHe's got it!";
+static const char kFuchsiaT4After[] =
+    "You impressed me!\nHere's a hint!"
+    "\fLook very closely\nfor gaps in the\ninvisible walls!";
+
+static const char kFuchsiaT5Pre[] =
+    "I also study the\nway of the ninja\nwith master KOGA!"
+    "\fNinja have a long\nhistory of using\nanimals!";
+static const char kFuchsiaT5End[]   = "Awoo!";
+static const char kFuchsiaT5After[] = "I still have much\nto learn!";
+
+static const char kFuchsiaT6Pre[] =
+    "Master KOGA comes\nfrom a long line\nof ninjas!"
+    "\fWhat did you\ndescend from?";
+static const char kFuchsiaT6End[]   = "Dropped\nmy balls!";
+static const char kFuchsiaT6After[] =
+    "Where there is\nlight, there is\nshadow!"
+    "\fLight and shadow!\nWhich do you\nchoose?";
 
 /* ---- Pewter gym guide dialogue ------------------------------------ */
 /* Pre-beat: advice about party order (mirrors PewterGymGuideText path) */
@@ -628,6 +710,81 @@ void GymScripts_Tick(void) {
         gState = GS_IDLE;
         return;
 
+    case GS_KOGA_PRE_TEXT:
+        gState = GS_KOGA_PRE_WAIT;
+        return;
+
+    case GS_KOGA_PRE_WAIT:
+        if (Text_IsOpen()) return;
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kKogaBadgeRecv, sizeof(kKogaBadgeRecv),
+                     "%s received\nthe SOULBADGE!", playerName);
+        }
+        gTrainerAfterText = kKogaDefeatQuote;
+        BattleUI_SetBadgeRecvText(kKogaBadgeRecv);
+        wGymLeaderNo   = 5;
+        gPendingClass  = KOGA_CLASS;
+        gPendingNo     = KOGA_NO;
+        gPendingBattle = 1;
+        gState         = GS_IDLE;
+        return;
+
+    case GS_KOGA_POST_TEXT:
+        if (gPostFadeTimer > 0) { gPostFadeTimer--; return; }
+        Text_ShowASCII(kKogaBadgeInfo);
+        gState = GS_KOGA_POST_WAIT;
+        return;
+
+    case GS_KOGA_POST_WAIT:
+        if (Text_IsOpen()) return;
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kKogaTMText, sizeof(kKogaTMText),
+                     "%s received\nTM06!", playerName);
+        }
+        if (!Inventory_Add(TM01 + 5, 1)) {
+            Text_ShowASCII(kKogaNoRoom);
+            gState = GS_GUIDE_WAIT;
+            return;
+        }
+        SetEvent(EVENT_GOT_TM06);
+        Audio_PlaySFX_GetItem1();
+        Text_ShowASCII(kKogaTMText);
+        gState = GS_KOGA_TM_WAIT;
+        return;
+
+    case GS_KOGA_TM_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_KOGA_TM_EXPLAIN;
+        return;
+
+    case GS_KOGA_TM_EXPLAIN:
+        Text_ShowASCII(kKogaTMExplain);
+        gState = GS_KOGA_TM_EXP_WAIT;
+        return;
+
+    case GS_KOGA_TM_EXP_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_IDLE;
+        return;
+
     case GS_GYM_TRAINER_PRE_WAIT:
         if (Text_IsOpen()) return;
         gPendingClass            = gGymTrainerClass;
@@ -710,6 +867,17 @@ void GymScripts_OnVictory(void) {
         wObtainedBadges |= (1u << BADGE_RAINBOW);
         wGymLeaderNo = 0;
         gState = GS_ERIKA_POST_TEXT;
+    } else if (wGymLeaderNo == 5) {
+        SetEvent(EVENT_BEAT_KOGA);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+        SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+        wObtainedBadges |= (1u << BADGE_SOUL);
+        wGymLeaderNo = 0;
+        gState = GS_KOGA_POST_TEXT;
     } else {
         wGymLeaderNo = 0;
     }
@@ -858,4 +1026,73 @@ void GymScripts_ErikaInteract(void) {
     }
     Text_ShowASCII(kErikaPre);
     gState = GS_ERIKA_PRE_TEXT;
+}
+
+void GymScripts_KogaInteract(void) {
+    if (CheckEvent(EVENT_BEAT_KOGA)) {
+        if (CheckEvent(EVENT_GOT_TM06)) {
+            Text_ShowASCII(kKogaAfter);
+            gState = GS_GUIDE_TEXT;
+            return;
+        }
+        gPostFadeTimer = 0;
+        gState = GS_KOGA_POST_TEXT;
+        return;
+    }
+    Text_ShowASCII(kKogaPre);
+    gState = GS_KOGA_PRE_TEXT;
+}
+
+void GymScripts_FuchsiaTrainer1Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0)) {
+        Text_ShowASCII(kFuchsiaT1After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(JUGGLER_CLASS, 7, EVENT_BEAT_FUCHSIA_GYM_TRAINER_0, kFuchsiaT1End, kFuchsiaT1After, kFuchsiaT1Pre);
+}
+
+void GymScripts_FuchsiaTrainer2Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1)) {
+        Text_ShowASCII(kFuchsiaT2After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(JUGGLER_CLASS, 3, EVENT_BEAT_FUCHSIA_GYM_TRAINER_1, kFuchsiaT2End, kFuchsiaT2After, kFuchsiaT2Pre);
+}
+
+void GymScripts_FuchsiaTrainer3Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2)) {
+        Text_ShowASCII(kFuchsiaT3After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(JUGGLER_CLASS, 8, EVENT_BEAT_FUCHSIA_GYM_TRAINER_2, kFuchsiaT3End, kFuchsiaT3After, kFuchsiaT3Pre);
+}
+
+void GymScripts_FuchsiaTrainer4Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3)) {
+        Text_ShowASCII(kFuchsiaT4After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(TAMER_CLASS, 1, EVENT_BEAT_FUCHSIA_GYM_TRAINER_3, kFuchsiaT4End, kFuchsiaT4After, kFuchsiaT4Pre);
+}
+
+void GymScripts_FuchsiaTrainer5Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4)) {
+        Text_ShowASCII(kFuchsiaT5After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(TAMER_CLASS, 2, EVENT_BEAT_FUCHSIA_GYM_TRAINER_4, kFuchsiaT5End, kFuchsiaT5After, kFuchsiaT5Pre);
+}
+
+void GymScripts_FuchsiaTrainer6Interact(void) {
+    if (CheckEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5)) {
+        Text_ShowASCII(kFuchsiaT6After);
+        gState = GS_GUIDE_TEXT;
+        return;
+    }
+    GymScripts_SetTrainerPending(JUGGLER_CLASS, 4, EVENT_BEAT_FUCHSIA_GYM_TRAINER_5, kFuchsiaT6End, kFuchsiaT6After, kFuchsiaT6Pre);
 }

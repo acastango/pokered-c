@@ -52,3 +52,11 @@ void GymScripts_CeruleanGuideInteract(void);
 void GymScripts_SurgeInteract(void);
 /* Celadon Gym */
 void GymScripts_ErikaInteract(void);
+/* Fuchsia Gym */
+void GymScripts_KogaInteract(void);
+void GymScripts_FuchsiaTrainer1Interact(void);
+void GymScripts_FuchsiaTrainer2Interact(void);
+void GymScripts_FuchsiaTrainer3Interact(void);
+void GymScripts_FuchsiaTrainer4Interact(void);
+void GymScripts_FuchsiaTrainer5Interact(void);
+void GymScripts_FuchsiaTrainer6Interact(void);

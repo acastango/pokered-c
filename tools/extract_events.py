@@ -406,21 +406,26 @@ def parse_object_file(obj_path):
 
 def parse_wild_data(grass_water_asm, src_root):
     """
-    Returns dict: label -> (grass_rate, [(level, species_name), ...])
+    Returns dict: label -> (grass_rate, grass_slots, water_rate, water_slots)
     """
     result = {}
 
     def parse_one(text, label):
-        mg = re.search(r"def_grass_wildmons\s+(\d+)(.*?)end_grass_wildmons",
-                       text, re.DOTALL)
-        if not mg:
+        mg = re.search(r"def_grass_wildmons\s+(\d+)(.*?)end_grass_wildmons", text, re.DOTALL)
+        mw = re.search(r"def_water_wildmons\s+(\d+)(.*?)end_water_wildmons", text, re.DOTALL)
+        if not mg or not mw:
             return
-        rate = int(mg.group(1))
-        slots = []
-        if rate > 0:
+        grass_rate = int(mg.group(1))
+        grass_slots = []
+        if grass_rate > 0:
             for ms in re.finditer(r"db\s+(\d+)\s*,\s*(\w+)", mg.group(2)):
-                slots.append((int(ms.group(1)), ms.group(2)))
-        result[label] = (rate, slots)
+                grass_slots.append((int(ms.group(1)), ms.group(2)))
+        water_rate = int(mw.group(1))
+        water_slots = []
+        if water_rate > 0:
+            for ms in re.finditer(r"db\s+(\d+)\s*,\s*(\w+)", mw.group(2)):
+                water_slots.append((int(ms.group(1)), ms.group(2)))
+        result[label] = (grass_rate, grass_slots, water_rate, water_slots)
 
     main_text = grass_water_asm.read_text(encoding="utf-8")
     includes = re.findall(r'INCLUDE\s+"([^"]+)"', main_text)
@@ -804,6 +809,7 @@ typedef struct {
 
 #define NUM_MAPS 248
 extern const wild_mons_t gWildGrass[NUM_MAPS];
+extern const wild_mons_t gWildWater[NUM_MAPS];
 """
 wfile("wild_data.h", wild_h)
 
@@ -823,8 +829,6 @@ wlines = [
 while len(wild_ptrs) < NUM_MAPS:
     wild_ptrs.append("NothingWildMons")
 
-nothing_rate, _ = wild_data.get("NothingWildMons", (0, []))
-
 for map_id in range(NUM_MAPS):
     label = wild_ptrs[map_id]
     entry = wild_data.get(label)
@@ -836,8 +840,8 @@ for map_id in range(NUM_MAPS):
         )
         continue
 
-    rate, slots = entry
-    padded = slots[:10]
+    grass_rate, grass_slots, _, _ = entry
+    padded = grass_slots[:10]
     while len(padded) < 10:
         padded.append((0, "NO_MON"))
 
@@ -849,7 +853,40 @@ for map_id in range(NUM_MAPS):
     slots_joined = ", ".join(slot_strs)
     camel_name = map_order[map_id] if map_id < len(map_order) else f"Map{map_id:02X}"
     wlines.append(
-        f"    [{map_id:#04x}] = {{ {rate}, {{ {slots_joined} }} }},"
+        f"    [{map_id:#04x}] = {{ {grass_rate}, {{ {slots_joined} }} }},"
+        f"  /* {camel_name}: {label} */"
+    )
+
+wlines.append("};")
+wlines.append("")
+
+wlines.append("const wild_mons_t gWildWater[NUM_MAPS] = {")
+
+for map_id in range(NUM_MAPS):
+    label = wild_ptrs[map_id]
+    entry = wild_data.get(label)
+    if entry is None:
+        wlines.append(
+            f"    [{map_id:#04x}] = {{ 0, {{ {{0,0}},{{0,0}},{{0,0}},{{0,0}},{{0,0}},"
+            f"{{0,0}},{{0,0}},{{0,0}},{{0,0}},{{0,0}} }} }}," 
+            f"  /* {label} (missing) */"
+        )
+        continue
+
+    _, _, water_rate, water_slots = entry
+    padded = water_slots[:10]
+    while len(padded) < 10:
+        padded.append((0, "NO_MON"))
+
+    slot_strs = []
+    for (lvl, sp_name) in padded:
+        sp_id = species_ids.get(sp_name, 0)
+        slot_strs.append(f"{{{lvl},{sp_id:#04x}}}")
+
+    slots_joined = ", ".join(slot_strs)
+    camel_name = map_order[map_id] if map_id < len(map_order) else f"Map{map_id:02X}"
+    wlines.append(
+        f"    [{map_id:#04x}] = {{ {water_rate}, {{ {slots_joined} }} }},"
         f"  /* {camel_name}: {label} */"
     )
 

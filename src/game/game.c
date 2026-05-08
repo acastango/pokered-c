@@ -204,6 +204,7 @@ static const uint8_t kWildText[] = {
 #define FADE_TICKS_PER_STEP  4   /* 4 overworld ticks = 8 VBlanks at 60 Hz */
 #define FADE_OUT_STEPS       4
 #define FADE_IN_STEPS        4
+#define MAP_ROUTE17          0x1c
 
 static const uint8_t kFadeOut[FADE_OUT_STEPS][3] = {
     {0xE4, 0xD0, 0xE0},
@@ -237,28 +238,47 @@ static uint8_t gBattleLogEnemyLevel = 0;
 /* Debug: set to 1 to suppress wild encounters. */
 int gNoWilds = 0;
 
+/* ASM WildMonEncounterSlotChances (data/wild/probabilities.asm), cumulative
+ * upper bounds for a [0..255] random roll selecting one of 10 encounter slots. */
+static const uint8_t kWildSlotCumChance[10] = {
+    50, 101, 140, 165, 190, 215, 228, 241, 252, 255
+};
+
 /* Wild encounter: roll against rate and trigger text if hit */
 static void check_wild_encounter(void) {
     if (gNoWilds) return;
     if (wCurMap == 0x92 && CheckEvent(EVENT_IN_PURIFIED_ZONE)) return; /* Pokemon Tower 5F purified zone */
     if (wCurMap >= NUM_MAPS) return;
-    const wild_mons_t *w = &gWildGrass[wCurMap];
-    if (!w->rate) return;
+    uint8_t cur_tile = Map_GetGameTile((int)wXCoord, (int)wYCoord);
+    const wild_mons_t *w = NULL;
 
-    /* Tile-gated encounters only apply on grass maps.
-     * If tileset has no grass tile (0xFF), treat as cave-style encounters:
-     * roll by step anywhere walkable as long as map rate is nonzero. */
-    if (wGrassTile != 0xFF) {
-        uint8_t cur_tile = Map_GetGameTile((int)wXCoord, (int)wYCoord);
-        if (cur_tile != wGrassTile) return;
+    /* Water encounters (ASM uses tile id $14 for water checks). */
+    if (cur_tile == 0x14) {
+        w = &gWildWater[wCurMap];
+        if (!w->rate) return;
+    } else {
+        w = &gWildGrass[wCurMap];
+        if (!w->rate) return;
+
+        /* Tile-gated encounters only apply on grass maps.
+         * If tileset has no grass tile (0xFF), treat as cave-style encounters:
+         * roll by step anywhere walkable as long as map rate is nonzero. */
+        if (wGrassTile != 0xFF && cur_tile != wGrassTile) return;
     }
 
-    /* Encounter probability: rate/256 per step (simplified) */
-    uint8_t roll = (uint8_t)(hRandomAdd ^ hRandomSub ^ hFrameCounter);
-    if (roll >= w->rate) return;
+    /* ASM parity: encounter chance compares wGrassRate against hRandomAdd. */
+    uint8_t rate_roll = hRandomAdd;
+    if (rate_roll >= w->rate) return;
 
-    /* Pick a random slot from the 10 encounter slots */
-    uint8_t slot_idx = roll % 10;
+    /* ASM parity: slot select uses hRandomSub + WildMonEncounterSlotChances. */
+    uint8_t slot_roll = hRandomSub;
+    uint8_t slot_idx = 9;
+    for (uint8_t i = 0; i < 10; i++) {
+        if (slot_roll <= kWildSlotCumChance[i]) {
+            slot_idx = i;
+            break;
+        }
+    }
     wCurEnemyLevel   = w->slots[slot_idx].level;
     wCurPartySpecies = w->slots[slot_idx].species;
 
@@ -1609,6 +1629,12 @@ void GameTick(void) {
         BattleTransition_Start(0, 30, player_level);
         gScene = SCENE_BTRANS;
         return;
+    }
+
+    /* ASM JoypadOverworld parity: on Cycling Road, if there isn't a
+     * movement/A/B input, simulate a held DOWN input for downhill drift. */
+    if (wCurMap == MAP_ROUTE17 && (hJoyHeld & (PAD_CTRL_PAD | PAD_A | PAD_B)) == 0) {
+        hJoyHeld = PAD_DOWN;
     }
 
     Player_Update();

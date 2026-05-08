@@ -3436,13 +3436,13 @@ static const map_warp_t kWarps_FuchsiaGym[] = {
 };
 
 static const npc_event_t kNpcs_FuchsiaGym[] = {
-    {   4,  10, 0x30, 0, "KOGA: Fwahahaha!\fA mere child like\nyou dares to\nchallenge me?\fVery well, I\nshall show you\ntrue terror as a\nninja master!\fYou shall feel\nthe despair of\npoison and sleep\ntechniques!", NULL },  /* SPRITE_KOGA, STAY, TEXT_FUCHSIAGYM_KOGA */
-    {   8,  13, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER1 */
-    {   7,   8, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER2 */
-    {   1,  12, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER3 */
-    {   3,   5, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER4 */
-    {   8,   2, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER5 */
-    {   2,   7, 0x21, 0, NULL, NULL },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER6 */
+    {   4,  10, 0x30, 0, NULL, GymScripts_KogaInteract },  /* SPRITE_KOGA, STAY, TEXT_FUCHSIAGYM_KOGA */
+    {   8,  13, 0x21, 0, NULL, GymScripts_FuchsiaTrainer1Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER1 */
+    {   7,   8, 0x21, 0, NULL, GymScripts_FuchsiaTrainer2Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER2 */
+    {   1,  12, 0x21, 0, NULL, GymScripts_FuchsiaTrainer3Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER3 */
+    {   3,   5, 0x21, 0, NULL, GymScripts_FuchsiaTrainer4Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER4 */
+    {   8,   2, 0x21, 0, NULL, GymScripts_FuchsiaTrainer5Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER5 */
+    {   2,   7, 0x21, 0, NULL, GymScripts_FuchsiaTrainer6Interact },  /* SPRITE_ROCKER, STAY, TEXT_FUCHSIAGYM_ROCKER6 */
     {   7,  15, 0x24, 0, "Yo! Champ in\nmaking!\fFUCHSIA GYM is\nriddled with\ninvisible walls!\fKOGA might appear\nclose, but he's\nblocked off!\fYou have to find\ngaps in the walls\nto reach him!", NULL },  /* SPRITE_GYM_GUIDE, STAY, TEXT_FUCHSIAGYM_GYM_GUIDE */
 };
 

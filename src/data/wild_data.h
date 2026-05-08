@@ -14,3 +14,4 @@ typedef struct {
 
 #define NUM_MAPS 248
 extern const wild_mons_t gWildGrass[NUM_MAPS];
+extern const wild_mons_t gWildWater[NUM_MAPS];
