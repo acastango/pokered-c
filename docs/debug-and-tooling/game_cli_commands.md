@@ -229,11 +229,21 @@ Jump to a pre-configured story state (sets relevant event flags, warps, gives pa
 | `replay stop` | Stop recording or stop playback |
 | `replay play <name>` | Load replay snapshot and play recorded input stream |
 | `replay status` | Show replay state and playback position |
-| `scene_run <name>` | Run scene file `bugs/scenes/<name>.scene` |
+| `scene_run <name>` | Run scene file `debug/scenes/<name>.scene` |
 | `scene_stop` | Stop active scene and unlock input |
 | `scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]` | Register tile trigger that auto-runs a scene |
+| `scene_trigger set <scene> trigger_point <x_expr> <y_expr> when event_set\|event_clear <event> [map]` | Register tile trigger with event-flag gate |
 | `scene_trigger list` | List configured scene trigger points |
 | `scene_trigger clear [scene]` | Clear all scene triggers, or only one scene name |
+| `scene_npc add <name> <scene> <sprite> <x_expr> <y_expr>` | Spawn/bind a talkable NPC that runs a scene |
+| `scene_npc list` | List scene NPC bindings |
+| `scene_npc clear [name]` | Clear one or all scene NPC bindings |
+| `dsl_bank on\|off\|status\|save\|load\|clear` | Manage opt-in persistent DSL sidecar bank |
+
+Battle-scene authoring rule:
+- Use `include defs_battle` + `use battle_intro ...` for battle scenes.
+- Raw top-level `battlestart` / `battlend` lines are rejected by the scene loader.
+- Scene DSL supports `music wild_battle|trainer_battle|gym_leader|champion_battle`.
 
 `story_guard` targets:
 - `brock`, `misty`, `surge`, `erika`, `koga`, `blaine`, `bike_gate`, `list`
@@ -247,15 +257,42 @@ Scene trigger examples:
 ```txt
 scene_trigger set duo trigger_point player.x-1 player.y
 scene_trigger set npc_walkoff trigger_point player.x player.y-1 pallet_town
+scene_trigger set duo trigger_point player.x-1 player.y when event_set EVENT_GOT_POKEDEX
+scene_trigger set duo trigger_point player.x-1 player.y when event_clear EVENT_BEAT_BROCK
+scene_run yesno_ask_test
+scene_run battle_test
 scene_trigger list
+scene_npc add lance_persist lance_persist_dialog LANCE player+1 player+0
+dsl_bank on
 scene_trigger clear duo
 scene_trigger clear
+```
+
+Canonical battle scene example:
+
+```txt
+include defs_battle
+spawn rival YOUNGSTER player+1 player+0
+face rival player
+use battle_intro "Hey! I'm a reusable battle scene test!@" "Nice fight! Back to overworld.@"
+face rival up
+move rival up 6
+despawn rival
+end
+```
+
+Custom-team battle scene example:
+
+```txt
+include defs_battle
+use battle_intro_custom "I am LANCE of the ELITE FOUR!@" "LANCE" "Gyarados,56,Hydro Pump,Dragon Rage,Leer,Hyper Beam" "Dragonair,54,Thunder Wave,Slam,Dragon Rage,Agility" "Dragonair,54,Thunder Wave,Slam,Dragon Rage,Agility" "Aerodactyl,58,Hyper Beam,Take Down,Supersonic,Bite" "Dragonite,60,Hyper Beam,Thunder,Blizzard,Fire Blast" "empty" "That’s it! I hate to admit it, but you are a Pokemon master!@" "Incredible. Until next time.@"
 ```
 
 Coordinate expressions accepted by `scene_trigger set`:
 - absolute numeric tile coordinate: `12`, `5`
 - player-relative x: `player.x`, `player.x+2`, `player.x-1`
 - player-relative y: `player.y`, `player.y+1`, `player.y-3`
+- event token: `EVENT_...` name, shorthand without `EVENT_`, or numeric id (`119`, `0x77`)
 
 ---
 

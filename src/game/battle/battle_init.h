@@ -29,3 +29,11 @@ void Battle_ReadTrainer(uint8_t trainer_class, uint8_t trainer_no);
  * then calls Battle_EnemySendOut_State to load the first alive enemy mon.
  */
 void Battle_StartTrainer(uint8_t trainer_class, uint8_t trainer_no);
+
+/* Debug scene DSL: initialize trainer battle using an explicit enemy party
+ * instead of trainer data tables. species/level/moves arrays are size 6. */
+void Battle_StartTrainerCustomDebug(uint8_t trainer_class,
+                                    const uint8_t species[6],
+                                    const uint8_t level[6],
+                                    const uint8_t moves[6][4],
+                                    uint8_t count);

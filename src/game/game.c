@@ -225,15 +225,61 @@ typedef enum { WARP_NONE = 0, WARP_FADE_OUT, WARP_FADE_IN } WarpPhase;
 static WarpPhase gWarpPhase    = WARP_NONE;
 static int       gWarpStep     = 0;
 static int       gWarpStepTimer = 0;
+int Game_IsWarpFadeActive(void) { return gWarpPhase != WARP_NONE; }
 
 /* Set to 1 before BattleTransition_Start when the pending battle is a trainer
  * battle.  Checked when transition completes to call Battle_StartTrainer
  * instead of Battle_Start. */
 static int gPendingTrainerBattle = 0;
+static int gPendingCustomTrainerBattle = 0;
+static uint8_t gPendingCustomSpecies[6];
+static uint8_t gPendingCustomLevel[6];
+static uint8_t gPendingCustomMoves[6][4];
+static uint8_t gPendingCustomCount = 0;
 static uint8_t gBattleLogTrainerClass = 0;
 static uint8_t gBattleLogTrainerNo = 0;
 static uint8_t gBattleLogWildSpecies = 0;
 static uint8_t gBattleLogEnemyLevel = 0;
+
+void Game_StartTrainerBattleScripted(uint8_t trainer_class, uint8_t trainer_no) {
+    int player_level = 5;
+    if (wPartyCount > 0) player_level = wPartyMons[0].level;
+    gEngagedTrainerClass = trainer_class;
+    gEngagedTrainerNo = trainer_no;
+    Music_Play(MUSIC_TRAINER_BATTLE);
+    gPendingTrainerBattle = 1;
+    BattleTransition_Start(1, 0, player_level);
+    gScene = SCENE_BTRANS;
+}
+
+void Game_StartCustomTrainerBattleScripted(uint8_t trainer_class,
+                                           uint8_t music_id,
+                                           const uint8_t species[6],
+                                           const uint8_t level[6],
+                                           const uint8_t moves[6][4],
+                                           uint8_t count) {
+    int player_level = 5;
+    if (wPartyCount > 0) player_level = wPartyMons[0].level;
+    memset(gPendingCustomSpecies, 0, sizeof(gPendingCustomSpecies));
+    memset(gPendingCustomLevel, 0, sizeof(gPendingCustomLevel));
+    memset(gPendingCustomMoves, 0, sizeof(gPendingCustomMoves));
+    if (count > 6) count = 6;
+    for (int i = 0; i < 6; i++) {
+        gPendingCustomSpecies[i] = species ? species[i] : 0;
+        gPendingCustomLevel[i] = level ? level[i] : 0;
+        for (int m = 0; m < 4; m++)
+            gPendingCustomMoves[i][m] = moves ? moves[i][m] : 0;
+    }
+    gPendingCustomCount = count;
+    gEngagedTrainerClass = trainer_class;
+    gEngagedTrainerNo = 1;
+    if (music_id == 0) music_id = MUSIC_TRAINER_BATTLE;
+    Music_Play(music_id);
+    gPendingTrainerBattle = 1;
+    gPendingCustomTrainerBattle = 1;
+    BattleTransition_Start(1, 0, player_level);
+    gScene = SCENE_BTRANS;
+}
 
 /* Debug: set to 1 to suppress wild encounters. */
 int gNoWilds = 0;
@@ -381,7 +427,7 @@ static void check_npc_interact(void) {
             case 3: tx = fx + dist; break;  /* right — search further east  */
         }
         int i = NPC_FindAtTile(tx, ty);
-        if (i < 0 || i >= ev->num_npcs) continue;
+        if (i < 0) continue;
         if (dist < best_score) { best_score = dist; best_i = i; }
         break;  /* take the closest hit along the axis */
     }
@@ -390,6 +436,10 @@ static void check_npc_interact(void) {
 
     NPC_FacePlayer(best_i);
     SessionLog_NpcSpoke(best_i, fx, fy);
+
+    /* Debug scene NPC bindings can target both static and runtime NPCs.
+     * If a binding exists, it takes priority over normal map scripts. */
+    if (DebugCLI_OnNpcInteracted(best_i)) return;
 
     /* Trainer NPC: bypass normal text dispatch.
      * Defeated → show after_text.  Undefeated → engage immediately.
@@ -698,7 +748,21 @@ void GameTick(void) {
                 gBattleLogTrainerClass = gEngagedTrainerClass;
                 gBattleLogTrainerNo = gEngagedTrainerNo;
                 gPendingTrainerBattle = 0;
-                Battle_StartTrainer(gEngagedTrainerClass, gEngagedTrainerNo);
+                if (gPendingCustomTrainerBattle) {
+                    extern void Battle_StartTrainerCustomDebug(uint8_t trainer_class,
+                                                               const uint8_t species[6],
+                                                               const uint8_t level[6],
+                                                               const uint8_t moves[6][4],
+                                                               uint8_t count);
+                    Battle_StartTrainerCustomDebug(gEngagedTrainerClass,
+                                                   gPendingCustomSpecies,
+                                                   gPendingCustomLevel,
+                                                   gPendingCustomMoves,
+                                                   gPendingCustomCount);
+                    gPendingCustomTrainerBattle = 0;
+                } else {
+                    Battle_StartTrainer(gEngagedTrainerClass, gEngagedTrainerNo);
+                }
                 gBattleLogWildSpecies = 0;
                 gBattleLogEnemyLevel = wEnemyMon.level;
                 SessionLog_BattleStart(1, gBattleLogTrainerClass, gBattleLogTrainerNo, 0, gBattleLogEnemyLevel);
@@ -1685,6 +1749,7 @@ void GameTick(void) {
      * Skip the map rebuild in that case — the battle UI owns the tilemap now. */
     if (gScene == SCENE_OVERWORLD) {
         Map_BuildScrollView();
+        DebugCLI_PostRender();
         NPC_BuildView(gScrollPxX, gScrollPxY);
     }
 }

@@ -211,6 +211,7 @@ static const int8_t *s_sim_seq = 0;
 static int s_sim_idx = -1;
 static int s_spinner_spin_active = 0;
 static int s_spinner_spin_phase = 0;
+static int s_hold_b_sprint_enabled = 0;
 
 /* ASM SpinnerPlayerFacingDirections parity:
  * down -> left -> up -> right -> down */
@@ -346,11 +347,15 @@ static void update_player_oam(void) {
 /* Advance IntraAnimFrameCounter; rolls AnimFrameCounter every 4 ticks.
  * Mirrors UpdateSpriteInWalkingAnimation in movement.asm.
  * At 60 Hz (one call per VBlank), wrapping at 4 matches the original exactly. */
-static void advance_anim(void) {
+static void advance_anim_tick_once(void) {
     if (++gIntraAnimFrame >= 4) {
         gIntraAnimFrame = 0;
         gAnimFrameCounter = (gAnimFrameCounter + 1) & 3;
     }
+}
+
+static void advance_anim(void) {
+    advance_anim_tick_once();
 }
 
 /* Commit (nx, ny) as the new player position and start an 8-frame walk
@@ -361,8 +366,12 @@ static void advance_anim(void) {
  *   Map edge (camera clamped):       BG static, sprite slides 1px/frame across it.
  */
 static void begin_step(int nx, int ny, int dx, int dy) {
-    const int step_frames = Bicycle_IsSpeedupActive() ? BIKE_WALK_FRAMES : WALK_FRAMES;
-    const int step_px_mul = WALK_FRAMES / step_frames; /* 8->1, 4->2 */
+    int step_frames = Bicycle_IsSpeedupActive() ? BIKE_WALK_FRAMES : WALK_FRAMES;
+    if (s_hold_b_sprint_enabled && !gScriptedMovement && (hJoyHeld & PAD_B)) {
+        step_frames /= 2; /* debug sprint: 8->4 walk, 4->2 bike */
+        if (step_frames < 1) step_frames = 1;
+    }
+    const int step_px_mul = WALK_FRAMES / step_frames; /* 8->1, 4->2, 2->4, 1->8 */
     int old_cam_x = gCamX;
     int old_cam_y = gCamY;
 
@@ -760,6 +769,14 @@ void Player_GetFacingTile(int *out_x, int *out_y) {
 
 int Player_IsMoving(void) {
     return gWalkTimer > 0;
+}
+
+void Player_SetHoldBSprintEnabled(int enabled) {
+    s_hold_b_sprint_enabled = enabled ? 1 : 0;
+}
+
+int Player_GetHoldBSprintEnabled(void) {
+    return s_hold_b_sprint_enabled;
 }
 
 /* Refresh wShadowOAM[0-3] to match current position/facing.

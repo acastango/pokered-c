@@ -31,6 +31,7 @@
  */
 
 void DebugCLI_Tick(void);   /* call once per GameTick */
+void DebugCLI_PostRender(void); /* call after Map_BuildScrollView when needed */
 
 /* ---- In-game ~ console -------------------------------------------- */
 void DebugCLI_ConsoleOpen(void);
@@ -52,6 +53,7 @@ int DebugCLI_IsReplayPlaying(void);
 void DebugCLI_HistoryPushExternal(const char *line);
 int DebugCLI_TriggerNpcWalkoff(void);
 int DebugCLI_IsNpcWalkoffActive(void);
+int DebugCLI_OnNpcInteracted(int npc_idx);
 
 #define CLI_HIST_COLOR_DEFAULT 0
 #define CLI_HIST_COLOR_OK      1

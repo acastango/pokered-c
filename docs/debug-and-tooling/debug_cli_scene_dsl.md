@@ -18,19 +18,29 @@ Primary implementation:
 ## Runtime Commands
 
 - `scene_run <name>`
-  - Loads and runs `bugs/scenes/<name>.scene`
+  - Loads and runs `debug/scenes/<name>.scene`
 - `scene_stop`
   - Stops active scene runner and restores input (`wJoyIgnore = 0`)
 - `scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]`
   - Registers tile-based auto-trigger for scene
+- `scene_trigger set <scene> trigger_point <x_expr> <y_expr> when event_set|event_clear <event> [map]`
+  - Registers a trigger with an event-flag gate
 - `scene_trigger list`
   - Lists active trigger points
 - `scene_trigger clear [scene]`
   - Clears all trigger points, or only one scene name
+- `scene_npc add <name> <scene> <sprite> <x_expr> <y_expr>`
+  - Spawns/binds an interactable NPC to a scene on current map
+- `scene_npc list`
+  - Lists current scene NPC bindings
+- `scene_npc clear [name]`
+  - Clears one or all scene NPC bindings
+- `dsl_bank on|off|status|save|load|clear`
+  - Opt-in persistence bank for scene NPC bindings
 
-Current file lookup path at runtime:
+Current canonical scene path:
 
-- `C:\Users\Anthony\pokered\build\bugs\scenes\<name>.scene`
+- `C:\Users\Anthony\pokered\debug\scenes\<name>.scene`
 
 ---
 
@@ -42,6 +52,7 @@ Example:
 
 ```txt
 scene_trigger set duo trigger_point player.x-1 player.y
+scene_trigger set duo trigger_point player.x-1 player.y when event_set EVENT_GOT_POKEDEX
 ```
 
 Coordinate expressions:
@@ -55,8 +66,38 @@ Behavior:
 - fires only in overworld when no scene is already active
 - requires player idle and no open text box
 - one-shot while standing on tile; auto-rearms after leaving tile
+- optional event gate:
+  - `when event_set <event>` only fires when event flag is set
+  - `when event_clear <event>` only fires when event flag is clear
+
+Event token formats:
+
+- symbolic: `EVENT_BEAT_BROCK`, `EVENT_GOT_POKEDEX`
+- shorthand without prefix: `BEAT_BROCK`, `GOT_POKEDEX`
+- numeric: `119`, `0x25`
 
 This keeps map-script C code clean while still enabling location-based scene behavior.
+
+---
+
+## Persistent DSL Bank (Opt-In)
+
+`dsl_bank` is a sidecar persistence layer for DSL-added scene NPC bindings.
+
+- `dsl_bank on`
+  - Enables persistence and saves this as default for next startup
+- `dsl_bank off`
+  - Disables persistence (does not delete saved data)
+- `dsl_bank status`
+  - Shows enabled state + binding count
+- `dsl_bank save`
+  - Writes current bindings to sidecar bank file
+- `dsl_bank load`
+  - Loads bindings and respawns on current map
+- `dsl_bank clear`
+  - Deletes banked binding data
+
+When enabled, `scene_npc add/clear` auto-save and bindings respawn after restart/map load.
 
 ---
 
@@ -81,6 +122,13 @@ move testnpc up 12
 despawn testnpc
 end
 ```
+
+Battle-flow policy (enforced):
+
+- Top-level raw `battlestart` / `battlend` are disallowed.
+- Battle flow must be authored through reusable defs and called via `use ...`.
+- Canonical baseline is `include defs_battle` + `use battle_intro ...`.
+- This guarantees the same intro/transition baseline everywhere while staying composable through parameters and follow-up commands.
 
 ---
 
@@ -128,6 +176,13 @@ Execution behavior:
 
 Shows dialogue using `Text_ShowASCII(...)`.
 
+Auto-format behavior:
+
+- Word-wraps to Gen 1 textbox width (18 chars/line)
+- Uses max 2 lines per page, then inserts page break
+- Avoids splitting words across lines unless a single word is longer than 18 chars
+- Appends `@` terminator automatically if omitted
+
 Supported escapes:
 
 - `\n` line break
@@ -140,6 +195,34 @@ Tips:
 
 - End text with `@` for explicit terminator parity with existing text usage.
 
+### `ask "<text>"`
+
+Shows prompt text then opens a normal in-game YES/NO box.
+
+Behavior:
+
+- Uses existing `YesNo_Show(...)` flow
+- Scene runner blocks until player chooses YES or NO
+- Result is printed to CLI history as:
+  - `scene ask result: yes`
+  - `scene ask result: no`
+- Uses the same auto-format rules as `say` (word-wrap/page flow/auto `@`)
+
+### `battlestart ...` / `battlend ...` (definition-only)
+
+These battle primitives are intended for reusable definition bodies (`def ... enddef`), not top-level scene lines.
+
+Enforced behavior:
+
+- If top-level scene lines contain raw `battlestart` or `battlend`, scene load fails with a clear error.
+- Use `include defs_battle` and call a reusable flow through `use`.
+
+Why:
+
+- Keeps one canonical intro/transition baseline.
+- Maintains composability and parameterization via `use` args.
+- Mirrors the project convention that battles always include transition flow.
+
 ### `wait <frames>`
 
 Wait N frames before next command.
@@ -147,6 +230,17 @@ Wait N frames before next command.
 ### `wait_text`
 
 Blocks until text box is fully closed (`Text_IsOpen() == 0`).
+
+### `music <track>`
+
+Force-play a scene-selected music track.
+
+Allowed tracks:
+
+- `wild_battle`
+- `trainer_battle`
+- `gym_leader` (same bucket used for Elite Four boss battles)
+- `champion_battle` (mapped to the Gen1 boss-battle theme bucket)
 
 ### `lock_input on|off`
 
@@ -182,19 +276,75 @@ If scene exits unexpectedly (bad actor index, etc.), behavior is fail-soft:
 - No parallel actor actions
 - No `until offscreen` movement primitive yet
 - No map validation/pathfinding/collision diagnostics
-- Scene path is currently tied to build-local `bugs/scenes/`
+- Legacy fallback paths still include `bugs/scenes/` for backward compatibility
 
 ---
 
 ## Authoring Workflow
 
 1. Create scene file in:
-   - `build/bugs/scenes/<name>.scene`
+   - `debug/scenes/<name>.scene`
 2. Launch game with debug CLI enabled
 3. Run:
    - `scene_run <name>`
 4. Stop manually if needed:
    - `scene_stop`
+
+### Canonical battle pattern
+
+Use this as the default structure for battle scenes:
+
+```txt
+include defs_battle
+spawn rival YOUNGSTER player+1 player+0
+face rival player
+use battle_intro "Hey! Ready?@" "Great battle!@"
+face rival up
+move rival up 6
+despawn rival
+end
+```
+
+Notes:
+
+- `battle_intro` parameters (`$1`, `$2`, ...) are defined in `defs_battle.scene`.
+- Post-battle overworld behavior (walk off, extra text, despawn) remains fully composable after `use battle_intro ...`.
+
+### Custom team at call time
+
+For custom scripted trainer parties, use `battle_intro_custom` from `defs_battle.scene`.
+
+Call shape (11 args total):
+
+1. pre-text
+2. music token (`wild_battle`, `trainer_battle`, `gym_leader`, `elite_4`, `champion_battle`)
+3. trainer class token/id (e.g. `BROCK`, `LORELEI`, `LANCE`, `34`)
+4. slot1 spec
+5. slot2 spec
+6. slot3 spec
+7. slot4 spec
+8. slot5 spec
+9. slot6 spec
+10. trainer defeat quote (shown by battle UI after enemy's last mon faints)
+11. post-text (overworld `battlend` text)
+
+Slot spec formats:
+
+- filled: `"Species,Level,Move1,Move2,Move3,Move4"`
+- empty: `"empty"` (also accepts `none`, `-`, `0`)
+
+Example (single line; `use` does not support multiline continuation yet):
+
+```txt
+use battle_intro_custom "Hey! Custom team test.@" "gym_leader" "BROCK" "Pikachu,22,Thunderbolt,Quick Attack,Thunder Wave,Growl" "Rattata,18,Hyper Fang,Tail Whip,Quick Attack,Focus Energy" "empty" "empty" "empty" "empty" "No way! My team got smoked!@" "Nice battle. See ya!@"
+```
+
+Resolution rules:
+
+- Species: dex number or Pokemon name
+- Moves: move id or move name
+- Level: `1..100`
+- Trainer class: numeric id (`1..47`) or canonical trainer class name (`BROCK`, `MISTY`, `LORELEI`, `BRUNO`, `AGATHA`, `LANCE`, etc.)
 
 Recommended instrumentation while iterating:
 

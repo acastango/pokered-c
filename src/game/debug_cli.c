@@ -10,6 +10,7 @@
 #include "player.h"             /* Player_GetLedgeDir */
 #include "warp.h"               /* Warp_IsDoorTile */
 #include "text.h"               /* Text_IsOpen, Text_GetCurrentStr */
+#include "yesno.h"
 #include "trainer_sight.h"      /* Trainer_IsEngaging */
 #include "pokecenter.h"         /* Pokecenter_IsWaitingYesNo */
 #include "pokemon.h"            /* Pokemon_GetName, Pokemon_InitMon */
@@ -43,7 +44,9 @@
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
 #include "../data/event_data.h"    /* map_events_t, gMapEvents */
+#include "../data/event_flag_names.h"
 #include "../data/moves_data.h"     /* BMOVE */
+#include "../data/trainer_sprites.h"
 #include "../data/event_constants.h"
 #include "inventory.h"
 #include "badge.h"
@@ -121,6 +124,8 @@ static int s_temp_npc_walkoff_pretext_frames = 0;
 /* ---- Simple debug scene runner ------------------------------------ */
 #define SCENE_CMD_MAX 128
 #define SCENE_ACTOR_MAX 16
+#define SCENE_DEF_MAX 16
+#define SCENE_DEF_LINE_MAX 32
 typedef enum scene_op_t {
     SCOP_NOP = 0,
     SCOP_SPAWN,
@@ -128,6 +133,10 @@ typedef enum scene_op_t {
     SCOP_FACE,
     SCOP_MOVE,
     SCOP_SAY,
+    SCOP_ASK,
+    SCOP_BATTLESTART,
+    SCOP_BATTLEEND,
+    SCOP_MUSIC,
     SCOP_WAIT,
     SCOP_WAIT_TEXT,
     SCOP_LOCK_INPUT,
@@ -138,21 +147,52 @@ typedef struct scene_cmd_t {
     char actor[24];
     int a, b, c;
     char text[160];
+    uint8_t team_count;
+    uint8_t team_species[6];
+    uint8_t team_level[6];
+    uint8_t team_moves[6][4];
 } scene_cmd_t;
 typedef struct scene_actor_t {
     int used;
     char name[24];
     int npc_idx;
+    int spawned_by_scene;
+    uint8_t sprite_id;
+    int last_x;
+    int last_y;
 } scene_actor_t;
 static int s_scene_active = 0;
 static scene_cmd_t s_scene_cmds[SCENE_CMD_MAX];
 static int s_scene_cmd_count = 0;
 static int s_scene_pc = 0;
 static int s_scene_wait = 0;
+static int s_scene_wait_yesno = 0;
+static int s_scene_wait_say = 0;
+static int s_scene_say_opened = 0;
+static int s_scene_wait_battle = 0;
+static int s_scene_wait_battleend_text = 0;
+static int s_scene_battle_started = 0;
+static int s_scene_battlestart_pending = 0;
+static int s_scene_battlestart_saw_text = 0;
+static int s_scene_battlestart_delay = 0;
+static int s_scene_battlestart_tc = 0;
+static int s_scene_battlestart_tn = 0;
+static int s_scene_last_yesno = -1; /* -1=none, 0=no, 1=yes */
+static uint8_t s_scene_yesno_prev_joyignore = 0;
+static int s_scene_yesno_restore_joyignore = 0;
+static int s_scene_yesno_prev_scripted_movement = 0;
+static int s_scene_yesno_restore_scripted_movement = 0;
 static int s_scene_move_steps_left = 0;
 static int s_scene_move_dir = 0;
 static int s_scene_move_actor = -1;
 static scene_actor_t s_scene_actors[SCENE_ACTOR_MAX];
+typedef struct scene_def_t {
+    int used;
+    char name[32];
+    char lines[SCENE_DEF_LINE_MAX][192];
+    int line_count;
+} scene_def_t;
+static scene_def_t s_scene_defs[SCENE_DEF_MAX];
 /* ---- Scene trigger points (tile based, debug-only wrapper layer) -- */
 #define SCENE_TRIGGER_MAX 16
 typedef struct scene_trigger_t {
@@ -162,12 +202,29 @@ typedef struct scene_trigger_t {
     int x;
     int y;
     int armed;
+    uint8_t cond_kind;   /* 0=none, 1=event_set, 2=event_clear */
+    uint16_t cond_event;
 } scene_trigger_t;
 static scene_trigger_t s_scene_triggers[SCENE_TRIGGER_MAX];
+typedef struct scene_npc_binding_t {
+    int used;
+    int npc_idx;
+    uint8_t map_id;
+    uint8_t sprite_id;
+    int tile_x;
+    int tile_y;
+    char name[24];
+    char scene[64];
+} scene_npc_binding_t;
+static scene_npc_binding_t s_scene_npc_bindings[SCENE_ACTOR_MAX];
+static int s_dsl_bank_enabled = 0;
+static int s_dsl_bank_init_done = 0;
+static uint8_t s_dsl_bank_last_map = 0xFF;
 
 #define SCRIPT_TRACE_LOG_PATH "bugs/script_trace.log"
 #define SCRIPT_TRACE_LOG_PATH_OLD "bugs/script_trace.log.1"
 #define SCRIPT_TRACE_MAX_BYTES (256 * 1024)
+extern int Game_IsWarpFadeActive(void);
 
 /* ---- Deterministic replay --------------------------------------- */
 #define REPLAY_MAGIC   0x31504C52u /* "RLP1" */
@@ -503,6 +560,106 @@ static int cli_resolve_move_id(const char *move_str) {
         if (strcmp(needle, norm) == 0) return id;
     }
     return 0;
+}
+
+/* Resolve species by dex number or name (case-insensitive, ignores spaces/_). */
+static int cli_resolve_species_id(const char *species_str) {
+    if (!species_str || !*species_str) return 0;
+    {
+        char *end;
+        long parsed = strtol(species_str, &end, 0);
+        if (end != species_str && *end == '\0') {
+            if (parsed >= 1 && parsed <= 151) return gDexToSpecies[parsed];
+            return (int)parsed;
+        }
+    }
+
+    {
+        char needle[40] = {0};
+        int ni = 0;
+        for (int i = 0; species_str[i] && ni < 39; i++) {
+            char c = (char)tolower((unsigned char)species_str[i]);
+            if (c != ' ' && c != '_') needle[ni++] = c;
+        }
+        for (int dex = 1; dex <= 151; dex++) {
+            const char *nm = Pokemon_GetName((uint8_t)dex);
+            char norm[40] = {0};
+            int nn = 0;
+            for (int i = 0; nm[i] && nn < 39; i++) {
+                char c = (char)tolower((unsigned char)nm[i]);
+                if (c != ' ' && c != '_') norm[nn++] = c;
+            }
+            if (strcmp(needle, norm) == 0) return gDexToSpecies[dex];
+        }
+    }
+    return 0;
+}
+
+/* Parse one custom team slot token:
+ * - empty markers: "", "-", "empty", "none", "0"
+ * - filled format: species,level,move1,move2,move3,move4
+ */
+static int scene_parse_team_slot(const char *slot_str,
+                                 uint8_t *out_species,
+                                 uint8_t *out_level,
+                                 uint8_t out_moves[4]) {
+    char buf[160];
+    char parts[6][32];
+    int part_count = 0;
+    int start = 0;
+    int len;
+    if (!slot_str || !out_species || !out_level || !out_moves) return 0;
+
+    {
+        char lower[24] = {0};
+        int li = 0;
+        while (*slot_str == ' ' || *slot_str == '\t') slot_str++;
+        for (int i = 0; slot_str[i] && li < (int)sizeof(lower) - 1; i++)
+            lower[li++] = (char)tolower((unsigned char)slot_str[i]);
+        lower[li] = '\0';
+        if (*slot_str == '\0' ||
+            strcmp(slot_str, "-") == 0 ||
+            strcmp(slot_str, "0") == 0 ||
+            strcmp(lower, "empty") == 0 ||
+            strcmp(lower, "none") == 0) {
+            *out_species = 0;
+            *out_level = 0;
+            memset(out_moves, 0, 4);
+            return 1;
+        }
+    }
+
+    snprintf(buf, sizeof(buf), "%s", slot_str);
+    len = (int)strlen(buf);
+    for (int i = 0; i <= len && part_count < 6; i++) {
+        if (buf[i] == ',' || buf[i] == '\0') {
+            int n = i - start;
+            while (n > 0 && (buf[start] == ' ' || buf[start] == '\t')) { start++; n--; }
+            while (n > 0 && (buf[start + n - 1] == ' ' || buf[start + n - 1] == '\t')) n--;
+            if (n <= 0) return 0;
+            if (n >= (int)sizeof(parts[0])) n = (int)sizeof(parts[0]) - 1;
+            memcpy(parts[part_count], buf + start, (size_t)n);
+            parts[part_count][n] = '\0';
+            part_count++;
+            start = i + 1;
+        }
+    }
+    if (part_count != 6) return 0;
+
+    {
+        int species = cli_resolve_species_id(parts[0]);
+        int level = (int)strtol(parts[1], NULL, 0);
+        if (species <= 0 || species > 255) return 0;
+        if (level < 1 || level > 100) return 0;
+        *out_species = (uint8_t)species;
+        *out_level = (uint8_t)level;
+        for (int i = 0; i < 4; i++) {
+            int move = cli_resolve_move_id(parts[2 + i]);
+            if (move < 0 || move > 255) return 0;
+            out_moves[i] = (uint8_t)move;
+        }
+    }
+    return 1;
 }
 
 static int cli_parse_arg(const char *src, int arg_index, char *out, size_t out_sz) {
@@ -1035,6 +1192,31 @@ static char *cli_trim(char *s) {
     return s;
 }
 
+/* Normalize common UTF-8 punctuation into ASCII so scene scripts authored
+ * from rich editors don't break parser/text behavior. */
+static void scene_normalize_ascii(char *s) {
+    unsigned char *buf = (unsigned char*)s;
+    int ri = 0;
+    int wi = 0;
+    if (!s) return;
+    while (buf[ri]) {
+        if (buf[ri] < 0x80) {
+            buf[wi++] = buf[ri++];
+            continue;
+        }
+        if (buf[ri] == 0xE2 && buf[ri + 1] == 0x80 && buf[ri + 2]) {
+            unsigned char t = buf[ri + 2];
+            if (t == 0x98 || t == 0x99) buf[wi++] = '\'';      /* ‘ ’ */
+            else if (t == 0x9C || t == 0x9D) buf[wi++] = '"';  /* “ ” */
+            else if (t == 0x93 || t == 0x94) buf[wi++] = '-';  /* – — */
+            ri += 3;
+            continue;
+        }
+        ri++;
+    }
+    buf[wi] = '\0';
+}
+
 static int scene_parse_dir(const char *tok) {
     if (!tok) return -1;
     if (strcmp(tok, "down") == 0) return 0;
@@ -1044,6 +1226,40 @@ static int scene_parse_dir(const char *tok) {
     return -1;
 }
 
+static int cli_resolve_trainer_class_id(const char *tok) {
+    char want[40];
+    if (!tok || !*tok) return 0;
+    if (cli_is_numeric_token(tok)) {
+        int v = (int)strtol(tok, NULL, 0);
+        if (v >= 1 && v <= NUM_TRAINERS) return v;
+        return 0;
+    }
+    cli_norm(want, sizeof(want), tok);
+    for (int i = 0; i < NUM_TRAINERS; i++) {
+        char norm[40];
+        cli_norm(norm, sizeof(norm), gTrainerClassNames[i]);
+        if (strcmp(want, norm) == 0) return i + 1;
+    }
+    return 0;
+}
+
+static uint8_t scene_trainer_class_to_overworld_sprite(int trainer_class) {
+    switch (trainer_class) {
+        case 34: return 0x0C; /* BROCK */
+        case 35: return 0x06; /* MISTY */
+        case 36: return 0x07; /* LT_SURGE */
+        case 37: return 0x0D; /* ERIKA */
+        case 38: return 0x18; /* KOGA proxy */
+        case 39: return 0x0B; /* BLAINE proxy */
+        case 40: return 0x06; /* SABRINA proxy */
+        case 44: return 0x3B; /* LORELEI */
+        case 45: return 0x3A; /* BRUNO */
+        case 46: return 0x39; /* AGATHA */
+        case 47: return 0x1E; /* LANCE */
+        default: return 0x04; /* generic */
+    }
+}
+
 static int scene_parse_sprite(const char *tok) {
     static const struct { const char *name; int id; } k[] = {
         { "YOUNGSTER", 0x04 }, { "GAMBLER", 0x0B }, { "SUPER_NERD", 0x0C },
@@ -1051,9 +1267,116 @@ static int scene_parse_sprite(const char *tok) {
         { "ROCKET", 0x18 }, { "GUARD", 0x31 }, { NULL, 0 }
     };
     if (!tok || !*tok) return -1;
-    if (cli_is_numeric_token(tok)) return (int)strtol(tok, NULL, 0);
     for (int i = 0; k[i].name; i++) if (strcmp(tok, k[i].name) == 0) return k[i].id;
+    {
+        int tc = cli_resolve_trainer_class_id(tok);
+        if (tc > 0) return scene_trainer_class_to_overworld_sprite(tc);
+    }
+    if (cli_is_numeric_token(tok)) return (int)strtol(tok, NULL, 0);
     return -1;
+}
+
+static int scene_parse_music_track(const char *tok) {
+    char norm[48];
+    if (!tok || !*tok) return -1;
+    cli_norm(norm, sizeof(norm), tok);
+    if (strcmp(norm, "wildbattle") == 0 || strcmp(norm, "wild") == 0)
+        return MUSIC_WILD_BATTLE;
+    if (strcmp(norm, "trainerbattle") == 0 || strcmp(norm, "trainer") == 0)
+        return MUSIC_TRAINER_BATTLE;
+    if (strcmp(norm, "gymleader") == 0 || strcmp(norm, "gymleaderbattle") == 0 ||
+        strcmp(norm, "elitefour") == 0 || strcmp(norm, "elite4") == 0 ||
+        strcmp(norm, "elite_4") == 0 || strcmp(norm, "gymelitefour") == 0)
+        return MUSIC_GYM_LEADER_BATTLE;
+    if (strcmp(norm, "champion") == 0 || strcmp(norm, "championbattle") == 0)
+        return MUSIC_GYM_LEADER_BATTLE; /* Gen1 parity bucket: boss battle theme */
+    return -1;
+}
+
+static int scene_defs_find(const char *name) {
+    for (int i = 0; i < SCENE_DEF_MAX; i++) {
+        if (s_scene_defs[i].used && strcmp(s_scene_defs[i].name, name) == 0) return i;
+    }
+    return -1;
+}
+
+static int scene_defs_add(const char *name) {
+    int i = scene_defs_find(name);
+    if (i >= 0) return i;
+    for (i = 0; i < SCENE_DEF_MAX; i++) {
+        if (!s_scene_defs[i].used) {
+            s_scene_defs[i].used = 1;
+            s_scene_defs[i].line_count = 0;
+            snprintf(s_scene_defs[i].name, sizeof(s_scene_defs[i].name), "%s", name);
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int scene_is_line_command_start(const char *s) {
+    if (!s || !*s) return 0;
+    if (strncmp(s, "spawn ", 6) == 0) return 1;
+    if (strncmp(s, "despawn ", 8) == 0) return 1;
+    if (strncmp(s, "face ", 5) == 0) return 1;
+    if (strncmp(s, "move ", 5) == 0) return 1;
+    if (strncmp(s, "say ", 4) == 0) return 1;
+    if (strncmp(s, "ask ", 4) == 0) return 1;
+    if (strncmp(s, "battlestart", 11) == 0) return 1;
+    if (strncmp(s, "battlend", 8) == 0) return 1;
+    if (strncmp(s, "music ", 6) == 0) return 1;
+    if (strncmp(s, "wait ", 5) == 0) return 1;
+    if (strcmp(s, "wait_text") == 0) return 1;
+    if (strcmp(s, "lock_input on") == 0) return 1;
+    if (strcmp(s, "lock_input off") == 0) return 1;
+    if (strcmp(s, "end") == 0) return 1;
+    if (strncmp(s, "use ", 4) == 0) return 1;
+    if (strncmp(s, "include ", 8) == 0) return 1;
+    if (strncmp(s, "def ", 4) == 0) return 1;
+    if (strcmp(s, "enddef") == 0) return 1;
+    return 0;
+}
+
+static void scene_apply_args(const char *src, char *dst, int dst_sz, char args[16][96]) {
+    int di = 0;
+    for (int si = 0; src[si] && di + 1 < dst_sz; si++) {
+        /* Parse 2-digit placeholders first so $10..$16 are not consumed as $1. */
+        if (src[si] == '$' && src[si + 1] == '1' && src[si + 2] >= '0' && src[si + 2] <= '6') {
+            int ai = 9 + (src[si + 2] - '0'); /* $10..$16 */
+            const char *a = args[ai];
+            for (int k = 0; a[k] && di + 1 < dst_sz; k++) dst[di++] = a[k];
+            si += 2;
+        } else if (src[si] == '$' && src[si + 1] >= '1' && src[si + 1] <= '9') {
+            int ai = src[si + 1] - '1';
+            const char *a = args[ai];
+            for (int k = 0; a[k] && di + 1 < dst_sz; k++) dst[di++] = a[k];
+            si++;
+        } else {
+            dst[di++] = src[si];
+        }
+    }
+    dst[di] = '\0';
+}
+
+/* Split arg string into up to max_out tokens, honoring quoted segments. */
+static int scene_split_args_quoted(const char *s, char out[][96], int max_out) {
+    int count = 0;
+    int i = 0;
+    while (s && s[i] && count < max_out) {
+        int oi = 0;
+        while (s[i] == ' ' || s[i] == '\t') i++;
+        if (!s[i]) break;
+        if (s[i] == '"') {
+            i++;
+            while (s[i] && s[i] != '"' && oi + 1 < 96) out[count][oi++] = s[i++];
+            if (s[i] == '"') i++;
+        } else {
+            while (s[i] && s[i] != ' ' && s[i] != '\t' && oi + 1 < 96) out[count][oi++] = s[i++];
+        }
+        out[count][oi] = '\0';
+        count++;
+    }
+    return count;
 }
 
 static void scene_unescape_text(char *s) {
@@ -1074,11 +1397,139 @@ static void scene_unescape_text(char *s) {
     snprintf(s, 160, "%s", out);
 }
 
+/* Auto-format plain scene dialogue into textbox-friendly flow:
+ * - wraps at 18 chars per line
+ * - max 2 lines per page (then inserts '\f')
+ * - avoids mid-word wrapping unless a single word exceeds line width
+ * - preserves explicit control chars: '\n', '\f', '@'
+ * - appends '@' terminator if missing
+ */
+static void scene_format_dialog_text(char *s) {
+    enum { MAX_COLS = 18, MAX_LINES = 2 };
+    char out[160];
+    int oi = 0;
+    int i = 0;
+    int col = 0;
+    int line = 0; /* 0..MAX_LINES-1 */
+    int ended = 0;
+
+    while (s[i] && oi + 1 < (int)sizeof(out)) {
+        char c = s[i];
+
+        if (c == '@') {
+            out[oi++] = '@';
+            ended = 1;
+            break;
+        }
+        if (c == '\f') {
+            out[oi++] = '\f';
+            col = 0;
+            line = 0;
+            i++;
+            continue;
+        }
+        if (c == '\n') {
+            out[oi++] = '\n';
+            col = 0;
+            line++;
+            if (line >= MAX_LINES) line = MAX_LINES - 1;
+            i++;
+            continue;
+        }
+
+        if (c == ' ' || c == '\t' || c == '\r') {
+            i++;
+            continue; /* normalize whitespace between words */
+        }
+
+        /* Parse one word token (until whitespace/control/terminator). */
+        {
+            int ws = i;
+            int we = i;
+            int wlen;
+            while (s[we] && s[we] != '@' && s[we] != '\n' && s[we] != '\f' &&
+                   s[we] != ' ' && s[we] != '\t' && s[we] != '\r') {
+                we++;
+            }
+            wlen = we - ws;
+            if (wlen <= 0) {
+                i = we;
+                continue;
+            }
+
+            if (wlen > MAX_COLS) {
+                int p = ws;
+                if (col > 0) {
+                    if (line == 0) { out[oi++] = '\n'; line = 1; }
+                    else { out[oi++] = '\f'; line = 0; }
+                    col = 0;
+                }
+                while (p < we && oi + 1 < (int)sizeof(out)) {
+                    int chunk = we - p;
+                    if (chunk > MAX_COLS) chunk = MAX_COLS;
+                    for (int k = 0; k < chunk && oi + 1 < (int)sizeof(out); k++)
+                        out[oi++] = s[p + k];
+                    p += chunk;
+                    col = chunk;
+                    if (p < we && oi + 1 < (int)sizeof(out)) {
+                        if (line == 0) { out[oi++] = '\n'; line = 1; }
+                        else { out[oi++] = '\f'; line = 0; }
+                        col = 0;
+                    }
+                }
+                i = we;
+                continue;
+            }
+
+            if (col == 0) {
+                for (int k = 0; k < wlen && oi + 1 < (int)sizeof(out); k++)
+                    out[oi++] = s[ws + k];
+                col = wlen;
+            } else if (col + 1 + wlen <= MAX_COLS) {
+                out[oi++] = ' ';
+                for (int k = 0; k < wlen && oi + 1 < (int)sizeof(out); k++)
+                    out[oi++] = s[ws + k];
+                col += 1 + wlen;
+            } else {
+                if (line == 0) { out[oi++] = '\n'; line = 1; }
+                else { out[oi++] = '\f'; line = 0; }
+                col = 0;
+                for (int k = 0; k < wlen && oi + 1 < (int)sizeof(out); k++)
+                    out[oi++] = s[ws + k];
+                col = wlen;
+            }
+
+            i = we;
+        }
+    }
+
+    if (!ended && oi + 1 < (int)sizeof(out))
+        out[oi++] = '@';
+    out[oi] = '\0';
+    snprintf(s, 160, "%s", out);
+}
+
 static void scene_reset_runtime(void) {
     s_scene_active = 0;
     s_scene_cmd_count = 0;
     s_scene_pc = 0;
     s_scene_wait = 0;
+    s_scene_wait_yesno = 0;
+    s_scene_wait_say = 0;
+    s_scene_say_opened = 0;
+    s_scene_wait_battle = 0;
+    s_scene_wait_battleend_text = 0;
+    s_scene_battle_started = 0;
+    s_scene_battlestart_pending = 0;
+    s_scene_battlestart_saw_text = 0;
+    s_scene_battlestart_delay = 0;
+    s_scene_battlestart_tc = 0;
+    s_scene_battlestart_tn = 0;
+    s_scene_last_yesno = -1;
+    s_scene_yesno_prev_joyignore = 0;
+    s_scene_yesno_restore_joyignore = 0;
+    s_scene_yesno_prev_scripted_movement = 0;
+    s_scene_yesno_restore_scripted_movement = 0;
     s_scene_move_steps_left = 0;
     s_scene_move_dir = 0;
     s_scene_move_actor = -1;
@@ -1107,22 +1558,499 @@ static int scene_add_actor(const char *name, int npc_idx) {
     return -1;
 }
 
+static int scene_npc_binding_find_by_idx(int npc_idx) {
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+        if (!s_scene_npc_bindings[i].used) continue;
+        if (s_scene_npc_bindings[i].npc_idx != npc_idx) continue;
+        if (s_scene_npc_bindings[i].map_id != wCurMap) continue;
+        return i;
+    }
+    return -1;
+}
+
+static int scene_npc_binding_alloc(void) {
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++)
+        if (!s_scene_npc_bindings[i].used) return i;
+    return -1;
+}
+
+static const char *kDslBankDataPaths[] = {
+    "debug/dsl_bank_scene_npc.dat",
+    "../debug/dsl_bank_scene_npc.dat",
+    "build/debug/dsl_bank_scene_npc.dat"
+};
+static const char *kDslBankCfgPaths[] = {
+    "debug/dsl_bank_scene_npc.cfg",
+    "../debug/dsl_bank_scene_npc.cfg",
+    "build/debug/dsl_bank_scene_npc.cfg"
+};
+
+static void dsl_bank_save(void) {
+    for (int pi = 0; pi < (int)(sizeof(kDslBankDataPaths) / sizeof(kDslBankDataPaths[0])); pi++) {
+        FILE *fp = fopen(kDslBankDataPaths[pi], "w");
+        if (!fp) continue;
+        fprintf(fp, "DSLBANK1\n");
+        for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+            scene_npc_binding_t *b = &s_scene_npc_bindings[i];
+            if (!b->used) continue;
+            fprintf(fp, "%u|%u|%d|%d|%s|%s\n",
+                    (unsigned)b->map_id, (unsigned)b->sprite_id, b->tile_x, b->tile_y,
+                    b->name, b->scene);
+        }
+        fclose(fp);
+    }
+}
+
+static void dsl_bank_write_cfg(void) {
+    for (int pi = 0; pi < (int)(sizeof(kDslBankCfgPaths) / sizeof(kDslBankCfgPaths[0])); pi++) {
+        FILE *fp = fopen(kDslBankCfgPaths[pi], "w");
+        if (!fp) continue;
+        fprintf(fp, "%d\n", s_dsl_bank_enabled ? 1 : 0);
+        fclose(fp);
+    }
+}
+
+static void dsl_bank_load(void) {
+    FILE *fp = NULL;
+    char line[256];
+    for (int pi = 0; pi < (int)(sizeof(kDslBankDataPaths) / sizeof(kDslBankDataPaths[0])); pi++) {
+        fp = fopen(kDslBankDataPaths[pi], "r");
+        if (fp) break;
+    }
+    if (!fp) return;
+    memset(s_scene_npc_bindings, 0, sizeof(s_scene_npc_bindings));
+    if (!fgets(line, sizeof(line), fp)) { fclose(fp); return; }
+    while (fgets(line, sizeof(line), fp)) {
+        unsigned map_id = 0, sprite_id = 0;
+        int tx = 0, ty = 0;
+        char name[24] = {0}, scene[64] = {0};
+        int slot = scene_npc_binding_alloc();
+        if (slot < 0) break;
+        if (sscanf(line, "%u|%u|%d|%d|%23[^|]|%63[^\n]", &map_id, &sprite_id, &tx, &ty, name, scene) != 6)
+            continue;
+        s_scene_npc_bindings[slot].used = 1;
+        s_scene_npc_bindings[slot].npc_idx = -1;
+        s_scene_npc_bindings[slot].map_id = (uint8_t)map_id;
+        s_scene_npc_bindings[slot].sprite_id = (uint8_t)sprite_id;
+        s_scene_npc_bindings[slot].tile_x = tx;
+        s_scene_npc_bindings[slot].tile_y = ty;
+        snprintf(s_scene_npc_bindings[slot].name, sizeof(s_scene_npc_bindings[slot].name), "%s", name);
+        snprintf(s_scene_npc_bindings[slot].scene, sizeof(s_scene_npc_bindings[slot].scene), "%s", scene);
+    }
+    fclose(fp);
+}
+
+static void dsl_bank_ensure_current_map_spawns(void) {
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+        scene_npc_binding_t *b = &s_scene_npc_bindings[i];
+        int idx;
+        if (!b->used) continue;
+        if (b->map_id != wCurMap) continue;
+        idx = NPC_FindAtTile(b->tile_x, b->tile_y);
+        if (idx < 0) idx = NPC_DebugSpawn(b->sprite_id, b->tile_x, b->tile_y, 0, 0);
+        b->npc_idx = idx;
+    }
+}
+
+static void dsl_bank_init_if_needed(void) {
+    FILE *fp;
+    if (s_dsl_bank_init_done) return;
+    s_dsl_bank_init_done = 1;
+    fp = NULL;
+    for (int pi = 0; pi < (int)(sizeof(kDslBankCfgPaths) / sizeof(kDslBankCfgPaths[0])); pi++) {
+        fp = fopen(kDslBankCfgPaths[pi], "r");
+        if (fp) break;
+    }
+    if (!fp) return;
+    {
+        int enabled = 0;
+        if (fscanf(fp, "%d", &enabled) == 1) s_dsl_bank_enabled = enabled ? 1 : 0;
+    }
+    fclose(fp);
+    if (s_dsl_bank_enabled) {
+        dsl_bank_load();
+        dsl_bank_ensure_current_map_spawns();
+        s_dsl_bank_last_map = wCurMap;
+    }
+}
+
+static void scene_track_actor_positions(void) {
+    int tx, ty;
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+        if (!s_scene_actors[i].used) continue;
+        if (s_scene_actors[i].npc_idx < 0 || s_scene_actors[i].npc_idx >= NPC_GetCount()) continue;
+        NPC_GetTilePos(s_scene_actors[i].npc_idx, &tx, &ty);
+        s_scene_actors[i].last_x = tx;
+        s_scene_actors[i].last_y = ty;
+    }
+}
+
+static void scene_restore_spawned_actors_after_battle(void) {
+    int restored_any = 0;
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+        int idx;
+        if (!s_scene_actors[i].used) continue;
+        if (!s_scene_actors[i].spawned_by_scene) continue;
+        idx = NPC_DebugSpawn(s_scene_actors[i].sprite_id,
+                             s_scene_actors[i].last_x,
+                             s_scene_actors[i].last_y,
+                             0, 0);
+        s_scene_actors[i].npc_idx = idx;
+        if (idx >= 0) restored_any = 1;
+    }
+    if (restored_any) {
+        /* Ensure restored actors are visible immediately, even if text is open. */
+        NPC_BuildView(gScrollPxX, gScrollPxY);
+    }
+}
+
+static void scene_start_trainer_battle(int trainer_class, int trainer_no, const char *defeat_text) {
+    extern void Game_StartTrainerBattleScripted(uint8_t trainer_class, uint8_t trainer_no);
+    /* Never carry debug scene input locks into battle UI. */
+    wJoyIgnore = 0;
+    gScriptedMovement = 0;
+    gEngagedTrainerClass = (uint8_t)trainer_class;
+    gEngagedTrainerNo = (uint8_t)trainer_no;
+    gTrainerAfterText = (defeat_text && *defeat_text) ? defeat_text : NULL;
+    Game_StartTrainerBattleScripted((uint8_t)trainer_class, (uint8_t)trainer_no);
+}
+
+static void scene_start_custom_trainer_battle(const scene_cmd_t *cmd) {
+    extern void Game_StartCustomTrainerBattleScripted(uint8_t trainer_class,
+                                                      uint8_t music_id,
+                                                      const uint8_t species[6],
+                                                      const uint8_t level[6],
+                                                      const uint8_t moves[6][4],
+                                                      uint8_t count);
+    if (!cmd) return;
+    wJoyIgnore = 0;
+    gScriptedMovement = 0;
+    gTrainerAfterText = (cmd->text[0] != '\0') ? cmd->text : NULL;
+    Game_StartCustomTrainerBattleScripted((uint8_t)cmd->a, (uint8_t)cmd->b, cmd->team_species, cmd->team_level, cmd->team_moves, cmd->team_count);
+}
+
+static int scene_pick_random_map_trainer(int *out_class, int *out_no) {
+    const map_events_t *ev;
+    int idx;
+    if (!out_class || !out_no) return 0;
+    if (wCurMap >= NUM_MAPS) return 0;
+    ev = &gMapEvents[wCurMap];
+    if (!ev->trainers || ev->num_trainers == 0) return 0;
+    idx = rand() % ev->num_trainers;
+    *out_class = ev->trainers[idx].trainer_class;
+    *out_no = ev->trainers[idx].trainer_no;
+    return 1;
+}
+
 static int scene_load_file(const char *name) {
     char path[192];
-    FILE *fp;
-    char line[256];
+    FILE *fp = NULL;
+    char line[1024];
     int lineno = 0;
+    static const char *kScenePaths[] = {
+        "debug/scenes/%s.scene",       /* canonical when cwd is repo root */
+        "../debug/scenes/%s.scene",    /* canonical when cwd is build/ */
+        "build/debug/scenes/%s.scene", /* canonical alt from repo root */
+        "bugs/scenes/%s.scene",        /* legacy fallback */
+        "../bugs/scenes/%s.scene",     /* legacy fallback */
+        "build/bugs/scenes/%s.scene"   /* legacy fallback */
+    };
     s_scene_cmd_count = 0;
-    snprintf(path, sizeof(path), "bugs/scenes/%s.scene", name);
-    fp = fopen(path, "r");
+    for (int i = 0; i < (int)(sizeof(kScenePaths)/sizeof(kScenePaths[0])); i++) {
+        snprintf(path, sizeof(path), kScenePaths[i], name);
+        fp = fopen(path, "r");
+        if (fp) break;
+    }
     if (!fp) return -1;
+    memset(s_scene_defs, 0, sizeof(s_scene_defs));
     while (fgets(line, sizeof(line), fp)) {
         char *s = cli_trim(line);
+        scene_normalize_ascii(s);
         scene_cmd_t cmd;
         memset(&cmd, 0, sizeof(cmd));
         lineno++;
         if (*s == '\0' || *s == '#') continue;
         if (s_scene_cmd_count >= SCENE_CMD_MAX) break;
+
+        if (strncmp(s, "include ", 8) == 0) {
+            char inc[64] = {0};
+            FILE *ifp = NULL;
+            char ipath[192];
+            if (sscanf(s + 8, "%63s", inc) == 1) {
+                static const char *kScenePaths[] = {
+                    "debug/scenes/%s.scene",
+                    "../debug/scenes/%s.scene",
+                    "build/debug/scenes/%s.scene",
+                    "bugs/scenes/%s.scene",
+                    "../bugs/scenes/%s.scene",
+                    "build/bugs/scenes/%s.scene"
+                };
+                for (int pi = 0; pi < (int)(sizeof(kScenePaths)/sizeof(kScenePaths[0])); pi++) {
+                    snprintf(ipath, sizeof(ipath), kScenePaths[pi], inc);
+                    ifp = fopen(ipath, "r");
+                    if (ifp) break;
+                }
+                if (ifp) {
+                    while (fgets(line, sizeof(line), ifp)) {
+                        char *ds = cli_trim(line);
+                        scene_normalize_ascii(ds);
+                        if (strncmp(ds, "def ", 4) != 0) continue;
+                        {
+                            char defname[32] = {0};
+                            int didx;
+                            if (sscanf(ds + 4, "%31s", defname) != 1) continue;
+                            didx = scene_defs_add(defname);
+                            if (didx < 0) continue;
+                            while (fgets(line, sizeof(line), ifp)) {
+                                char *dline = cli_trim(line);
+                                scene_normalize_ascii(dline);
+                                if (strcmp(dline, "enddef") == 0) break;
+                                if (*dline == '\0' || *dline == '#') continue;
+                                if (s_scene_defs[didx].line_count < SCENE_DEF_LINE_MAX) {
+                                    snprintf(s_scene_defs[didx].lines[s_scene_defs[didx].line_count],
+                                             sizeof(s_scene_defs[didx].lines[0]), "%s", dline);
+                                    s_scene_defs[didx].line_count++;
+                                }
+                            }
+                        }
+                    }
+                    fclose(ifp);
+                } else {
+                    printf("[scene] include not found: %s\n", inc);
+                }
+            }
+            continue;
+        }
+
+        if (strncmp(s, "def ", 4) == 0) {
+            char defname[32] = {0};
+            int didx;
+            if (sscanf(s + 4, "%31s", defname) != 1) continue;
+            didx = scene_defs_add(defname);
+            if (didx < 0) continue;
+            while (fgets(line, sizeof(line), fp)) {
+                char *ds = cli_trim(line);
+                scene_normalize_ascii(ds);
+                lineno++;
+                if (strcmp(ds, "enddef") == 0) break;
+                if (*ds == '\0' || *ds == '#') continue;
+                if (s_scene_defs[didx].line_count < SCENE_DEF_LINE_MAX) {
+                    snprintf(s_scene_defs[didx].lines[s_scene_defs[didx].line_count],
+                             sizeof(s_scene_defs[didx].lines[0]), "%s", ds);
+                    s_scene_defs[didx].line_count++;
+                }
+            }
+            continue;
+        }
+
+        if (strncmp(s, "use ", 4) == 0) {
+            char defname[32] = {0};
+            char args[16][96];
+            char expanded[1024];
+            char toks[17][96];
+            char usebuf[1024];
+            char use_music[96] = {0};
+            int didx;
+            memset(args, 0, sizeof(args));
+            memset(toks, 0, sizeof(toks));
+            {
+                int nt;
+                snprintf(usebuf, sizeof(usebuf), "%s", s + 4);
+                /* Multiline `use` support: allow subsequent lines of quoted args.
+                 * Continue consuming lines until we hit another command line. */
+                while (1) {
+                    long pos = ftell(fp);
+                    char cont_line[1024];
+                    char *ct;
+                    if (!fgets(cont_line, sizeof(cont_line), fp)) break;
+                    ct = cli_trim(cont_line);
+                    scene_normalize_ascii(ct);
+                    if (*ct == '\0' || *ct == '#') continue;
+                    if (strncmp(ct, "music ", 6) == 0) {
+                        const char *mv = ct + 6;
+                        while (*mv == ' ' || *mv == '\t') mv++;
+                        if (*mv) {
+                            snprintf(use_music, sizeof(use_music), "%s", mv);
+                        }
+                        continue;
+                    }
+                    if (scene_is_line_command_start(ct)) {
+                        fseek(fp, pos, SEEK_SET);
+                        break;
+                    }
+                    if ((int)strlen(usebuf) + 1 + (int)strlen(ct) < (int)sizeof(usebuf)) {
+                        strcat(usebuf, " ");
+                        strcat(usebuf, ct);
+                    }
+                }
+                nt = scene_split_args_quoted(usebuf, toks, 17);
+                if (nt < 1) continue;
+                snprintf(defname, sizeof(defname), "%s", toks[0]);
+                for (int ti = 1; ti < nt && ti <= 16; ti++)
+                    snprintf(args[ti - 1], sizeof(args[ti - 1]), "%s", toks[ti]);
+                if (use_music[0] != '\0') {
+                    /* Inline `music ...` in a multiline `use` block is a named
+                     * override for arg $2, while preserving $1 as pre-text. */
+                    for (int ai = 15; ai >= 2; ai--)
+                        snprintf(args[ai], sizeof(args[ai]), "%s", args[ai - 1]);
+                    snprintf(args[1], sizeof(args[1]), "%s", use_music);
+                }
+                if (strcmp(defname, "battle_intro_custom") == 0) {
+                    printf("[scene] use battle_intro_custom args: $1='%s' $2='%s' $3='%s' $10='%s' $11='%s'\n",
+                           args[0], args[1], args[2], args[9], args[10]);
+                }
+            }
+            didx = scene_defs_find(defname);
+            if (didx < 0) {
+                printf("[scene] unknown def '%s' at line %d\n", defname, lineno);
+                continue;
+            }
+            for (int li = 0; li < s_scene_defs[didx].line_count; li++) {
+                s = s_scene_defs[didx].lines[li];
+                scene_apply_args(s, expanded, sizeof(expanded), args);
+                s = expanded;
+
+                memset(&cmd, 0, sizeof(cmd));
+                if (strncmp(s, "spawn ", 6) == 0) {
+                    char id[24], sprite[32], x[32], y[32];
+                    if (sscanf(s + 6, "%23s %31s %31s %31s", id, sprite, x, y) != 4) continue;
+                    cmd.op = SCOP_SPAWN;
+                    snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+                    cmd.a = scene_parse_sprite(sprite);
+                    cmd.b = cli_is_numeric_token(x) ? (int)strtol(x, NULL, 0) : 0;
+                    cmd.c = cli_is_numeric_token(y) ? (int)strtol(y, NULL, 0) : 0;
+                    if (!cli_is_numeric_token(x) && strncmp(x, "player+", 7) == 0) cmd.b = (int)wXCoord + (int)strtol(x + 7, NULL, 0);
+                    if (!cli_is_numeric_token(y) && strncmp(y, "player+", 7) == 0) cmd.c = (int)wYCoord + (int)strtol(y + 7, NULL, 0);
+                } else if (strncmp(s, "despawn ", 8) == 0) {
+                    cmd.op = SCOP_DESPAWN;
+                    sscanf(s + 8, "%23s", cmd.actor);
+                } else if (strncmp(s, "face ", 5) == 0) {
+                    char id[24], dir[24];
+                    if (sscanf(s + 5, "%23s %23s", id, dir) != 2) continue;
+                    cmd.op = SCOP_FACE;
+                    snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+                    if (strcmp(dir, "player") == 0) cmd.a = -2; else cmd.a = scene_parse_dir(dir);
+                } else if (strncmp(s, "move ", 5) == 0) {
+                    char id[24], dir[24], steps[24];
+                    if (sscanf(s + 5, "%23s %23s %23s", id, dir, steps) != 3) continue;
+                    cmd.op = SCOP_MOVE;
+                    snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+                    cmd.a = scene_parse_dir(dir);
+                    cmd.b = (int)strtol(steps, NULL, 0);
+                } else if (strncmp(s, "say ", 4) == 0) {
+                    cmd.op = SCOP_SAY;
+                    snprintf(cmd.text, sizeof(cmd.text), "%s", s + 4);
+                    {
+                        size_t n = strlen(cmd.text);
+                        if (n >= 2 && cmd.text[0] == '"' && cmd.text[n - 1] == '"') {
+                            memmove(cmd.text, cmd.text + 1, n - 2);
+                            cmd.text[n - 2] = '\0';
+                        }
+                    }
+                    scene_unescape_text(cmd.text);
+                    scene_format_dialog_text(cmd.text);
+                } else if (strncmp(s, "ask ", 4) == 0) {
+                    cmd.op = SCOP_ASK;
+                    snprintf(cmd.text, sizeof(cmd.text), "%s", s + 4);
+                    {
+                        size_t n = strlen(cmd.text);
+                        if (n >= 2 && cmd.text[0] == '"' && cmd.text[n - 1] == '"') {
+                            memmove(cmd.text, cmd.text + 1, n - 2);
+                            cmd.text[n - 2] = '\0';
+                        }
+                    }
+                    scene_unescape_text(cmd.text);
+                    scene_format_dialog_text(cmd.text);
+                } else if (strncmp(s, "battlestart", 11) == 0) {
+                    char btoks[10][96];
+                    int nt = scene_split_args_quoted(s + 11, btoks, 10);
+                    memset(&cmd, 0, sizeof(cmd));
+                    cmd.op = SCOP_BATTLESTART;
+                    cmd.a = 34; cmd.b = 1; /* default Brock */
+                    if (nt >= 1 && strcmp(btoks[0], "custom") == 0) {
+                        int slot_base = 1;
+                        int ok = 1;
+                        cmd.c = 1; /* custom team mode */
+                        cmd.b = MUSIC_TRAINER_BATTLE; /* default custom battle music */
+                        if (nt > 1) {
+                            int mid = scene_parse_music_track(btoks[1]);
+                            if (mid > 0) {
+                                cmd.b = mid;
+                                slot_base = 2;
+                            }
+                        }
+                        if (nt > slot_base) {
+                            int tc = cli_resolve_trainer_class_id(btoks[slot_base]);
+                            if (tc > 0) {
+                                cmd.a = tc;
+                                slot_base++;
+                            }
+                        }
+                        for (int si = 0; si < 6; si++) {
+                            int tix = slot_base + si;
+                            const char *slot = (tix < nt) ? btoks[tix] : "empty";
+                            if (!scene_parse_team_slot(slot,
+                                                       &cmd.team_species[si],
+                                                       &cmd.team_level[si],
+                                                       cmd.team_moves[si])) {
+                                ok = 0;
+                                break;
+                            }
+                            if (cmd.team_species[si] != 0) cmd.team_count = (uint8_t)(si + 1);
+                        }
+                        if (nt > slot_base + 6) {
+                            snprintf(cmd.text, sizeof(cmd.text), "%s", btoks[slot_base + 6]);
+                            scene_unescape_text(cmd.text);
+                            scene_format_dialog_text(cmd.text);
+                        }
+                        if (!ok) {
+                            printf("[scene] bad custom battlestart spec near '%s' (nt=%d slot_base=%d)\n",
+                                   s, nt, slot_base);
+                            continue;
+                        }
+                        printf("[scene] battlestart custom parsed: music=%d trainer=%d team_count=%u\n",
+                               cmd.b, cmd.a, (unsigned)cmd.team_count);
+                    } else if (nt >= 1) {
+                        if (strcmp(btoks[0], "random") == 0) { cmd.a = -1; cmd.b = 0; }
+                        else if (cli_is_numeric_token(btoks[0])) {
+                            cmd.a = (int)strtol(btoks[0], NULL, 0);
+                            if (nt >= 2 && cli_is_numeric_token(btoks[1]))
+                                cmd.b = (int)strtol(btoks[1], NULL, 0);
+                        }
+                        if (nt >= 3) {
+                            snprintf(cmd.text, sizeof(cmd.text), "%s", btoks[2]);
+                            scene_unescape_text(cmd.text);
+                            scene_format_dialog_text(cmd.text);
+                        }
+                    }
+                } else if (strncmp(s, "battlend", 8) == 0) {
+                    cmd.op = SCOP_BATTLEEND;
+                    if (sscanf(s + 8, " %159[^\n]", cmd.text) != 1) snprintf(cmd.text, sizeof(cmd.text), "Battle complete.@");
+                    {
+                        size_t n = strlen(cmd.text);
+                        if (n >= 2 && cmd.text[0] == '"' && cmd.text[n - 1] == '"') {
+                            memmove(cmd.text, cmd.text + 1, n - 2);
+                            cmd.text[n - 2] = '\0';
+                        }
+                    }
+                    scene_unescape_text(cmd.text);
+                    scene_format_dialog_text(cmd.text);
+                } else if (strncmp(s, "music ", 6) == 0) {
+                    int mid = scene_parse_music_track(s + 6);
+                    if (mid < 0) continue;
+                    cmd.op = SCOP_MUSIC;
+                    cmd.a = mid;
+                } else if (strncmp(s, "wait ", 5) == 0) { cmd.op = SCOP_WAIT; cmd.a = (int)strtol(s + 5, NULL, 0); }
+                else if (strcmp(s, "wait_text") == 0) { cmd.op = SCOP_WAIT_TEXT; }
+                else if (strcmp(s, "lock_input on") == 0) { cmd.op = SCOP_LOCK_INPUT; cmd.a = 1; }
+                else if (strcmp(s, "lock_input off") == 0) { cmd.op = SCOP_LOCK_INPUT; cmd.a = 0; }
+                else if (strcmp(s, "end") == 0) { cmd.op = SCOP_END; }
+                else continue;
+
+                if (s_scene_cmd_count < SCENE_CMD_MAX) s_scene_cmds[s_scene_cmd_count++] = cmd;
+            }
+            continue;
+        }
 
         if (strncmp(s, "spawn ", 6) == 0) {
             char id[24], sprite[32], x[32], y[32];
@@ -1161,6 +2089,29 @@ static int scene_load_file(const char *name) {
                 }
             }
             scene_unescape_text(cmd.text);
+            scene_format_dialog_text(cmd.text);
+        } else if (strncmp(s, "ask ", 4) == 0) {
+            cmd.op = SCOP_ASK;
+            snprintf(cmd.text, sizeof(cmd.text), "%s", s + 4);
+            {
+                size_t n = strlen(cmd.text);
+                if (n >= 2 && cmd.text[0] == '"' && cmd.text[n - 1] == '"') {
+                    memmove(cmd.text, cmd.text + 1, n - 2);
+                    cmd.text[n - 2] = '\0';
+                }
+            }
+            scene_unescape_text(cmd.text);
+            scene_format_dialog_text(cmd.text);
+        } else if (strncmp(s, "battlestart", 11) == 0 || strncmp(s, "battlend", 8) == 0) {
+            printf("[scene] %s:%d raw battle ops are disallowed at top-level; use a reusable def (e.g. include defs_battle + use battle_intro ...)\n",
+                   path, lineno);
+            fclose(fp);
+            return -2;
+        } else if (strncmp(s, "music ", 6) == 0) {
+            int mid = scene_parse_music_track(s + 6);
+            if (mid < 0) continue;
+            cmd.op = SCOP_MUSIC;
+            cmd.a = mid;
         } else if (strncmp(s, "wait ", 5) == 0) {
             cmd.op = SCOP_WAIT;
             cmd.a = (int)strtol(s + 5, NULL, 0);
@@ -1199,6 +2150,7 @@ static int scene_trigger_alloc_slot(void) {
 
 static int scene_parse_coord_expr(const char *tok, int is_x, int *out) {
     const char *base = is_x ? "player.x" : "player.y";
+    const char *base_short = "player";
     if (!tok || !out) return 0;
     if (cli_is_numeric_token(tok)) {
         *out = (int)strtol(tok, NULL, 0);
@@ -1216,6 +2168,51 @@ static int scene_parse_coord_expr(const char *tok, int is_x, int *out) {
             if (*p == '-') off = -off;
             *out = v + off;
             return 1;
+        }
+    }
+    if (strncmp(tok, base_short, strlen(base_short)) == 0) {
+        int v = is_x ? (int)wXCoord : (int)wYCoord;
+        const char *p = tok + strlen(base_short);
+        if (*p == '\0') {
+            *out = v;
+            return 1;
+        }
+        if ((*p == '+' || *p == '-') && cli_is_numeric_token(p + 1)) {
+            int off = (int)strtol(p + 1, NULL, 0);
+            if (*p == '-') off = -off;
+            *out = v + off;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int cli_resolve_event_token(const char *tok, uint16_t *out_event) {
+    char want[96];
+    if (!tok || !*tok || !out_event) return 0;
+    if (cli_is_numeric_token(tok)) {
+        long v = strtol(tok, NULL, 0);
+        if (v < 0 || v > 65535) return 0;
+        *out_event = (uint16_t)v;
+        return 1;
+    }
+
+    cli_norm(want, sizeof(want), tok);
+    for (int i = 0; i <= 4095; i++) {
+        const char *name = EventFlagName((uint16_t)i);
+        char norm[96], short_norm[96];
+        if (!name || strcmp(name, "UNKNOWN_EVENT") == 0) continue;
+        cli_norm(norm, sizeof(norm), name);
+        if (strcmp(norm, want) == 0) {
+            *out_event = (uint16_t)i;
+            return 1;
+        }
+        if (strncmp(norm, "event", 5) == 0) {
+            snprintf(short_norm, sizeof(short_norm), "%s", norm + 5);
+            if (strcmp(short_norm, want) == 0) {
+                *out_event = (uint16_t)i;
+                return 1;
+            }
         }
     }
     return 0;
@@ -1535,8 +2532,20 @@ static void process_cmd(const char *cmd) {
 
     seq_clear();
 
-    /* ---- Text/dialogue lock: only a/b accepted while text is open ---- */
-    if (Text_IsOpen() || Pokecenter_IsWaitingYesNo()) {
+    /* ---- Text/dialogue lock: only a/b accepted while text is open ----
+     * Allow a small whitelist of debug-management commands to still run. */
+    {
+        int allow_when_text_open =
+            (strcmp(verb, "state") == 0) ||
+            (strcmp(verb, "scene_npc") == 0) ||
+            (strcmp(verb, "scene-npc") == 0) ||
+            (strcmp(verb, "scenenpc") == 0) ||
+            (strcmp(verb, "npcscene") == 0) ||
+            (strcmp(verb, "scene_trigger") == 0) ||
+            (strcmp(verb, "scene_run") == 0) ||
+            (strcmp(verb, "scene_stop") == 0) ||
+            (strcmp(verb, "dsl_bank") == 0);
+    if ((Text_IsOpen() || Pokecenter_IsWaitingYesNo()) && !allow_when_text_open) {
         if (strcmp(verb, "a") == 0 || strcmp(verb, "interact") == 0) {
             for (int i = 0; i < n; i++) seq_push(BTN_A, PRESS, GAP);
         } else if (strcmp(verb, "b") == 0 || strcmp(verb, "back") == 0) {
@@ -1551,6 +2560,7 @@ static void process_cmd(const char *cmd) {
             s_pending_write  = 1;
         }
         return;
+    }
     }
 
     /* ---- Overworld / generic commands ---- */
@@ -1965,8 +2975,175 @@ static void process_cmd(const char *cmd) {
         write_state();
         return;
     }
+    else if (strcmp(verb, "sprint_holdb") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) strcpy(sub, "status");
+        if (strcmp(sub, "on") == 0 || strcmp(sub, "1") == 0) {
+            Player_SetHoldBSprintEnabled(1);
+            printf("[cli] sprint_holdb: ON (hold X/B to move 2x)\n");
+        } else if (strcmp(sub, "off") == 0 || strcmp(sub, "0") == 0) {
+            Player_SetHoldBSprintEnabled(0);
+            printf("[cli] sprint_holdb: OFF\n");
+        } else if (strcmp(sub, "status") == 0) {
+            printf("[cli] sprint_holdb: %s\n",
+                   Player_GetHoldBSprintEnabled() ? "ON" : "OFF");
+        } else {
+            printf("[cli] sprint_holdb usage: sprint_holdb on|off|status\n");
+        }
+        write_state();
+        return;
+    }
     else if (strcmp(verb, "npc_walkoff") == 0) {
         debugcli_start_npc_walkoff(1);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "dsl_bank") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) strcpy(sub, "status");
+        if (strcmp(sub, "on") == 0) {
+            s_dsl_bank_enabled = 1;
+            dsl_bank_load();
+            dsl_bank_ensure_current_map_spawns();
+            s_dsl_bank_last_map = wCurMap;
+            dsl_bank_write_cfg();
+            dsl_bank_save();
+            printf("[cli] dsl_bank: ON (persisting scene_npc bindings)\n");
+        } else if (strcmp(sub, "off") == 0) {
+            s_dsl_bank_enabled = 0;
+            dsl_bank_write_cfg();
+            printf("[cli] dsl_bank: OFF\n");
+        } else if (strcmp(sub, "save") == 0) {
+            dsl_bank_save();
+            printf("[cli] dsl_bank: saved\n");
+        } else if (strcmp(sub, "load") == 0) {
+            dsl_bank_load();
+            dsl_bank_ensure_current_map_spawns();
+            s_dsl_bank_last_map = wCurMap;
+            printf("[cli] dsl_bank: loaded\n");
+        } else if (strcmp(sub, "clear") == 0) {
+            for (int pi = 0; pi < (int)(sizeof(kDslBankDataPaths) / sizeof(kDslBankDataPaths[0])); pi++)
+                remove(kDslBankDataPaths[pi]);
+            memset(s_scene_npc_bindings, 0, sizeof(s_scene_npc_bindings));
+            printf("[cli] dsl_bank: cleared\n");
+        } else if (strcmp(sub, "status") == 0) {
+            int cnt = 0;
+            for (int i = 0; i < SCENE_ACTOR_MAX; i++) if (s_scene_npc_bindings[i].used) cnt++;
+            printf("[cli] dsl_bank: %s, bindings=%d\n", s_dsl_bank_enabled ? "ON" : "OFF", cnt);
+        } else {
+            printf("[cli] dsl_bank usage: dsl_bank on|off|status|save|load|clear\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "scene_npc") == 0 ||
+             strcmp(verb, "scene-npc") == 0 ||
+             strcmp(verb, "scenenpc") == 0 ||
+             strcmp(verb, "npcscene") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) {
+            printf("[cli] scene_npc usage:\n");
+            printf("      scene_npc add <name> <scene> <sprite> <x_expr> <y_expr>\n");
+            printf("      scene_npc list\n");
+            printf("      scene_npc clear [name]\n");
+            write_state();
+            return;
+        }
+        if (strcmp(sub, "add") == 0) {
+            char name[24] = {0}, scene[64] = {0}, sprite[32] = {0}, xexpr[32] = {0}, yexpr[32] = {0};
+            int x = 0, y = 0, sprite_id = -1, idx = -1, slot = -1, ncmd;
+            if (!cli_parse_arg(cmd, 2, name, sizeof(name)) ||
+                !cli_parse_arg(cmd, 3, scene, sizeof(scene)) ||
+                !cli_parse_arg(cmd, 4, sprite, sizeof(sprite)) ||
+                !cli_parse_arg(cmd, 5, xexpr, sizeof(xexpr)) ||
+                !cli_parse_arg(cmd, 6, yexpr, sizeof(yexpr))) {
+                printf("[cli] scene_npc add usage: scene_npc add <name> <scene> <sprite> <x_expr> <y_expr>\n");
+                write_state();
+                return;
+            }
+            if (!scene_parse_coord_expr(xexpr, 1, &x) || !scene_parse_coord_expr(yexpr, 0, &y)) {
+                printf("[cli] scene_npc add: bad coordinate expression(s)\n");
+                write_state();
+                return;
+            }
+            sprite_id = scene_parse_sprite(sprite);
+            if (sprite_id < 0) {
+                printf("[cli] scene_npc add: bad sprite '%s'\n", sprite);
+                write_state();
+                return;
+            }
+            ncmd = scene_load_file(scene);
+            if (ncmd <= 0) {
+                printf("[cli] scene_npc add: scene '%s' not found or empty\n", scene);
+                write_state();
+                return;
+            }
+            idx = NPC_DebugSpawn((uint8_t)sprite_id, x, y, 0, 0);
+            if (idx < 0) {
+                printf("[cli] scene_npc add: failed to spawn NPC\n");
+                write_state();
+                return;
+            }
+            slot = scene_npc_binding_alloc();
+            if (slot < 0) {
+                printf("[cli] scene_npc add: no free bindings\n");
+                NPC_DebugDespawn(idx);
+                write_state();
+                return;
+            }
+            memset(&s_scene_npc_bindings[slot], 0, sizeof(s_scene_npc_bindings[slot]));
+            s_scene_npc_bindings[slot].used = 1;
+            s_scene_npc_bindings[slot].npc_idx = idx;
+            s_scene_npc_bindings[slot].map_id = wCurMap;
+            s_scene_npc_bindings[slot].sprite_id = (uint8_t)sprite_id;
+            s_scene_npc_bindings[slot].tile_x = x;
+            s_scene_npc_bindings[slot].tile_y = y;
+            snprintf(s_scene_npc_bindings[slot].name, sizeof(s_scene_npc_bindings[slot].name), "%s", name);
+            snprintf(s_scene_npc_bindings[slot].scene, sizeof(s_scene_npc_bindings[slot].scene), "%s", scene);
+            printf("[cli] scene_npc add: '%s' idx=%d map=%u (%d,%d) -> scene '%s'\n",
+                   name, idx, (unsigned)wCurMap, x, y, scene);
+            if (s_dsl_bank_enabled) dsl_bank_save();
+        } else if (strcmp(sub, "list") == 0) {
+            int any = 0;
+            for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+                if (!s_scene_npc_bindings[i].used) continue;
+                any = 1;
+                printf("[cli] scene_npc[%d]: name='%s' idx=%d map=%u tile=(%d,%d) sprite=0x%02X scene='%s'\n",
+                       i, s_scene_npc_bindings[i].name, s_scene_npc_bindings[i].npc_idx,
+                       (unsigned)s_scene_npc_bindings[i].map_id,
+                       s_scene_npc_bindings[i].tile_x, s_scene_npc_bindings[i].tile_y,
+                       (unsigned)s_scene_npc_bindings[i].sprite_id,
+                       s_scene_npc_bindings[i].scene);
+            }
+            if (!any) printf("[cli] scene_npc list: empty\n");
+        } else if (strcmp(sub, "clear") == 0) {
+            char name[24] = {0};
+            int cleared = 0;
+            if (!cli_parse_arg(cmd, 2, name, sizeof(name))) {
+                for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+                    if (!s_scene_npc_bindings[i].used) continue;
+                    NPC_DebugDespawn(s_scene_npc_bindings[i].npc_idx);
+                    memset(&s_scene_npc_bindings[i], 0, sizeof(s_scene_npc_bindings[i]));
+                    cleared++;
+                }
+                printf("[cli] scene_npc clear: cleared all (%d)\n", cleared);
+            } else {
+                for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+                    if (!s_scene_npc_bindings[i].used) continue;
+                    if (strcmp(s_scene_npc_bindings[i].name, name) != 0) continue;
+                    NPC_DebugDespawn(s_scene_npc_bindings[i].npc_idx);
+                    memset(&s_scene_npc_bindings[i], 0, sizeof(s_scene_npc_bindings[i]));
+                    cleared++;
+                }
+                printf("[cli] scene_npc clear: name='%s' cleared=%d\n", name, cleared);
+            }
+            if (s_dsl_bank_enabled) dsl_bank_save();
+        } else {
+            printf("[cli] scene_npc usage:\n");
+            printf("      scene_npc add <name> <scene> <sprite> <x_expr> <y_expr>\n");
+            printf("      scene_npc list\n");
+            printf("      scene_npc clear [name]\n");
+        }
         write_state();
         return;
     }
@@ -2002,7 +3179,7 @@ static void process_cmd(const char *cmd) {
         char name[64] = {0};
         int ncmd;
         if (!cli_parse_arg(cmd, 1, name, sizeof(name))) {
-            printf("[cli] scene_run usage: scene_run <name>  (loads bugs/scenes/<name>.scene)\n");
+            printf("[cli] scene_run usage: scene_run <name>  (loads debug/scenes/<name>.scene)\n");
             write_state();
             return;
         }
@@ -2023,6 +3200,7 @@ static void process_cmd(const char *cmd) {
         if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) {
             printf("[cli] scene_trigger usage:\n");
             printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]\n");
+            printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> when event_set|event_clear <event> [map]\n");
             printf("      scene_trigger list\n");
             printf("      scene_trigger clear [scene]\n");
             printf("      x_expr/y_expr: number or player.x[+/-n], player.y[+/-n]\n");
@@ -2030,10 +3208,12 @@ static void process_cmd(const char *cmd) {
             return;
         }
         if (strcmp(sub, "set") == 0) {
-            char scene[64] = {0}, marker[24] = {0}, xexpr[32] = {0}, yexpr[32] = {0}, maptok[64] = {0};
+            char scene[64] = {0}, marker[24] = {0}, xexpr[32] = {0}, yexpr[32] = {0}, tok6[64] = {0}, maptok[64] = {0};
             int map_id = (int)wCurMap;
             int x = 0, y = 0;
             int ncmd, slot;
+            uint8_t cond_kind = 0;
+            uint16_t cond_event = 0;
             if (!cli_parse_arg(cmd, 2, scene, sizeof(scene)) ||
                 !cli_parse_arg(cmd, 3, marker, sizeof(marker)) ||
                 !cli_parse_arg(cmd, 4, xexpr, sizeof(xexpr)) ||
@@ -2052,11 +3232,41 @@ static void process_cmd(const char *cmd) {
                 write_state();
                 return;
             }
-            if (cli_parse_arg(cmd, 6, maptok, sizeof(maptok))) {
-                if (!cli_resolve_map_token(maptok, &map_id)) {
-                    printf("[cli] scene_trigger set: unknown map '%s'\n", maptok);
-                    write_state();
-                    return;
+            if (cli_parse_arg(cmd, 6, tok6, sizeof(tok6))) {
+                if (strcmp(tok6, "when") == 0 || strcmp(tok6, "if") == 0) {
+                    char condtok[24] = {0}, eventtok[96] = {0}, mapafter[64] = {0};
+                    if (!cli_parse_arg(cmd, 7, condtok, sizeof(condtok)) ||
+                        !cli_parse_arg(cmd, 8, eventtok, sizeof(eventtok))) {
+                        printf("[cli] scene_trigger set: usage ... when event_set|event_clear <event> [map]\n");
+                        write_state();
+                        return;
+                    }
+                    if (strcmp(condtok, "event_set") == 0 || strcmp(condtok, "set") == 0) cond_kind = 1;
+                    else if (strcmp(condtok, "event_clear") == 0 || strcmp(condtok, "clear") == 0) cond_kind = 2;
+                    else {
+                        printf("[cli] scene_trigger set: expected event_set or event_clear\n");
+                        write_state();
+                        return;
+                    }
+                    if (!cli_resolve_event_token(eventtok, &cond_event)) {
+                        printf("[cli] scene_trigger set: unknown event '%s'\n", eventtok);
+                        write_state();
+                        return;
+                    }
+                    if (cli_parse_arg(cmd, 9, mapafter, sizeof(mapafter))) {
+                        if (!cli_resolve_map_token(mapafter, &map_id)) {
+                            printf("[cli] scene_trigger set: unknown map '%s'\n", mapafter);
+                            write_state();
+                            return;
+                        }
+                    }
+                } else {
+                    snprintf(maptok, sizeof(maptok), "%s", tok6);
+                    if (!cli_resolve_map_token(maptok, &map_id)) {
+                        printf("[cli] scene_trigger set: unknown map '%s'\n", maptok);
+                        write_state();
+                        return;
+                    }
                 }
             }
             /* Validate scene exists now so trigger failures are obvious. */
@@ -2079,15 +3289,35 @@ static void process_cmd(const char *cmd) {
             s_scene_triggers[slot].x = x;
             s_scene_triggers[slot].y = y;
             s_scene_triggers[slot].armed = 1;
-            printf("[cli] scene_trigger set: '%s' @ map=%u (%d,%d)\n", scene, (unsigned)map_id, x, y);
+            s_scene_triggers[slot].cond_kind = cond_kind;
+            s_scene_triggers[slot].cond_event = cond_event;
+            if (cond_kind == 1) {
+                printf("[cli] scene_trigger set: '%s' @ map=%u (%d,%d) when event_set %s (%u)\n",
+                       scene, (unsigned)map_id, x, y, EventFlagName(cond_event), (unsigned)cond_event);
+            } else if (cond_kind == 2) {
+                printf("[cli] scene_trigger set: '%s' @ map=%u (%d,%d) when event_clear %s (%u)\n",
+                       scene, (unsigned)map_id, x, y, EventFlagName(cond_event), (unsigned)cond_event);
+            } else {
+                printf("[cli] scene_trigger set: '%s' @ map=%u (%d,%d)\n", scene, (unsigned)map_id, x, y);
+            }
         } else if (strcmp(sub, "list") == 0) {
             int any = 0;
             for (int i = 0; i < SCENE_TRIGGER_MAX; i++) {
                 if (!s_scene_triggers[i].used) continue;
                 any = 1;
-                printf("[cli] scene_trigger[%d]: '%s' map=%u (%d,%d) armed=%d\n",
+                printf("[cli] scene_trigger[%d]: '%s' map=%u (%d,%d) armed=%d",
                        i, s_scene_triggers[i].scene, (unsigned)s_scene_triggers[i].map_id,
                        s_scene_triggers[i].x, s_scene_triggers[i].y, s_scene_triggers[i].armed);
+                if (s_scene_triggers[i].cond_kind == 1) {
+                    printf(" when event_set %s (%u)",
+                           EventFlagName(s_scene_triggers[i].cond_event),
+                           (unsigned)s_scene_triggers[i].cond_event);
+                } else if (s_scene_triggers[i].cond_kind == 2) {
+                    printf(" when event_clear %s (%u)",
+                           EventFlagName(s_scene_triggers[i].cond_event),
+                           (unsigned)s_scene_triggers[i].cond_event);
+                }
+                printf("\n");
             }
             if (!any) printf("[cli] scene_trigger list: empty\n");
         } else if (strcmp(sub, "clear") == 0) {
@@ -2109,6 +3339,7 @@ static void process_cmd(const char *cmd) {
         } else {
             printf("[cli] scene_trigger usage:\n");
             printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]\n");
+            printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> when event_set|event_clear <event> [map]\n");
             printf("      scene_trigger list\n");
             printf("      scene_trigger clear [scene]\n");
         }
@@ -3587,6 +4818,12 @@ static void poll_cmd_file(void) {
 /* ---- Public tick -------------------------------------------------- */
 
 void DebugCLI_Tick(void) {
+    dsl_bank_init_if_needed();
+    if (s_dsl_bank_enabled && s_dsl_bank_last_map != wCurMap) {
+        dsl_bank_ensure_current_map_spawns();
+        s_dsl_bank_last_map = wCurMap;
+    }
+
     /* Feed sequence into injection globals one frame at a time.
      * DebugCLI_Tick runs after Input_Update, so whatever we set here
      * is consumed by Input_Update on the NEXT frame. */
@@ -3653,7 +4890,62 @@ void DebugCLI_Tick(void) {
     }
 
     if (s_scene_active) {
-        if (s_scene_wait > 0) {
+        scene_track_actor_positions();
+        if (s_scene_battlestart_pending) {
+            if (Text_IsOpen()) {
+                s_scene_battlestart_saw_text = 1;
+            } else if (!s_scene_battlestart_delay) {
+                /* First clean frame after text has closed (or immediately if no text). */
+                s_scene_battlestart_delay = 1;
+            } else {
+                const char *defeat_text = s_scene_cmds[s_scene_pc].text;
+                scene_start_trainer_battle(s_scene_battlestart_tc, s_scene_battlestart_tn, defeat_text);
+                s_scene_wait_battle = 1;
+                s_scene_battlestart_pending = 0;
+                s_scene_battlestart_saw_text = 0;
+                s_scene_battlestart_delay = 0;
+                s_scene_pc++;
+                printf("[cli] scene battlestart: class=%d no=%d\n",
+                       s_scene_battlestart_tc, s_scene_battlestart_tn);
+            }
+        } else if (s_scene_wait_say) {
+            if (Text_IsOpen()) s_scene_say_opened = 1;
+            if (s_scene_say_opened && !Text_IsOpen()) {
+                s_scene_wait_say = 0;
+                s_scene_say_opened = 0;
+            }
+        } else if (s_scene_wait_battle) {
+            int sc = get_scene();
+            if (sc == 2 || BattleUI_IsActive())
+                s_scene_battle_started = 1;
+            /* Only release once we've actually entered battle at least once
+             * and then returned to overworld. */
+            if (s_scene_battle_started && sc == 0 && !BattleUI_IsActive()) {
+                scene_restore_spawned_actors_after_battle();
+                s_scene_wait_battle = 0;
+                s_scene_battle_started = 0;
+            }
+        } else if (s_scene_wait_battleend_text) {
+            if (!Text_IsOpen()) {
+                s_scene_wait_battleend_text = 0;
+                printf("[scene] battlend\n");
+            }
+        } else if (s_scene_wait_yesno) {
+            YesNo_Tick();
+            if (!YesNo_IsOpen()) {
+                s_scene_last_yesno = YesNo_GetResult() ? 1 : 0;
+                s_scene_wait_yesno = 0;
+                if (s_scene_yesno_restore_joyignore) {
+                    wJoyIgnore = s_scene_yesno_prev_joyignore;
+                    s_scene_yesno_restore_joyignore = 0;
+                }
+                if (s_scene_yesno_restore_scripted_movement) {
+                    gScriptedMovement = s_scene_yesno_prev_scripted_movement;
+                    s_scene_yesno_restore_scripted_movement = 0;
+                }
+                printf("[cli] scene ask result: %s\n", s_scene_last_yesno ? "yes" : "no");
+            }
+        } else if (s_scene_wait > 0) {
             s_scene_wait--;
         } else if (s_scene_move_steps_left > 0) {
             if (s_scene_move_actor < 0 || s_scene_move_actor >= SCENE_ACTOR_MAX || !s_scene_actors[s_scene_move_actor].used) {
@@ -3677,13 +4969,37 @@ void DebugCLI_Tick(void) {
                 scene_cmd_t *cmd = &s_scene_cmds[s_scene_pc];
                 switch (cmd->op) {
                     case SCOP_SPAWN: {
-                        int idx = NPC_DebugSpawn((uint8_t)cmd->a, cmd->b, cmd->c, 0, 0);
-                        scene_add_actor(cmd->actor, idx);
+                        int idx = -1;
+                        int spawned_new = 0;
+                        int ai_prev = scene_find_actor(cmd->actor);
+                        if (ai_prev >= 0 && s_scene_actors[ai_prev].used) {
+                            idx = s_scene_actors[ai_prev].npc_idx;
+                        }
+                        if (idx < 0) {
+                            /* Reuse an NPC already occupying this tile to avoid
+                             * stacked duplicate sprites during interaction scenes. */
+                            idx = NPC_FindAtTile(cmd->b, cmd->c);
+                        }
+                        if (idx < 0) {
+                            idx = NPC_DebugSpawn((uint8_t)cmd->a, cmd->b, cmd->c, 0, 0);
+                            if (idx >= 0) spawned_new = 1;
+                        }
+                        {
+                            int ai = scene_add_actor(cmd->actor, idx);
+                            if (ai >= 0) {
+                                /* Only mark scene-owned when we truly spawned one. */
+                                if (spawned_new) s_scene_actors[ai].spawned_by_scene = 1;
+                                s_scene_actors[ai].sprite_id = (uint8_t)cmd->a;
+                                s_scene_actors[ai].last_x = cmd->b;
+                                s_scene_actors[ai].last_y = cmd->c;
+                            }
+                        }
                         s_scene_pc++;
                     } break;
                     case SCOP_DESPAWN: {
                         int ai = scene_find_actor(cmd->actor);
                         if (ai >= 0) NPC_DebugDespawn(s_scene_actors[ai].npc_idx);
+                        if (ai >= 0) s_scene_actors[ai].spawned_by_scene = 0;
                         s_scene_pc++;
                     } break;
                     case SCOP_FACE: {
@@ -3691,11 +5007,10 @@ void DebugCLI_Tick(void) {
                         if (ai >= 0) {
                             int dir = cmd->a;
                             if (dir == -2) {
-                                dir = (wPlayerDirection == 4) ? 1 :
-                                      (wPlayerDirection == 8) ? 2 :
-                                      (wPlayerDirection == 12) ? 3 : 0;
+                                NPC_FacePlayer(s_scene_actors[ai].npc_idx);
+                            } else {
+                                NPC_SetFacing(s_scene_actors[ai].npc_idx, dir);
                             }
-                            NPC_SetFacing(s_scene_actors[ai].npc_idx, dir);
                         }
                         s_scene_pc++;
                     } break;
@@ -3708,10 +5023,64 @@ void DebugCLI_Tick(void) {
                         if (s_scene_move_steps_left <= 0) s_scene_pc++;
                     } break;
                     case SCOP_SAY:
-                        if (!Text_IsOpen()) {
+                        if (!Text_IsOpen() && !s_scene_wait_say) {
                             Text_ShowASCII(cmd->text);
+                            s_scene_wait_say = 1;
+                            s_scene_say_opened = Text_IsOpen() ? 1 : 0;
                             s_scene_pc++;
                         }
+                        break;
+                    case SCOP_ASK:
+                        if (!Text_IsOpen() && !YesNo_IsOpen()) {
+                            s_scene_yesno_prev_joyignore = wJoyIgnore;
+                            s_scene_yesno_restore_joyignore = 1;
+                            s_scene_yesno_prev_scripted_movement = gScriptedMovement;
+                            s_scene_yesno_restore_scripted_movement = 1;
+                            /* Freeze player movement during ask prompt, but keep
+                             * UP/DOWN available for Yes/No cursor selection. */
+                            gScriptedMovement = 1;
+                            wJoyIgnore = (uint8_t)(wJoyIgnore & (uint8_t)~(PAD_UP | PAD_DOWN));
+                            YesNo_Show(cmd->text);
+                            s_scene_wait_yesno = 1;
+                            s_scene_pc++;
+                        }
+                        break;
+                    case SCOP_BATTLESTART: {
+                        if (cmd->c == 1) {
+                            scene_start_custom_trainer_battle(cmd);
+                            s_scene_wait_battle = 1;
+                            s_scene_pc++;
+                            printf("[cli] scene battlestart: custom team count=%u\n", (unsigned)cmd->team_count);
+                        } else {
+                            int tc = cmd->a;
+                            int tn = cmd->b;
+                            if (tc == -1) {
+                                if (!scene_pick_random_map_trainer(&tc, &tn)) {
+                                    tc = 34; tn = 1; /* fallback to Brock */
+                                }
+                            }
+                            if (tc < 1) tc = 34;
+                            if (tc > NUM_TRAINERS) tc = NUM_TRAINERS;
+                            if (tn < 1) tn = 1;
+                            s_scene_battlestart_tc = tc;
+                            s_scene_battlestart_tn = tn;
+                            s_scene_battlestart_pending = 1;
+                            s_scene_battlestart_saw_text = Text_IsOpen() ? 1 : 0;
+                            s_scene_battlestart_delay = 0;
+                        }
+                    } break;
+                    case SCOP_BATTLEEND:
+                        if (get_scene() == 2 || BattleUI_IsActive()) break;
+                        if (Game_IsWarpFadeActive()) break;
+                        if (!Text_IsOpen()) {
+                            Text_ShowASCII(cmd->text);
+                            s_scene_wait_battleend_text = 1;
+                            s_scene_pc++;
+                        }
+                        break;
+                    case SCOP_MUSIC:
+                        Music_Play((uint8_t)cmd->a);
+                        s_scene_pc++;
                         break;
                     case SCOP_WAIT:
                         s_scene_wait = (cmd->a < 0) ? 0 : cmd->a;
@@ -3742,6 +5111,8 @@ void DebugCLI_Tick(void) {
             scene_trigger_t *t = &s_scene_triggers[i];
             if (!t->used) continue;
             if ((int)t->map_id != (int)wCurMap) continue;
+            if (t->cond_kind == 1 && !CheckEvent(t->cond_event)) continue;
+            if (t->cond_kind == 2 && CheckEvent(t->cond_event)) continue;
             if ((int)wXCoord == t->x && (int)wYCoord == t->y) {
                 if (!t->armed) continue;
                 scene_reset_runtime();
@@ -3876,6 +5247,32 @@ void DebugCLI_Tick(void) {
             poll_cmd_file();
         }
     }
+}
+
+int DebugCLI_OnNpcInteracted(int npc_idx) {
+    int bi;
+    int ncmd;
+    if (npc_idx < 0) return 0;
+    bi = scene_npc_binding_find_by_idx(npc_idx);
+    if (bi < 0) return 0;
+    if (s_scene_active) return 1;
+    scene_reset_runtime();
+    ncmd = scene_load_file(s_scene_npc_bindings[bi].scene);
+    if (ncmd <= 0) {
+        printf("[cli] scene_npc interact: failed to load scene '%s'\n",
+               s_scene_npc_bindings[bi].scene);
+        return 1;
+    }
+    s_scene_active = 1;
+    s_scene_pc = 0;
+    printf("[cli] scene_npc interact: '%s' -> scene '%s' (%d command(s))\n",
+           s_scene_npc_bindings[bi].name, s_scene_npc_bindings[bi].scene, ncmd);
+    return 1;
+}
+
+void DebugCLI_PostRender(void) {
+    if (s_scene_wait_yesno && YesNo_IsOpen())
+        YesNo_PostRender();
 }
 
 /* ---- Console public API ------------------------------------------ */

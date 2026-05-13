@@ -423,3 +423,42 @@ void Battle_StartTrainer(uint8_t trainer_class, uint8_t trainer_no) {
     wEnemyMonPartyPos = 0xFF;
     Battle_EnemySendOut_State();
 }
+
+void Battle_StartTrainerCustomDebug(uint8_t trainer_class,
+                                    const uint8_t species[6],
+                                    const uint8_t level[6],
+                                    const uint8_t moves[6][4],
+                                    uint8_t count) {
+    /* Reuse trainer battle core init path, then replace enemy party payload. */
+    if (trainer_class < 1 || trainer_class > NUM_TRAINERS) trainer_class = 34;
+    Battle_StartTrainer(trainer_class, 1);
+
+    memset(wEnemyMons, 0, sizeof(wEnemyMons));
+    wEnemyPartyCount = 0;
+
+    if (count > PARTY_LENGTH) count = PARTY_LENGTH;
+    for (uint8_t i = 0; i < count; i++) {
+        uint8_t sp = species ? species[i] : 0;
+        uint8_t lv = level ? level[i] : 0;
+        if (sp == 0 || lv == 0) continue;
+        Pokemon_InitMon(&wEnemyMons[wEnemyPartyCount], sp, lv);
+        if (moves) {
+            for (int m = 0; m < 4; m++) {
+                uint8_t mv = moves[i][m];
+                wEnemyMons[wEnemyPartyCount].base.moves[m] = mv;
+                wEnemyMons[wEnemyPartyCount].base.pp[m] =
+                    (mv && mv < NUM_MOVE_DEFS) ? gMoves[mv].pp : 0;
+            }
+        }
+        wEnemyPartyCount++;
+    }
+
+    if (wEnemyPartyCount == 0) {
+        Pokemon_InitMon(&wEnemyMons[0], STARTER1, 5);
+        wEnemyPartyCount = 1;
+    }
+
+    wEnemyMonPartyPos = 0xFF;
+    Battle_EnemySendOut_State();
+    wAmountMoneyWon = 0;
+}

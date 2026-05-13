@@ -18,7 +18,7 @@ Related runtime APIs:
 
 The scene system is an in-engine interpreter embedded in Debug CLI:
 
-1. `scene_run <name>` loads `bugs/scenes/<name>.scene`
+1. `scene_run <name>` loads `debug/scenes/<name>.scene`
 2. file lines are parsed into an in-memory command buffer
 3. a per-frame interpreter in `DebugCLI_Tick()` advances commands
 4. commands mutate live runtime state (NPCs, text, input mask)

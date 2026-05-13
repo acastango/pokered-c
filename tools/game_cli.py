@@ -37,6 +37,7 @@ import sys
 import os
 import time
 import argparse
+from dataclasses import dataclass
 
 TIMEOUT    = 10.0  # seconds to wait for state update
 
@@ -61,12 +62,20 @@ STATE_FILE = f"{_BUGS}/cli_state.txt"
 TELE_FILE  = f"{_BUGS}/teleport.txt"
 
 
+@dataclass
+class CommandResult:
+    ok: bool
+    consumed: bool
+    state_updated: bool
+    message: str
+
+
 def ensure_bugs_dir():
     os.makedirs(_BUGS, exist_ok=True)
 
 
-def send_command(cmd: str) -> bool:
-    """Write cmd file and wait for game to consume it (it deletes the file)."""
+def send_command(cmd: str) -> CommandResult:
+    """Write cmd file and report consume/update status."""
     ensure_bugs_dir()
     # Get current state mtime so we can detect an update
     try:
@@ -87,11 +96,21 @@ def send_command(cmd: str) -> bool:
                 try:
                     after = os.path.getmtime(STATE_FILE)
                     if after > before:
-                        return True
+                        return CommandResult(
+                            ok=True,
+                            consumed=True,
+                            state_updated=True,
+                            message="command consumed; state updated",
+                        )
                 except FileNotFoundError:
                     pass
                 time.sleep(0.05)
-            return True  # cmd was consumed even if state write timed out
+            return CommandResult(
+                ok=True,
+                consumed=True,
+                state_updated=False,
+                message="command consumed; state update not observed before timeout",
+            )
         time.sleep(0.05)
 
     # Timed out — remove stale cmd file
@@ -99,7 +118,12 @@ def send_command(cmd: str) -> bool:
         os.remove(CMD_FILE)
     except FileNotFoundError:
         pass
-    return False
+    return CommandResult(
+        ok=False,
+        consumed=False,
+        state_updated=False,
+        message="timed out waiting for game to consume command",
+    )
 
 
 NAMED_LOCATIONS = {
@@ -173,7 +197,11 @@ def send_teleport(args_str: str):
     cmd = "teleport " + " ".join(parts)
 
     print(f"[cli] Teleport: {cmd}")
-    send_command(cmd)
+    res = send_command(cmd)
+    if res.ok:
+        print(f"[cli] OK: {res.message}")
+    else:
+        print(f"[cli] ERROR: {res.message}")
     time.sleep(0.3)
     show_state()
 
@@ -201,9 +229,11 @@ def run_command(raw: str) -> bool:
         send_teleport(rest)
         return True
 
-    ok = send_command(cmd)
-    if not ok:
-        print("[cli] Timed out — is the game running?")
+    res = send_command(cmd)
+    if res.ok:
+        print(f"[cli] OK: {res.message}")
+    else:
+        print(f"[cli] ERROR: {res.message}. Is the game running?")
     show_state()
     return True
 

@@ -80,3 +80,7 @@ int Player_IsSimulatingMovement(void);
 
 /* Enable/disable spinner-facing animation while movement is in progress. */
 void Player_SetSpinnerSpin(int enabled);
+
+/* Debug: when enabled, holding B (keyboard X) doubles overworld step speed. */
+void Player_SetHoldBSprintEnabled(int enabled);
+int  Player_GetHoldBSprintEnabled(void);

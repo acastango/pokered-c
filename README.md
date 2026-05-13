@@ -169,7 +169,7 @@ cd build && ctest
 
 The debug CLI includes a lightweight scene system that can auto-trigger scene scripts on specific world tiles without editing map-script C modules.
 
-- `scene_run <name>` runs `bugs/scenes/<name>.scene`
+- `scene_run <name>` runs `debug/scenes/<name>.scene`
 - `scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]` registers a tile trigger
 - `scene_trigger list` / `scene_trigger clear [scene]` inspect or remove trigger points
 

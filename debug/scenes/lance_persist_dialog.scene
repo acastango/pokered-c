@@ -1,0 +1,12 @@
+# Persistent talk scene for a Lance NPC bound via scene_npc.
+# Use with:
+#   dsl_bank on
+#   scene_npc add lance_persist lance_persist_dialog LANCE player+1 player+0
+# Then talk with A.
+
+face lance_persist player
+say "I am LANCE of the ELITE FOUR!@"
+wait_text
+say "This debug NPC is persistent while dsl_bank is on.@"
+wait_text
+end
