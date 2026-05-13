@@ -330,6 +330,44 @@ int NPC_IsWalking(int i) {
 
 int NPC_GetCount(void) { return npc_count; }
 
+int NPC_DebugSpawn(uint8_t sprite_id, int tx, int ty, int facing, int move_type) {
+    int i;
+    if (npc_count < 0) npc_count = 0;
+    if (npc_count >= MAX_NPCS) return -1;
+    if (tx < 0 || ty < 0) return -1;
+
+    i = npc_count++;
+    npc_sprite[i]      = sprite_id;
+    npc_x[i]           = (uint8_t)tx;
+    npc_y[i]           = (uint8_t)ty;
+    npc_facing[i]      = (uint8_t)(facing & 3);
+    npc_move_type[i]   = (uint8_t)(move_type ? 1 : 0);
+    npc_move_timer[i]  = NPC_MOVE_DELAY_MIN;
+    npc_walk_frames[i] = 0;
+    npc_walk_total[i]  = 0;
+    npc_step_px[i]     = 0;
+    npc_px_off[i]      = 0;
+    npc_py_off[i]      = 0;
+    npc_hidden[i]      = 0;
+    reload_npc_tiles(i);
+    apply_npc_oam_facing(i);
+    return i;
+}
+
+void NPC_DebugDespawn(int i) {
+    if (i < 0 || i >= npc_count) return;
+    npc_hidden[i] = 1;
+    NPC_HideSprite(i);
+    npc_walk_frames[i] = 0;
+    npc_px_off[i] = 0;
+    npc_py_off[i] = 0;
+
+    /* Compact hidden tail slots so repeated debug spawns don't consume all slots. */
+    while (npc_count > 0 && npc_hidden[npc_count - 1]) {
+        npc_count--;
+    }
+}
+
 void NPC_DoScriptedStep(int i, int dir) {
     if (i < 0 || i >= npc_count) return;
     if (npc_walk_frames[i] > 0) return;  /* already mid-step */

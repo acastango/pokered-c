@@ -38,6 +38,8 @@
 #include "pokemontower7f_scripts.h"
 #include "mrfujis_house_scripts.h"
 #include "saffron_city_scripts.h"
+#include "gate_scripts.h"
+#include "gym_scripts.h"
 #include "../data/base_stats.h" /* gSpeciesToDex */
 #include "../data/map_data.h"       /* gMapTable */
 #include "../data/event_data.h"    /* map_events_t, gMapEvents */
@@ -49,6 +51,7 @@
 #include "../platform/save.h"
 #include "../game/constants.h"
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -98,6 +101,73 @@ static void seq_clear(void) { s_seq_len = 0; s_seq_pos = 0; }
 static int s_poll_timer     = 0;
 static int s_wait_remaining = 0;
 static int s_pending_write  = 0;
+static int s_script_trace_enabled = 0;
+static int s_script_trace_to_file = 0;
+static uint8_t s_trace_prev_map = 0xFF;
+static uint8_t s_trace_prev_trainer_engaging = 0xFF;
+static uint8_t s_trace_prev_text_open = 0xFF;
+static uint8_t s_trace_prev_gate_active = 0xFF;
+static uint8_t s_trace_prev_route22_active = 0xFF;
+static uint8_t s_trace_prev_route24_active = 0xFF;
+static uint8_t s_trace_prev_ssanne_active = 0xFF;
+static uint8_t s_trace_prev_viridian_mart_active = 0xFF;
+static uint8_t s_trace_prev_gym_active = 0xFF;
+static uint8_t s_trace_prev_rockethideout_b4f_active = 0xFF;
+static int s_temp_npc_walkoff_active = 0;
+static int s_temp_npc_walkoff_idx = -1;
+static int s_temp_npc_walkoff_phase = 0; /* 0=none,1=spawned_wait_text_open,2=wait_text_close,3=walkoff */
+static int s_temp_npc_walkoff_pretext_frames = 0;
+
+/* ---- Simple debug scene runner ------------------------------------ */
+#define SCENE_CMD_MAX 128
+#define SCENE_ACTOR_MAX 16
+typedef enum scene_op_t {
+    SCOP_NOP = 0,
+    SCOP_SPAWN,
+    SCOP_DESPAWN,
+    SCOP_FACE,
+    SCOP_MOVE,
+    SCOP_SAY,
+    SCOP_WAIT,
+    SCOP_WAIT_TEXT,
+    SCOP_LOCK_INPUT,
+    SCOP_END
+} scene_op_t;
+typedef struct scene_cmd_t {
+    scene_op_t op;
+    char actor[24];
+    int a, b, c;
+    char text[160];
+} scene_cmd_t;
+typedef struct scene_actor_t {
+    int used;
+    char name[24];
+    int npc_idx;
+} scene_actor_t;
+static int s_scene_active = 0;
+static scene_cmd_t s_scene_cmds[SCENE_CMD_MAX];
+static int s_scene_cmd_count = 0;
+static int s_scene_pc = 0;
+static int s_scene_wait = 0;
+static int s_scene_move_steps_left = 0;
+static int s_scene_move_dir = 0;
+static int s_scene_move_actor = -1;
+static scene_actor_t s_scene_actors[SCENE_ACTOR_MAX];
+/* ---- Scene trigger points (tile based, debug-only wrapper layer) -- */
+#define SCENE_TRIGGER_MAX 16
+typedef struct scene_trigger_t {
+    int used;
+    char scene[64];
+    uint8_t map_id;
+    int x;
+    int y;
+    int armed;
+} scene_trigger_t;
+static scene_trigger_t s_scene_triggers[SCENE_TRIGGER_MAX];
+
+#define SCRIPT_TRACE_LOG_PATH "bugs/script_trace.log"
+#define SCRIPT_TRACE_LOG_PATH_OLD "bugs/script_trace.log.1"
+#define SCRIPT_TRACE_MAX_BYTES (256 * 1024)
 
 /* ---- Deterministic replay --------------------------------------- */
 #define REPLAY_MAGIC   0x31504C52u /* "RLP1" */
@@ -267,6 +337,47 @@ static const char *bui_state_name(int s) {
         case 32: return "END";
         default: return "?";
     }
+}
+
+static int debugcli_start_npc_walkoff(int print_log) {
+    int spawn_x = (int)wXCoord + 1;
+    int spawn_y = (int)wYCoord;
+    int npc_face = 0;
+    int idx;
+    if (s_temp_npc_walkoff_active && s_temp_npc_walkoff_idx >= 0) {
+        NPC_DebugDespawn(s_temp_npc_walkoff_idx);
+        s_temp_npc_walkoff_active = 0;
+        s_temp_npc_walkoff_idx = -1;
+        s_temp_npc_walkoff_phase = 0;
+        s_temp_npc_walkoff_pretext_frames = 0;
+    }
+    if (wPlayerDirection == 0) npc_face = 0;          /* down */
+    else if (wPlayerDirection == 4) npc_face = 1;     /* up */
+    else if (wPlayerDirection == 8) npc_face = 2;     /* left */
+    else if (wPlayerDirection == 12) npc_face = 3;    /* right */
+    idx = NPC_DebugSpawn(0x01, spawn_x, spawn_y, npc_face, 0 /* stay */);
+    if (idx < 0) {
+        if (print_log) printf("[cli] npc_walkoff: failed to spawn NPC (no free slot?)\n");
+        return 0;
+    }
+    s_temp_npc_walkoff_active = 1;
+    s_temp_npc_walkoff_idx = idx;
+    s_temp_npc_walkoff_phase = 1;
+    s_temp_npc_walkoff_pretext_frames = 24; /* explicit visible beat before dialogue */
+    wJoyIgnore = PAD_CTRL_PAD; /* lock movement, keep A/B for text flow */
+    if (print_log) {
+        printf("[cli] npc_walkoff: spawned npc idx=%d at (%d,%d), dialogue->walkoff sequence started\n",
+               idx, spawn_x, spawn_y);
+    }
+    return 1;
+}
+
+int DebugCLI_TriggerNpcWalkoff(void) {
+    return debugcli_start_npc_walkoff(0);
+}
+
+int DebugCLI_IsNpcWalkoffActive(void) {
+    return s_temp_npc_walkoff_active;
 }
 
 static const char *hittrace_reason_name(uint8_t r) {
@@ -613,6 +724,46 @@ static void replay_reset_recording(void) {
     s_replay_tmp_input[0] = '\0';
 }
 
+static void cli_script_trace_reset_latches(void) {
+    s_trace_prev_map = 0xFF;
+    s_trace_prev_trainer_engaging = 0xFF;
+    s_trace_prev_text_open = 0xFF;
+    s_trace_prev_gate_active = 0xFF;
+    s_trace_prev_route22_active = 0xFF;
+    s_trace_prev_route24_active = 0xFF;
+    s_trace_prev_ssanne_active = 0xFF;
+    s_trace_prev_viridian_mart_active = 0xFF;
+    s_trace_prev_gym_active = 0xFF;
+    s_trace_prev_rockethideout_b4f_active = 0xFF;
+}
+
+static void cli_script_trace_log_line(const char *line) {
+    FILE *fp;
+    struct stat st;
+    if (!line || !*line) return;
+    if (!s_script_trace_to_file) return;
+
+    if (stat(SCRIPT_TRACE_LOG_PATH, &st) == 0 && st.st_size >= SCRIPT_TRACE_MAX_BYTES) {
+        remove(SCRIPT_TRACE_LOG_PATH_OLD);
+        rename(SCRIPT_TRACE_LOG_PATH, SCRIPT_TRACE_LOG_PATH_OLD);
+    }
+
+    fp = fopen(SCRIPT_TRACE_LOG_PATH, "a");
+    if (!fp) return;
+    fprintf(fp, "%s\n", line);
+    fclose(fp);
+}
+
+static void cli_script_trace_emitf(const char *fmt, ...) {
+    va_list ap;
+    char buf[192];
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    printf("%s\n", buf);
+    cli_script_trace_log_line(buf);
+}
+
 static int replay_start_record(const char *name) {
     char clean[96] = {0};
     if (!name || !*name) return -1;
@@ -756,6 +907,341 @@ static int replay_start_play(const char *name) {
     s_replay_playing = 1;
     s_replay_play_pos = 0;
     s_replay_play_len = hdr.input_frames;
+    return 0;
+}
+
+typedef struct cli_eventdiff_snapshot_t {
+    int valid;
+    uint8_t badges;
+    uint8_t map;
+    uint8_t x;
+    uint8_t y;
+    uint8_t party_count;
+    uint8_t key_flags[15];
+} cli_eventdiff_snapshot_t;
+
+static cli_eventdiff_snapshot_t s_eventdiff = {0};
+
+static const uint16_t s_eventdiff_keys[15] = {
+    EVENT_GOT_POKEDEX,
+    EVENT_BEAT_BROCK,
+    EVENT_BEAT_MISTY,
+    EVENT_BEAT_LT_SURGE,
+    EVENT_BEAT_ERIKA,
+    EVENT_BEAT_KOGA,
+    EVENT_BEAT_BLAINE,
+    EVENT_BEAT_SABRINA,
+    EVENT_GOT_HM01,
+    EVENT_GOT_TM34,
+    EVENT_GOT_TM11,
+    EVENT_GOT_TM24,
+    EVENT_GOT_TM21,
+    EVENT_GOT_TM06,
+    EVENT_GOT_TM38
+};
+
+static void cli_gym_clear(const char *name) {
+    if (strcmp(name, "brock") == 0) {
+        ClearEvent(EVENT_BEAT_BROCK);
+        ClearEvent(EVENT_GOT_TM34);
+        ClearEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_BOULDER);
+    } else if (strcmp(name, "misty") == 0) {
+        ClearEvent(EVENT_BEAT_MISTY);
+        ClearEvent(EVENT_GOT_TM11);
+        ClearEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+        ClearEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_CASCADE);
+    } else if (strcmp(name, "surge") == 0) {
+        ClearEvent(EVENT_BEAT_LT_SURGE);
+        ClearEvent(EVENT_GOT_TM24);
+        ClearEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+        ClearEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+        ClearEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_THUNDER);
+    } else if (strcmp(name, "erika") == 0) {
+        ClearEvent(EVENT_BEAT_ERIKA);
+        ClearEvent(EVENT_GOT_TM21);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+        ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_RAINBOW);
+    } else if (strcmp(name, "koga") == 0) {
+        ClearEvent(EVENT_BEAT_KOGA);
+        ClearEvent(EVENT_GOT_TM06);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+        ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_SOUL);
+    } else if (strcmp(name, "blaine") == 0) {
+        ClearEvent(EVENT_BEAT_BLAINE);
+        ClearEvent(EVENT_GOT_TM38);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_0);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_1);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_2);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_3);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_4);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_5);
+        ClearEvent(EVENT_BEAT_CINNABAR_GYM_TRAINER_6);
+        wObtainedBadges &= (uint8_t)~(1u << BADGE_VOLCANO);
+    }
+}
+
+static int cli_is_numeric_token(const char *s) {
+    if (!s || !*s) return 0;
+    if (s[0] == '+' || s[0] == '-') s++;
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        s += 2;
+        if (!*s) return 0;
+        while (*s) {
+            if (!((*s >= '0' && *s <= '9') || (*s >= 'a' && *s <= 'f') || (*s >= 'A' && *s <= 'F')))
+                return 0;
+            s++;
+        }
+        return 1;
+    }
+    while (*s) {
+        if (*s < '0' || *s > '9') return 0;
+        s++;
+    }
+    return 1;
+}
+
+static void cli_norm(char *dst, size_t dst_sz, const char *src) {
+    size_t n = 0;
+    if (!dst || dst_sz == 0) return;
+    dst[0] = '\0';
+    if (!src) return;
+    for (size_t i = 0; src[i] && n + 1 < dst_sz; i++) {
+        char c = (char)tolower((unsigned char)src[i]);
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) dst[n++] = c;
+    }
+    dst[n] = '\0';
+}
+
+static char *cli_trim(char *s) {
+    char *e;
+    while (*s == ' ' || *s == '\t' || *s == '\r' || *s == '\n') s++;
+    e = s + strlen(s);
+    while (e > s && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\r' || e[-1] == '\n')) e--;
+    *e = '\0';
+    return s;
+}
+
+static int scene_parse_dir(const char *tok) {
+    if (!tok) return -1;
+    if (strcmp(tok, "down") == 0) return 0;
+    if (strcmp(tok, "up") == 0) return 1;
+    if (strcmp(tok, "left") == 0) return 2;
+    if (strcmp(tok, "right") == 0) return 3;
+    return -1;
+}
+
+static int scene_parse_sprite(const char *tok) {
+    static const struct { const char *name; int id; } k[] = {
+        { "YOUNGSTER", 0x04 }, { "GAMBLER", 0x0B }, { "SUPER_NERD", 0x0C },
+        { "GIRL", 0x0D }, { "COOLTRAINER_M", 0x07 }, { "COOLTRAINER_F", 0x06 },
+        { "ROCKET", 0x18 }, { "GUARD", 0x31 }, { NULL, 0 }
+    };
+    if (!tok || !*tok) return -1;
+    if (cli_is_numeric_token(tok)) return (int)strtol(tok, NULL, 0);
+    for (int i = 0; k[i].name; i++) if (strcmp(tok, k[i].name) == 0) return k[i].id;
+    return -1;
+}
+
+static void scene_unescape_text(char *s) {
+    char out[160];
+    int oi = 0;
+    for (int i = 0; s[i] && oi + 1 < (int)sizeof(out); i++) {
+        if (s[i] == '\\' && s[i + 1]) {
+            char n = s[i + 1];
+            if (n == 'n') { out[oi++] = '\n'; i++; continue; }
+            if (n == 'f') { out[oi++] = '\f'; i++; continue; }
+            if (n == 't') { out[oi++] = '\t'; i++; continue; }
+            if (n == '\\') { out[oi++] = '\\'; i++; continue; }
+            if (n == '"') { out[oi++] = '"'; i++; continue; }
+        }
+        out[oi++] = s[i];
+    }
+    out[oi] = '\0';
+    snprintf(s, 160, "%s", out);
+}
+
+static void scene_reset_runtime(void) {
+    s_scene_active = 0;
+    s_scene_cmd_count = 0;
+    s_scene_pc = 0;
+    s_scene_wait = 0;
+    s_scene_move_steps_left = 0;
+    s_scene_move_dir = 0;
+    s_scene_move_actor = -1;
+    memset(s_scene_actors, 0, sizeof(s_scene_actors));
+}
+
+static int scene_find_actor(const char *name) {
+    for (int i = 0; i < SCENE_ACTOR_MAX; i++) {
+        if (s_scene_actors[i].used && strcmp(s_scene_actors[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
+static int scene_add_actor(const char *name, int npc_idx) {
+    int i = scene_find_actor(name);
+    if (i >= 0) { s_scene_actors[i].npc_idx = npc_idx; return i; }
+    for (i = 0; i < SCENE_ACTOR_MAX; i++) {
+        if (!s_scene_actors[i].used) {
+            s_scene_actors[i].used = 1;
+            snprintf(s_scene_actors[i].name, sizeof(s_scene_actors[i].name), "%s", name);
+            s_scene_actors[i].npc_idx = npc_idx;
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int scene_load_file(const char *name) {
+    char path[192];
+    FILE *fp;
+    char line[256];
+    int lineno = 0;
+    s_scene_cmd_count = 0;
+    snprintf(path, sizeof(path), "bugs/scenes/%s.scene", name);
+    fp = fopen(path, "r");
+    if (!fp) return -1;
+    while (fgets(line, sizeof(line), fp)) {
+        char *s = cli_trim(line);
+        scene_cmd_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        lineno++;
+        if (*s == '\0' || *s == '#') continue;
+        if (s_scene_cmd_count >= SCENE_CMD_MAX) break;
+
+        if (strncmp(s, "spawn ", 6) == 0) {
+            char id[24], sprite[32], x[32], y[32];
+            if (sscanf(s + 6, "%23s %31s %31s %31s", id, sprite, x, y) != 4) continue;
+            cmd.op = SCOP_SPAWN;
+            snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+            cmd.a = scene_parse_sprite(sprite);
+            cmd.b = cli_is_numeric_token(x) ? (int)strtol(x, NULL, 0) : 0;
+            cmd.c = cli_is_numeric_token(y) ? (int)strtol(y, NULL, 0) : 0;
+            if (!cli_is_numeric_token(x) && strncmp(x, "player+", 7) == 0) cmd.b = (int)wXCoord + (int)strtol(x + 7, NULL, 0);
+            if (!cli_is_numeric_token(y) && strncmp(y, "player+", 7) == 0) cmd.c = (int)wYCoord + (int)strtol(y + 7, NULL, 0);
+        } else if (strncmp(s, "despawn ", 8) == 0) {
+            cmd.op = SCOP_DESPAWN;
+            sscanf(s + 8, "%23s", cmd.actor);
+        } else if (strncmp(s, "face ", 5) == 0) {
+            char id[24], dir[24];
+            if (sscanf(s + 5, "%23s %23s", id, dir) != 2) continue;
+            cmd.op = SCOP_FACE;
+            snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+            if (strcmp(dir, "player") == 0) cmd.a = -2; else cmd.a = scene_parse_dir(dir);
+        } else if (strncmp(s, "move ", 5) == 0) {
+            char id[24], dir[24], steps[24];
+            if (sscanf(s + 5, "%23s %23s %23s", id, dir, steps) != 3) continue;
+            cmd.op = SCOP_MOVE;
+            snprintf(cmd.actor, sizeof(cmd.actor), "%s", id);
+            cmd.a = scene_parse_dir(dir);
+            cmd.b = (int)strtol(steps, NULL, 0);
+        } else if (strncmp(s, "say ", 4) == 0) {
+            cmd.op = SCOP_SAY;
+            snprintf(cmd.text, sizeof(cmd.text), "%s", s + 4);
+            {
+                size_t n = strlen(cmd.text);
+                if (n >= 2 && cmd.text[0] == '"' && cmd.text[n - 1] == '"') {
+                    memmove(cmd.text, cmd.text + 1, n - 2);
+                    cmd.text[n - 2] = '\0';
+                }
+            }
+            scene_unescape_text(cmd.text);
+        } else if (strncmp(s, "wait ", 5) == 0) {
+            cmd.op = SCOP_WAIT;
+            cmd.a = (int)strtol(s + 5, NULL, 0);
+        } else if (strcmp(s, "wait_text") == 0) {
+            cmd.op = SCOP_WAIT_TEXT;
+        } else if (strcmp(s, "lock_input on") == 0) {
+            cmd.op = SCOP_LOCK_INPUT; cmd.a = 1;
+        } else if (strcmp(s, "lock_input off") == 0) {
+            cmd.op = SCOP_LOCK_INPUT; cmd.a = 0;
+        } else if (strcmp(s, "end") == 0) {
+            cmd.op = SCOP_END;
+        } else {
+            continue;
+        }
+        s_scene_cmds[s_scene_cmd_count++] = cmd;
+    }
+    fclose(fp);
+    return s_scene_cmd_count;
+}
+
+static int scene_trigger_find_slot(const char *scene, int map_id, int x, int y) {
+    for (int i = 0; i < SCENE_TRIGGER_MAX; i++) {
+        if (!s_scene_triggers[i].used) continue;
+        if (strcmp(s_scene_triggers[i].scene, scene) == 0 &&
+            (int)s_scene_triggers[i].map_id == map_id &&
+            s_scene_triggers[i].x == x &&
+            s_scene_triggers[i].y == y) return i;
+    }
+    return -1;
+}
+
+static int scene_trigger_alloc_slot(void) {
+    for (int i = 0; i < SCENE_TRIGGER_MAX; i++) if (!s_scene_triggers[i].used) return i;
+    return -1;
+}
+
+static int scene_parse_coord_expr(const char *tok, int is_x, int *out) {
+    const char *base = is_x ? "player.x" : "player.y";
+    if (!tok || !out) return 0;
+    if (cli_is_numeric_token(tok)) {
+        *out = (int)strtol(tok, NULL, 0);
+        return 1;
+    }
+    if (strncmp(tok, base, strlen(base)) == 0) {
+        int v = is_x ? (int)wXCoord : (int)wYCoord;
+        const char *p = tok + strlen(base);
+        if (*p == '\0') {
+            *out = v;
+            return 1;
+        }
+        if ((*p == '+' || *p == '-') && cli_is_numeric_token(p + 1)) {
+            int off = (int)strtol(p + 1, NULL, 0);
+            if (*p == '-') off = -off;
+            *out = v + off;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int cli_resolve_map_token(const char *tok, int *out_map_id) {
+    char want[64];
+    if (!tok || !*tok || !out_map_id) return 0;
+    if (strcmp(tok, "here") == 0 || strcmp(tok, "current") == 0) {
+        *out_map_id = (int)wCurMap;
+        return 1;
+    }
+    if (cli_is_numeric_token(tok)) {
+        *out_map_id = (int)strtol(tok, NULL, 0);
+        return (*out_map_id >= 0 && *out_map_id < NUM_MAPS);
+    }
+
+    cli_norm(want, sizeof(want), tok);
+    for (int i = 0; i < NUM_MAPS; i++) {
+        char have[64];
+        cli_norm(have, sizeof(have), gMapTable[i].name);
+        if (strcmp(want, have) == 0) {
+            *out_map_id = i;
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -1193,27 +1679,31 @@ static void process_cmd(const char *cmd) {
         seq_battle_menu(2);          /* cursor 2 = ITEM */
     else if (strcmp(verb, "teleport") == 0 || strcmp(verb, "tele") == 0) {
         static const struct { const char *name; int map, x, y; } kPlaces[] = {
-            /* Towns / Cities */
-            { "pallet",           0,  10, 18 },
-            { "pallet_town",      0,  10, 18 },
-            { "viridian",         1,  24, 40 },
-            { "viridian_city",    1,  24, 40 },
-            { "pewter",           2,  16, 18 },
-            { "pewter_city",      2,  16, 18 },
-            { "cerulean",         3,  28, 18 },
-            { "cerulean_city",    3,  28, 18 },
-            { "vermilion",        5,  28, 24 },
-            { "vermilion_city",   5,  28, 24 },
-            { "lavender",         4,  14, 18 },
-            { "lavender_town",    4,  14, 18 },
-            { "celadon",          6,  44, 24 },
-            { "celadon_city",     6,  44, 24 },
-            { "fuchsia",          7,  28, 24 },
-            { "fuchsia_city",     7,  28, 24 },
-            { "cinnabar",         8,  14, 18 },
-            { "cinnabar_island",  8,  14, 18 },
-            { "saffron",         10,  28, 28 },
-            { "saffron_city",    10,  28, 28 },
+            /* Towns / Cities (ASM FlyWarpDataPtr destinations; in front of Pokecenters) */
+            { "pallet",           0,   5,  6 },
+            { "pallet_town",      0,   5,  6 },
+            { "viridian",         1,  23, 26 },
+            { "viridian_city",    1,  23, 26 },
+            { "pewter",           2,  13, 26 },
+            { "pewter_city",      2,  13, 26 },
+            { "cerulean",         3,  19, 18 },
+            { "cerulean_city",    3,  19, 18 },
+            { "vermilion",        5,  11,  4 },
+            { "vermilion_city",   5,  11,  4 },
+            { "lavender",         4,   3,  6 },
+            { "lavender_town",    4,   3,  6 },
+            { "celadon",          6,  41, 10 },
+            { "celadon_city",     6,  41, 10 },
+            { "fuchsia",          7,  19, 28 },
+            { "fuchsia_city",     7,  19, 28 },
+            { "cinnabar",         8,  11, 12 },
+            { "cinnabar_island",  8,  11, 12 },
+            { "indigo",           9,   9,  6 },
+            { "indigo_plateau",   9,   9,  6 },
+            { "saffron",         10,   9, 30 },
+            { "saffron_city",    10,   9, 30 },
+            { "route_4_fly",     15,  11,  6 },
+            { "route_10_fly",    21,  11, 20 },
             /* Gyms */
             { "viridian_gym",    52,   8,  9 },
             { "pewter_gym",      54,   8,  9 },
@@ -1451,6 +1941,399 @@ static void process_cmd(const char *cmd) {
         int flag = (int)strtol(tok, NULL, 0);
         ClearEvent((uint16_t)flag);
         printf("[cli] clearflag %d → cleared\n", flag);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "battle_seed") == 0) {
+        char tok[32] = {0};
+        uint8_t seed;
+        if (!cli_parse_arg(cmd, 1, tok, sizeof(tok))) {
+            printf("[cli] battle_seed usage: battle_seed <0-255>\n");
+            write_state();
+            return;
+        }
+        seed = (uint8_t)strtol(tok, NULL, 0);
+        hRandomAdd = seed;
+        hRandomSub = (uint8_t)~seed;
+        printf("[cli] battle_seed: hRandomAdd=0x%02X hRandomSub=0x%02X\n", hRandomAdd, hRandomSub);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "rng_state") == 0) {
+        printf("[cli] rng_state: add=0x%02X sub=0x%02X frame=%u\n",
+               hRandomAdd, hRandomSub, (unsigned)hFrameCounter);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "npc_walkoff") == 0) {
+        debugcli_start_npc_walkoff(1);
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "script_trace") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) strcpy(sub, "status");
+        if (strcmp(sub, "on") == 0) {
+            s_script_trace_enabled = 1;
+            s_script_trace_to_file = 1;
+            cli_script_trace_reset_latches();
+            printf("[cli] script_trace: ON (file=%s)\n", SCRIPT_TRACE_LOG_PATH);
+        } else if (strcmp(sub, "off") == 0) {
+            s_script_trace_enabled = 0;
+            s_script_trace_to_file = 0;
+            printf("[cli] script_trace: OFF\n");
+        } else if (strcmp(sub, "file_on") == 0) {
+            s_script_trace_to_file = 1;
+            printf("[cli] script_trace: file logging ON (%s)\n", SCRIPT_TRACE_LOG_PATH);
+        } else if (strcmp(sub, "file_off") == 0) {
+            s_script_trace_to_file = 0;
+            printf("[cli] script_trace: file logging OFF\n");
+        } else if (strcmp(sub, "status") == 0) {
+            printf("[cli] script_trace: %s, file=%s\n",
+                   s_script_trace_enabled ? "ON" : "OFF",
+                   s_script_trace_to_file ? "ON" : "OFF");
+        } else {
+            printf("[cli] script_trace usage: script_trace on|off|status|file_on|file_off\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "scene_run") == 0) {
+        char name[64] = {0};
+        int ncmd;
+        if (!cli_parse_arg(cmd, 1, name, sizeof(name))) {
+            printf("[cli] scene_run usage: scene_run <name>  (loads bugs/scenes/<name>.scene)\n");
+            write_state();
+            return;
+        }
+        scene_reset_runtime();
+        ncmd = scene_load_file(name);
+        if (ncmd <= 0) {
+            printf("[cli] scene_run: failed to load scene '%s'\n", name);
+        } else {
+            s_scene_active = 1;
+            s_scene_pc = 0;
+            printf("[cli] scene_run: loaded '%s' (%d command(s))\n", name, ncmd);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "scene_trigger") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) {
+            printf("[cli] scene_trigger usage:\n");
+            printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]\n");
+            printf("      scene_trigger list\n");
+            printf("      scene_trigger clear [scene]\n");
+            printf("      x_expr/y_expr: number or player.x[+/-n], player.y[+/-n]\n");
+            write_state();
+            return;
+        }
+        if (strcmp(sub, "set") == 0) {
+            char scene[64] = {0}, marker[24] = {0}, xexpr[32] = {0}, yexpr[32] = {0}, maptok[64] = {0};
+            int map_id = (int)wCurMap;
+            int x = 0, y = 0;
+            int ncmd, slot;
+            if (!cli_parse_arg(cmd, 2, scene, sizeof(scene)) ||
+                !cli_parse_arg(cmd, 3, marker, sizeof(marker)) ||
+                !cli_parse_arg(cmd, 4, xexpr, sizeof(xexpr)) ||
+                !cli_parse_arg(cmd, 5, yexpr, sizeof(yexpr))) {
+                printf("[cli] scene_trigger set usage: scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]\n");
+                write_state();
+                return;
+            }
+            if (strcmp(marker, "trigger_point") != 0) {
+                printf("[cli] scene_trigger set: expected marker 'trigger_point'\n");
+                write_state();
+                return;
+            }
+            if (!scene_parse_coord_expr(xexpr, 1, &x) || !scene_parse_coord_expr(yexpr, 0, &y)) {
+                printf("[cli] scene_trigger set: bad coordinate expression(s)\n");
+                write_state();
+                return;
+            }
+            if (cli_parse_arg(cmd, 6, maptok, sizeof(maptok))) {
+                if (!cli_resolve_map_token(maptok, &map_id)) {
+                    printf("[cli] scene_trigger set: unknown map '%s'\n", maptok);
+                    write_state();
+                    return;
+                }
+            }
+            /* Validate scene exists now so trigger failures are obvious. */
+            ncmd = scene_load_file(scene);
+            if (ncmd <= 0) {
+                printf("[cli] scene_trigger set: scene '%s' not found or empty\n", scene);
+                write_state();
+                return;
+            }
+            slot = scene_trigger_find_slot(scene, map_id, x, y);
+            if (slot < 0) slot = scene_trigger_alloc_slot();
+            if (slot < 0) {
+                printf("[cli] scene_trigger set: no free trigger slots (max %d)\n", SCENE_TRIGGER_MAX);
+                write_state();
+                return;
+            }
+            s_scene_triggers[slot].used = 1;
+            snprintf(s_scene_triggers[slot].scene, sizeof(s_scene_triggers[slot].scene), "%s", scene);
+            s_scene_triggers[slot].map_id = (uint8_t)map_id;
+            s_scene_triggers[slot].x = x;
+            s_scene_triggers[slot].y = y;
+            s_scene_triggers[slot].armed = 1;
+            printf("[cli] scene_trigger set: '%s' @ map=%u (%d,%d)\n", scene, (unsigned)map_id, x, y);
+        } else if (strcmp(sub, "list") == 0) {
+            int any = 0;
+            for (int i = 0; i < SCENE_TRIGGER_MAX; i++) {
+                if (!s_scene_triggers[i].used) continue;
+                any = 1;
+                printf("[cli] scene_trigger[%d]: '%s' map=%u (%d,%d) armed=%d\n",
+                       i, s_scene_triggers[i].scene, (unsigned)s_scene_triggers[i].map_id,
+                       s_scene_triggers[i].x, s_scene_triggers[i].y, s_scene_triggers[i].armed);
+            }
+            if (!any) printf("[cli] scene_trigger list: empty\n");
+        } else if (strcmp(sub, "clear") == 0) {
+            char scene[64] = {0};
+            int cleared = 0;
+            if (!cli_parse_arg(cmd, 2, scene, sizeof(scene))) {
+                memset(s_scene_triggers, 0, sizeof(s_scene_triggers));
+                printf("[cli] scene_trigger clear: cleared all trigger points\n");
+                write_state();
+                return;
+            }
+            for (int i = 0; i < SCENE_TRIGGER_MAX; i++) {
+                if (s_scene_triggers[i].used && strcmp(s_scene_triggers[i].scene, scene) == 0) {
+                    memset(&s_scene_triggers[i], 0, sizeof(s_scene_triggers[i]));
+                    cleared++;
+                }
+            }
+            printf("[cli] scene_trigger clear: cleared %d trigger(s) for '%s'\n", cleared, scene);
+        } else {
+            printf("[cli] scene_trigger usage:\n");
+            printf("      scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]\n");
+            printf("      scene_trigger list\n");
+            printf("      scene_trigger clear [scene]\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "scene_stop") == 0) {
+        wJoyIgnore = 0;
+        scene_reset_runtime();
+        printf("[cli] scene_stop: stopped scene runner\n");
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "story_guard") == 0) {
+        char name[32] = {0};
+        int missing = 0;
+#define GUARD_EVENT(ev, label) do { if (!CheckEvent((ev))) { printf("[story_guard] missing event: %s (%u)\n", (label), (unsigned)(ev)); missing++; } } while (0)
+#define GUARD_BADGE(bit, label) do { if (!(wObtainedBadges & (1u << (bit)))) { printf("[story_guard] missing badge: %s\n", (label)); missing++; } } while (0)
+        if (!cli_parse_arg(cmd, 1, name, sizeof(name))) {
+            printf("[cli] story_guard usage: story_guard <brock|misty|surge|erika|koga|blaine|bike_gate|list>\n");
+            write_state();
+            return;
+        }
+        if (strcmp(name, "list") == 0 || strcmp(name, "help") == 0) {
+            printf("[cli] story_guard targets: brock, misty, surge, erika, koga, blaine, bike_gate\n");
+            write_state();
+            return;
+        } else if (strcmp(name, "brock") == 0) {
+            GUARD_EVENT(EVENT_GOT_POKEDEX, "EVENT_GOT_POKEDEX");
+        } else if (strcmp(name, "misty") == 0) {
+            GUARD_EVENT(EVENT_GOT_POKEDEX, "EVENT_GOT_POKEDEX");
+            GUARD_EVENT(EVENT_BEAT_BROCK, "EVENT_BEAT_BROCK");
+            GUARD_BADGE(BADGE_BOULDER, "BOULDER");
+        } else if (strcmp(name, "surge") == 0) {
+            GUARD_EVENT(EVENT_BEAT_MISTY, "EVENT_BEAT_MISTY");
+            GUARD_BADGE(BADGE_CASCADE, "CASCADE");
+            GUARD_EVENT(EVENT_GOT_HM01, "EVENT_GOT_HM01");
+        } else if (strcmp(name, "erika") == 0) {
+            GUARD_EVENT(EVENT_BEAT_LT_SURGE, "EVENT_BEAT_LT_SURGE");
+            GUARD_BADGE(BADGE_THUNDER, "THUNDER");
+        } else if (strcmp(name, "koga") == 0) {
+            GUARD_EVENT(EVENT_BEAT_ERIKA, "EVENT_BEAT_ERIKA");
+            GUARD_BADGE(BADGE_RAINBOW, "RAINBOW");
+        } else if (strcmp(name, "blaine") == 0) {
+            GUARD_EVENT(EVENT_BEAT_KOGA, "EVENT_BEAT_KOGA");
+            GUARD_BADGE(BADGE_SOUL, "SOUL");
+        } else if (strcmp(name, "bike_gate") == 0) {
+            if (Inventory_GetQty(ITEM_BICYCLE) == 0) {
+                printf("[story_guard] missing item: BICYCLE\n");
+                missing++;
+            }
+        } else {
+            printf("[cli] story_guard: unknown target '%s'\n", name);
+            write_state();
+            return;
+        }
+        if (missing == 0) printf("[story_guard] %s: OK\n", name);
+        else printf("[story_guard] %s: %d prerequisite(s) missing\n", name, missing);
+#undef GUARD_EVENT
+#undef GUARD_BADGE
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "eventdiff") == 0) {
+        char sub[16] = {0};
+        if (!cli_parse_arg(cmd, 1, sub, sizeof(sub))) strcpy(sub, "show");
+        if (strcmp(sub, "snapshot") == 0 || strcmp(sub, "snap") == 0) {
+            s_eventdiff.valid = 1;
+            s_eventdiff.badges = wObtainedBadges;
+            s_eventdiff.map = wCurMap;
+            s_eventdiff.x = wXCoord;
+            s_eventdiff.y = wYCoord;
+            s_eventdiff.party_count = wPartyCount;
+            for (int i = 0; i < 15; i++)
+                s_eventdiff.key_flags[i] = (uint8_t)CheckEvent(s_eventdiff_keys[i]);
+            printf("[cli] eventdiff: snapshot captured (map=%u pos=%u,%u badges=0x%02X)\n",
+                   s_eventdiff.map, s_eventdiff.x, s_eventdiff.y, s_eventdiff.badges);
+        } else if (strcmp(sub, "show") == 0 || strcmp(sub, "diff") == 0) {
+            if (!s_eventdiff.valid) {
+                printf("[cli] eventdiff: no snapshot; run 'eventdiff snapshot'\n");
+            } else {
+                printf("[cli] eventdiff: map %u->%u, pos (%u,%u)->(%u,%u), badges 0x%02X->0x%02X, party %u->%u\n",
+                       s_eventdiff.map, wCurMap, s_eventdiff.x, s_eventdiff.y, wXCoord, wYCoord,
+                       s_eventdiff.badges, wObtainedBadges, s_eventdiff.party_count, wPartyCount);
+                for (int i = 0; i < 15; i++) {
+                    uint8_t now = (uint8_t)CheckEvent(s_eventdiff_keys[i]);
+                    if (now != s_eventdiff.key_flags[i]) {
+                        printf("  flag %u: %u -> %u\n",
+                               (unsigned)s_eventdiff_keys[i], s_eventdiff.key_flags[i], now);
+                    }
+                }
+            }
+        } else {
+            printf("[cli] eventdiff usage: eventdiff snapshot | eventdiff show\n");
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "trainer_reset") == 0) {
+        char tok[64] = {0};
+        char mode[8] = {0};
+        if (!cli_parse_arg(cmd, 1, tok, sizeof(tok))) strcpy(tok, "here");
+        (void)cli_parse_arg(cmd, 2, mode, sizeof(mode));
+        if (cli_is_numeric_token(tok) && (strcmp(mode, "set") == 0 || strcmp(mode, "clear") == 0 || strcmp(mode, "1") == 0 || strcmp(mode, "0") == 0)) {
+            int flag = (int)strtol(tok, NULL, 0);
+            if (strcmp(mode, "set") == 0 || strcmp(mode, "1") == 0) {
+                SetEvent((uint16_t)flag);
+                printf("[cli] trainer_reset: set event %d (trainer beaten)\n", flag);
+            } else {
+                ClearEvent((uint16_t)flag);
+                printf("[cli] trainer_reset: cleared event %d (trainer unbeaten)\n", flag);
+            }
+        } else {
+            int map_id = -1;
+            int cleared = 0;
+            if (!cli_resolve_map_token(tok, &map_id)) {
+            printf("[cli] trainer_reset: unknown map '%s' (use map id, map name, or 'here')\n", tok);
+                write_state();
+                return;
+            }
+            if (map_id < 0 || map_id >= NUM_MAPS) {
+                printf("[cli] trainer_reset: map out of range (%d)\n", map_id);
+                write_state();
+                return;
+            }
+            {
+                const map_events_t *ev = &gMapEvents[map_id];
+                for (int i = 0; i < ev->num_trainers; i++) {
+                    ClearEvent(ev->trainers[i].flag_bit);
+                    cleared++;
+                }
+            }
+            if (wCurMap == (uint8_t)map_id) {
+                NPC_Load();
+                Trainer_LoadMap();
+            }
+            printf("[cli] trainer_reset: cleared %d trainer flag(s) on map %d (%s)\n",
+                   cleared, map_id, gMapTable[map_id].name);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "gym_reset") == 0) {
+        char gym[16] = {0};
+        if (!cli_parse_arg(cmd, 1, gym, sizeof(gym))) {
+            printf("[cli] gym_reset usage: gym_reset <brock|misty|surge|erika|koga|blaine|all>\n");
+            write_state();
+            return;
+        }
+        if (strcmp(gym, "all") == 0) {
+            cli_gym_clear("brock");
+            cli_gym_clear("misty");
+            cli_gym_clear("surge");
+            cli_gym_clear("erika");
+            cli_gym_clear("koga");
+            cli_gym_clear("blaine");
+            printf("[cli] gym_reset: cleared Brock..Blaine leader/trainer/TM progress\n");
+        } else {
+            cli_gym_clear(gym);
+            if (strcmp(gym, "brock") == 0) { wCurMap = 0x36; wXCoord = 4; wYCoord = 2; }
+            else if (strcmp(gym, "misty") == 0) { wCurMap = 0x41; wXCoord = 4; wYCoord = 8; }
+            else if (strcmp(gym, "surge") == 0) { wCurMap = 0x5C; wXCoord = 5; wYCoord = 3; }
+            else if (strcmp(gym, "erika") == 0) { wCurMap = 0x87; wXCoord = 4; wYCoord = 12; }
+            else if (strcmp(gym, "koga") == 0) { wCurMap = 0x9D; wXCoord = 4; wYCoord = 11; }
+            else if (strcmp(gym, "blaine") == 0) { wCurMap = 0xA6; wXCoord = 3; wYCoord = 4; }
+            else {
+                printf("[cli] gym_reset: unknown gym '%s'\n", gym);
+                write_state();
+                return;
+            }
+            Map_Load(wCurMap); NPC_Load(); Trainer_LoadMap();
+            printf("[cli] gym_reset: cleared %s progress and teleported to leader\n", gym);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "tmflow") == 0) {
+        char gym[16] = {0};
+        char state[16] = {0};
+        if (!cli_parse_arg(cmd, 1, gym, sizeof(gym)) || !cli_parse_arg(cmd, 2, state, sizeof(state))) {
+            printf("[cli] tmflow usage: tmflow <brock|misty|surge|erika|koga|blaine> <pre|post|done|reset>\n");
+            write_state();
+            return;
+        }
+        if (strcmp(state, "reset") == 0 || strcmp(state, "pre") == 0) {
+            cli_gym_clear(gym);
+            printf("[cli] tmflow: %s set to pre-battle/reset state\n", gym);
+        } else {
+            if (strcmp(gym, "brock") == 0) {
+                SetEvent(EVENT_BEAT_BROCK); wObtainedBadges |= (1u << BADGE_BOULDER);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM34); else ClearEvent(EVENT_GOT_TM34);
+            } else if (strcmp(gym, "misty") == 0) {
+                SetEvent(EVENT_BEAT_MISTY); wObtainedBadges |= (1u << BADGE_CASCADE);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM11); else ClearEvent(EVENT_GOT_TM11);
+            } else if (strcmp(gym, "surge") == 0) {
+                SetEvent(EVENT_BEAT_LT_SURGE); wObtainedBadges |= (1u << BADGE_THUNDER);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM24); else ClearEvent(EVENT_GOT_TM24);
+            } else if (strcmp(gym, "erika") == 0) {
+                SetEvent(EVENT_BEAT_ERIKA); wObtainedBadges |= (1u << BADGE_RAINBOW);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM21); else ClearEvent(EVENT_GOT_TM21);
+            } else if (strcmp(gym, "koga") == 0) {
+                SetEvent(EVENT_BEAT_KOGA); wObtainedBadges |= (1u << BADGE_SOUL);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM06); else ClearEvent(EVENT_GOT_TM06);
+            } else if (strcmp(gym, "blaine") == 0) {
+                SetEvent(EVENT_BEAT_BLAINE); wObtainedBadges |= (1u << BADGE_VOLCANO);
+                if (strcmp(state, "done") == 0) SetEvent(EVENT_GOT_TM38); else ClearEvent(EVENT_GOT_TM38);
+            }
+            printf("[cli] tmflow: %s set to %s-TM state\n", gym, state);
+        }
+        write_state();
+        return;
+    }
+    else if (strcmp(verb, "gym_badges_clear") == 0) {
+        int keep = 0;
+        sscanf(cmd, "%*s %d", &keep);
+        if (keep < 0) keep = 0;
+        if (keep > 8) keep = 8;
+        wObtainedBadges &= (uint8_t)((keep == 0) ? 0 : ((1u << keep) - 1u));
+        if (keep <= 0) cli_gym_clear("brock");
+        if (keep <= 1) cli_gym_clear("misty");
+        if (keep <= 2) cli_gym_clear("surge");
+        if (keep <= 3) cli_gym_clear("erika");
+        if (keep <= 4) cli_gym_clear("koga");
+        if (keep <= 5) cli_gym_clear("blaine");
+        printf("[cli] gym_badges_clear: kept first %d badge(s), cleared later gym progress\n", keep);
         write_state();
         return;
     }
@@ -1838,6 +2721,57 @@ static void process_cmd(const char *cmd) {
         char cp[32] = {0};
         sscanf(cmd, "%*s %31s", cp);
 
+        if (strcmp(cp, "verify") == 0) {
+            char target[32] = {0};
+            char temp_path[160] = "bugs/cli_checkpoint_verify_tmp.state";
+            if (!cli_parse_arg(cmd, 2, target, sizeof(target)) || target[0] == '\0') {
+                printf("[cli] checkpoint verify usage: checkpoint verify <name>\n");
+                write_state();
+                return;
+            }
+            if (strcmp(target, "verify") == 0) {
+                printf("[cli] checkpoint verify: refusing recursive target 'verify'\n");
+                write_state();
+                return;
+            }
+            if (Save_StateWrite(temp_path) != 0) {
+                printf("[cli] checkpoint verify: failed to save temp state\n");
+                write_state();
+                return;
+            }
+            s_eventdiff.valid = 1;
+            s_eventdiff.badges = wObtainedBadges;
+            s_eventdiff.map = wCurMap;
+            s_eventdiff.x = wXCoord;
+            s_eventdiff.y = wYCoord;
+            s_eventdiff.party_count = wPartyCount;
+            for (int i = 0; i < 15; i++)
+                s_eventdiff.key_flags[i] = (uint8_t)CheckEvent(s_eventdiff_keys[i]);
+
+            {
+                char runbuf[64];
+                snprintf(runbuf, sizeof(runbuf), "checkpoint %s", target);
+                process_cmd(runbuf);
+            }
+
+            printf("[cli] checkpoint verify %s:\n", target);
+            printf("  map %u->%u, pos (%u,%u)->(%u,%u), badges 0x%02X->0x%02X, party %u->%u\n",
+                   s_eventdiff.map, wCurMap, s_eventdiff.x, s_eventdiff.y, wXCoord, wYCoord,
+                   s_eventdiff.badges, wObtainedBadges, s_eventdiff.party_count, wPartyCount);
+            for (int i = 0; i < 15; i++) {
+                uint8_t now = (uint8_t)CheckEvent(s_eventdiff_keys[i]);
+                if (now != s_eventdiff.key_flags[i]) {
+                    printf("  flag %u: %u -> %u\n",
+                           (unsigned)s_eventdiff_keys[i], s_eventdiff.key_flags[i], now);
+                }
+            }
+
+            if (Save_StateLoad(temp_path) == 0) cli_reload_after_state_load();
+            remove(temp_path);
+            write_state();
+            return;
+        }
+
         if (strcmp(cp, "parcel_ready") == 0) {
             /* All flags up to "go get parcel from Viridian Mart" */
             SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
@@ -2146,9 +3080,412 @@ static void process_cmd(const char *cmd) {
             Map_Load(wCurMap); NPC_Load();
             VermilionGymScripts_OnMapLoad();
             printf("[cli] checkpoint: surge — inside Vermilion Gym, facing Lt. Surge\n");
+        } else if (strcmp(cp, "erika") == 0) {
+            /* erika — inside Celadon Gym, facing Erika; trainers unbeaten */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            ClearEvent(EVENT_BEAT_ERIKA);
+            ClearEvent(EVENT_GOT_TM21);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            ClearEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 40);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x86;  /* CELADON_GYM */
+            wXCoord = 4; wYCoord = 4;  /* one tile south of Erika at (4,3) */
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: erika — inside Celadon Gym, facing Erika\n");
+        } else if (strcmp(cp, "koga") == 0) {
+            /* koga — inside Fuchsia Gym, facing Koga; trainers unbeaten */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_GOT_TM21);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            ClearEvent(EVENT_BEAT_KOGA);
+            ClearEvent(EVENT_GOT_TM06);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+            ClearEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 45);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x9D;  /* FUCHSIA_GYM */
+            wXCoord = 4; wYCoord = 11;  /* one tile south of Koga at (4,10) */
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: koga — inside Fuchsia Gym, facing Koga\n");
+        } else if (strcmp(cp, "blaine") == 0) {
+            /* blaine — inside Cinnabar Gym, facing Blaine */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_GOT_TM21);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            SetEvent(EVENT_BEAT_KOGA);
+            SetEvent(EVENT_GOT_TM06);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+            wObtainedBadges |= (1u << BADGE_SOUL);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            ClearEvent(EVENT_GOT_TM38);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 52);
+                wPartyCount = 1;
+            }
+            wCurMap = 0xA6;  /* CINNABAR_GYM */
+            wXCoord = 3; wYCoord = 4;  /* one tile south of Blaine at (3,3) */
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: blaine — inside Cinnabar Gym, facing Blaine\n");
+        } else if (strcmp(cp, "erika_post") == 0) {
+            /* Erika defeated, TM21 not obtained: tests post-badge TM retry branch */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            ClearEvent(EVENT_GOT_TM21);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 45);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x86;  /* CELADON_GYM */
+            wXCoord = 4; wYCoord = 4;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: erika_post — Erika beaten, TM21 not obtained\n");
+        } else if (strcmp(cp, "koga_post") == 0) {
+            /* Koga defeated, TM06 not obtained: tests post-badge TM retry branch */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_GOT_TM21);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            SetEvent(EVENT_BEAT_KOGA);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+            ClearEvent(EVENT_GOT_TM06);
+            wObtainedBadges |= (1u << BADGE_SOUL);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 50);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x9D;  /* FUCHSIA_GYM */
+            wXCoord = 4; wYCoord = 11;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: koga_post — Koga beaten, TM06 not obtained\n");
+        } else if (strcmp(cp, "blaine_post") == 0) {
+            /* Blaine defeated, TM38 not obtained: tests post-badge TM retry branch */
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_CERULEAN_RIVAL);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            SetEvent(EVENT_GOT_SS_TICKET);
+            SetEvent(EVENT_BEAT_SS_ANNE_RIVAL);
+            SetEvent(EVENT_RUBBED_CAPTAINS_BACK);
+            SetEvent(EVENT_GOT_HM01);
+            SetEvent(EVENT_SS_ANNE_LEFT);
+            SetEvent(EVENT_2ND_LOCK_OPENED);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_VERMILION_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_GOT_TM24);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_GOT_TM21);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_5);
+            SetEvent(EVENT_BEAT_CELADON_GYM_TRAINER_6);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            SetEvent(EVENT_BEAT_KOGA);
+            SetEvent(EVENT_GOT_TM06);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_1);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_2);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_3);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_4);
+            SetEvent(EVENT_BEAT_FUCHSIA_GYM_TRAINER_5);
+            wObtainedBadges |= (1u << BADGE_SOUL);
+            SetEvent(EVENT_BEAT_BLAINE);
+            ClearEvent(EVENT_GOT_TM38);
+            wObtainedBadges |= (1u << BADGE_VOLCANO);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 56);
+                wPartyCount = 1;
+            }
+            wCurMap = 0xA6;  /* CINNABAR_GYM */
+            wXCoord = 3; wYCoord = 4;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: blaine_post — Blaine beaten, TM38 not obtained\n");
+        } else if (strcmp(cp, "gym_badges4") == 0) {
+            /* Utility: exactly first 4 badges, no Fuchsia/Cinnabar progress */
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_BEAT_ERIKA);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            ClearEvent(EVENT_BEAT_KOGA);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            printf("[cli] checkpoint: gym_badges4 — set first 4 gym wins/badges\n");
+        } else if (strcmp(cp, "gym_badges5") == 0) {
+            /* Utility: exactly first 5 badges (through Koga) */
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            SetEvent(EVENT_BEAT_ERIKA);
+            SetEvent(EVENT_BEAT_KOGA);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            wObtainedBadges |= (1u << BADGE_RAINBOW);
+            wObtainedBadges |= (1u << BADGE_SOUL);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            printf("[cli] checkpoint: gym_badges5 — set first 5 gym wins/badges\n");
+        } else if (strcmp(cp, "gym_badges1") == 0) {
+            SetEvent(EVENT_BEAT_BROCK);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            ClearEvent(EVENT_BEAT_MISTY);
+            ClearEvent(EVENT_BEAT_LT_SURGE);
+            ClearEvent(EVENT_BEAT_ERIKA);
+            ClearEvent(EVENT_BEAT_KOGA);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            printf("[cli] checkpoint: gym_badges1 — set Brock win/badge only\n");
+        } else if (strcmp(cp, "gym_badges2") == 0) {
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_MISTY);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            ClearEvent(EVENT_BEAT_LT_SURGE);
+            ClearEvent(EVENT_BEAT_ERIKA);
+            ClearEvent(EVENT_BEAT_KOGA);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            printf("[cli] checkpoint: gym_badges2 — set Brock+Misty wins/badges\n");
+        } else if (strcmp(cp, "gym_badges3") == 0) {
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_LT_SURGE);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            wObtainedBadges |= (1u << BADGE_THUNDER);
+            ClearEvent(EVENT_BEAT_ERIKA);
+            ClearEvent(EVENT_BEAT_KOGA);
+            ClearEvent(EVENT_BEAT_BLAINE);
+            printf("[cli] checkpoint: gym_badges3 — set Brock+Misty+Surge wins/badges\n");
+        } else if (strcmp(cp, "brock_post") == 0) {
+            /* Brock defeated, TM34 not obtained: tests post-badge TM retry branch */
+            SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
+            SetEvent(EVENT_FOLLOWED_OAK_INTO_LAB);
+            SetEvent(EVENT_OAK_ASKED_TO_CHOOSE_MON);
+            SetEvent(EVENT_GOT_STARTER);
+            SetEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB);
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            ClearEvent(EVENT_GOT_TM34);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 18);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x36;  /* PEWTER_GYM */
+            wXCoord = 4; wYCoord = 2;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: brock_post — Brock beaten, TM34 not obtained\n");
+        } else if (strcmp(cp, "misty_post") == 0) {
+            /* Misty defeated, TM11 not obtained: tests post-badge TM retry branch */
+            SetEvent(EVENT_OAK_APPEARED_IN_PALLET);
+            SetEvent(EVENT_FOLLOWED_OAK_INTO_LAB);
+            SetEvent(EVENT_OAK_ASKED_TO_CHOOSE_MON);
+            SetEvent(EVENT_GOT_STARTER);
+            SetEvent(EVENT_BATTLED_RIVAL_IN_OAKS_LAB);
+            SetEvent(EVENT_GOT_OAKS_PARCEL);
+            SetEvent(EVENT_GOT_POKEDEX);
+            SetEvent(EVENT_BEAT_BROCK);
+            SetEvent(EVENT_BEAT_PEWTER_GYM_TRAINER_0);
+            wObtainedBadges |= (1u << BADGE_BOULDER);
+            SetEvent(EVENT_BEAT_MISTY);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_0);
+            SetEvent(EVENT_BEAT_CERULEAN_GYM_TRAINER_1);
+            ClearEvent(EVENT_GOT_TM11);
+            wObtainedBadges |= (1u << BADGE_CASCADE);
+            if (wPartyCount == 0) {
+                Pokemon_InitMon(&wPartyMons[0], STARTER1, 26);
+                wPartyCount = 1;
+            }
+            wCurMap = 0x41;  /* CERULEAN_GYM */
+            wXCoord = 4; wYCoord = 8;
+            Map_Load(wCurMap); NPC_Load();
+            Trainer_LoadMap();
+            printf("[cli] checkpoint: misty_post — Misty beaten, TM11 not obtained\n");
+        } else if (strcmp(cp, "list") == 0 || strcmp(cp, "help") == 0) {
+            printf("[cli] checkpoint list:\n");
+            printf("  parcel_ready, pokedex_ready, route22, brock, mt_moon, cerulean,\n");
+            printf("  misty, cerulean_rocket, ss_anne_hm, surge, erika, koga, blaine,\n");
+            printf("  brock_post, misty_post, erika_post, koga_post, blaine_post,\n");
+            printf("  gym_badges1, gym_badges2, gym_badges3, gym_badges4, gym_badges5,\n");
+            printf("  liftkey_reset, giovanni_reset, giovanni_ready\n");
         } else {
             printf("[cli] Unknown checkpoint: %s\n"
-                   "      Available: parcel_ready, pokedex_ready, mt_moon, cerulean, route22, brock, misty, cerulean_rocket, ss_anne_hm, liftkey_reset, giovanni_reset, giovanni_ready, surge\n", cp);
+                   "      Use: checkpoint list\n", cp);
         }
         write_state();
         return;
@@ -2267,6 +3604,215 @@ void DebugCLI_Tick(void) {
             printf("[cli] replay: playback complete\n");
             s_pending_write = 1;
             s_wait_remaining = 4;
+        }
+    }
+
+    if (s_temp_npc_walkoff_active) {
+        int tx, ty;
+        int sy;
+        if (s_temp_npc_walkoff_idx < 0 || s_temp_npc_walkoff_idx >= NPC_GetCount()) {
+            s_temp_npc_walkoff_active = 0;
+            s_temp_npc_walkoff_idx = -1;
+            s_temp_npc_walkoff_phase = 0;
+            s_temp_npc_walkoff_pretext_frames = 0;
+            wJoyIgnore = 0;
+        } else if (s_temp_npc_walkoff_phase == 1) {
+            NPC_SetFacing(s_temp_npc_walkoff_idx,
+                (wPlayerDirection == 4) ? 1 :
+                (wPlayerDirection == 8) ? 2 :
+                (wPlayerDirection == 12) ? 3 : 0);
+            if (s_temp_npc_walkoff_pretext_frames > 0) {
+                s_temp_npc_walkoff_pretext_frames--;
+            } else if (!Text_IsOpen()) {
+                Text_ShowASCII("Hello! I am a\ndebug_cli NPC\ntest!\fHope this works!@");
+                s_temp_npc_walkoff_phase = 2;
+            }
+        } else if (s_temp_npc_walkoff_phase == 2) {
+            NPC_SetFacing(s_temp_npc_walkoff_idx,
+                (wPlayerDirection == 4) ? 1 :
+                (wPlayerDirection == 8) ? 2 :
+                (wPlayerDirection == 12) ? 3 : 0);
+            if (!Text_IsOpen()) {
+                wJoyIgnore = 0;
+                s_temp_npc_walkoff_phase = 3;
+            }
+        } else if (s_temp_npc_walkoff_phase == 3 && !NPC_IsWalking(s_temp_npc_walkoff_idx)) {
+            NPC_GetTilePos(s_temp_npc_walkoff_idx, &tx, &ty);
+            sy = ty * 2 + 1 - gCamY;
+            if (sy < 0) {
+                NPC_DebugDespawn(s_temp_npc_walkoff_idx);
+                s_temp_npc_walkoff_active = 0;
+                s_temp_npc_walkoff_idx = -1;
+                s_temp_npc_walkoff_phase = 0;
+                s_temp_npc_walkoff_pretext_frames = 0;
+                printf("[cli] npc_walkoff: despawned after leaving top of screen\n");
+            } else {
+                NPC_DoScriptedStep(s_temp_npc_walkoff_idx, 1); /* up */
+            }
+        }
+    }
+
+    if (s_scene_active) {
+        if (s_scene_wait > 0) {
+            s_scene_wait--;
+        } else if (s_scene_move_steps_left > 0) {
+            if (s_scene_move_actor < 0 || s_scene_move_actor >= SCENE_ACTOR_MAX || !s_scene_actors[s_scene_move_actor].used) {
+                s_scene_move_steps_left = 0;
+            } else {
+                int npc_idx = s_scene_actors[s_scene_move_actor].npc_idx;
+                if (npc_idx < 0 || npc_idx >= NPC_GetCount()) {
+                    s_scene_move_steps_left = 0;
+                } else if (!NPC_IsWalking(npc_idx)) {
+                    NPC_DoScriptedStep(npc_idx, s_scene_move_dir);
+                    s_scene_move_steps_left--;
+                }
+            }
+            if (s_scene_move_steps_left <= 0) s_scene_pc++;
+        } else {
+            if (s_scene_pc < 0 || s_scene_pc >= s_scene_cmd_count) {
+                s_scene_active = 0;
+                wJoyIgnore = 0;
+                printf("[scene] finished\n");
+            } else {
+                scene_cmd_t *cmd = &s_scene_cmds[s_scene_pc];
+                switch (cmd->op) {
+                    case SCOP_SPAWN: {
+                        int idx = NPC_DebugSpawn((uint8_t)cmd->a, cmd->b, cmd->c, 0, 0);
+                        scene_add_actor(cmd->actor, idx);
+                        s_scene_pc++;
+                    } break;
+                    case SCOP_DESPAWN: {
+                        int ai = scene_find_actor(cmd->actor);
+                        if (ai >= 0) NPC_DebugDespawn(s_scene_actors[ai].npc_idx);
+                        s_scene_pc++;
+                    } break;
+                    case SCOP_FACE: {
+                        int ai = scene_find_actor(cmd->actor);
+                        if (ai >= 0) {
+                            int dir = cmd->a;
+                            if (dir == -2) {
+                                dir = (wPlayerDirection == 4) ? 1 :
+                                      (wPlayerDirection == 8) ? 2 :
+                                      (wPlayerDirection == 12) ? 3 : 0;
+                            }
+                            NPC_SetFacing(s_scene_actors[ai].npc_idx, dir);
+                        }
+                        s_scene_pc++;
+                    } break;
+                    case SCOP_MOVE: {
+                        int ai = scene_find_actor(cmd->actor);
+                        if (ai < 0) { s_scene_pc++; break; }
+                        s_scene_move_actor = ai;
+                        s_scene_move_dir = cmd->a;
+                        s_scene_move_steps_left = (cmd->b < 0) ? 0 : cmd->b;
+                        if (s_scene_move_steps_left <= 0) s_scene_pc++;
+                    } break;
+                    case SCOP_SAY:
+                        if (!Text_IsOpen()) {
+                            Text_ShowASCII(cmd->text);
+                            s_scene_pc++;
+                        }
+                        break;
+                    case SCOP_WAIT:
+                        s_scene_wait = (cmd->a < 0) ? 0 : cmd->a;
+                        s_scene_pc++;
+                        break;
+                    case SCOP_WAIT_TEXT:
+                        if (!Text_IsOpen()) s_scene_pc++;
+                        break;
+                    case SCOP_LOCK_INPUT:
+                        wJoyIgnore = cmd->a ? PAD_CTRL_PAD : 0;
+                        s_scene_pc++;
+                        break;
+                    case SCOP_END:
+                        s_scene_active = 0;
+                        wJoyIgnore = 0;
+                        printf("[scene] end\n");
+                        break;
+                    default:
+                        s_scene_pc++;
+                        break;
+                }
+            }
+        }
+    }
+
+    if (!s_scene_active && get_scene() == 0 && !Player_IsMoving() && !Text_IsOpen()) {
+        for (int i = 0; i < SCENE_TRIGGER_MAX; i++) {
+            scene_trigger_t *t = &s_scene_triggers[i];
+            if (!t->used) continue;
+            if ((int)t->map_id != (int)wCurMap) continue;
+            if ((int)wXCoord == t->x && (int)wYCoord == t->y) {
+                if (!t->armed) continue;
+                scene_reset_runtime();
+                int ncmd = scene_load_file(t->scene);
+                if (ncmd > 0) {
+                    s_scene_active = 1;
+                    s_scene_pc = 0;
+                    t->armed = 0;
+                    printf("[cli] scene_trigger: fired '%s' @ (%d,%d)\n", t->scene, t->x, t->y);
+                } else {
+                    t->armed = 0;
+                    printf("[cli] scene_trigger: failed to load '%s'\n", t->scene);
+                }
+                break;
+            } else {
+                t->armed = 1;
+            }
+        }
+    }
+
+    if (s_script_trace_enabled) {
+        uint8_t map_now = wCurMap;
+        uint8_t trainer_now = (uint8_t)(Trainer_IsEngaging() ? 1 : 0);
+        uint8_t text_now = (uint8_t)(Text_IsOpen() ? 1 : 0);
+        uint8_t gate_now = (uint8_t)(Gate_PewterIsActive() ? 1 : 0);
+        uint8_t r22_now = (uint8_t)(Route22Scripts_IsActive() ? 1 : 0);
+        uint8_t r24_now = (uint8_t)(Route24Scripts_IsActive() ? 1 : 0);
+        uint8_t ss_now = (uint8_t)(SSAnneScripts_IsActive() ? 1 : 0);
+        uint8_t vm_now = (uint8_t)(ViridianMartScripts_IsActive() ? 1 : 0);
+        uint8_t gym_now = (uint8_t)(GymScripts_IsActive() ? 1 : 0);
+        uint8_t rb4f_now = (uint8_t)(RocketHideoutB4FScripts_IsActive() ? 1 : 0);
+
+        if (map_now != s_trace_prev_map) {
+            cli_script_trace_emitf("[script_trace] map=%u (%s)", map_now, gMapTable[map_now].name);
+            s_trace_prev_map = map_now;
+        }
+        if (trainer_now != s_trace_prev_trainer_engaging) {
+            cli_script_trace_emitf("[script_trace] trainer_engage=%u", trainer_now);
+            s_trace_prev_trainer_engaging = trainer_now;
+        }
+        if (text_now != s_trace_prev_text_open) {
+            cli_script_trace_emitf("[script_trace] text_open=%u", text_now);
+            s_trace_prev_text_open = text_now;
+        }
+        if (gate_now != s_trace_prev_gate_active) {
+            cli_script_trace_emitf("[script_trace] gate_active=%u", gate_now);
+            s_trace_prev_gate_active = gate_now;
+        }
+        if (r22_now != s_trace_prev_route22_active) {
+            cli_script_trace_emitf("[script_trace] route22_active=%u", r22_now);
+            s_trace_prev_route22_active = r22_now;
+        }
+        if (r24_now != s_trace_prev_route24_active) {
+            cli_script_trace_emitf("[script_trace] route24_active=%u", r24_now);
+            s_trace_prev_route24_active = r24_now;
+        }
+        if (ss_now != s_trace_prev_ssanne_active) {
+            cli_script_trace_emitf("[script_trace] ssanne_active=%u", ss_now);
+            s_trace_prev_ssanne_active = ss_now;
+        }
+        if (vm_now != s_trace_prev_viridian_mart_active) {
+            cli_script_trace_emitf("[script_trace] viridian_mart_active=%u", vm_now);
+            s_trace_prev_viridian_mart_active = vm_now;
+        }
+        if (gym_now != s_trace_prev_gym_active) {
+            cli_script_trace_emitf("[script_trace] gym_active=%u", gym_now);
+            s_trace_prev_gym_active = gym_now;
+        }
+        if (rb4f_now != s_trace_prev_rockethideout_b4f_active) {
+            cli_script_trace_emitf("[script_trace] rocket_b4f_active=%u", rb4f_now);
+            s_trace_prev_rockethideout_b4f_active = rb4f_now;
         }
     }
 

@@ -161,7 +161,19 @@ cd build && ctest
 
 - Debug CLI command reference: [`docs/debug-and-tooling/game_cli_commands.md`](docs/debug-and-tooling/game_cli_commands.md)
 - Debug system guide (replay, rewind, quicksave/csave, telemetry): [`docs/debug-and-tooling/debug_cli_tools_guide.md`](docs/debug-and-tooling/debug_cli_tools_guide.md)
+- Scene DSL spec (authoring + runtime commands): [`docs/debug-and-tooling/debug_cli_scene_dsl.md`](docs/debug-and-tooling/debug_cli_scene_dsl.md)
+- Scene DSL architecture note (interpreter internals): [`docs/debug-and-tooling/debug_cli_scene_dsl_architecture.md`](docs/debug-and-tooling/debug_cli_scene_dsl_architecture.md)
 - Build notes: [`docs/debug-and-tooling/pokered-build.md`](docs/debug-and-tooling/pokered-build.md)
+
+### Scene Trigger Layer (Debug CLI)
+
+The debug CLI includes a lightweight scene system that can auto-trigger scene scripts on specific world tiles without editing map-script C modules.
+
+- `scene_run <name>` runs `bugs/scenes/<name>.scene`
+- `scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]` registers a tile trigger
+- `scene_trigger list` / `scene_trigger clear [scene]` inspect or remove trigger points
+
+This is intentionally layered outside core map scripts so iteration remains fast and low-risk, and serves as the foundation for future mod-friendly event authoring.
 
 Runtime debug outputs:
 - `bugs/cli_state.txt` (CLI state snapshots)

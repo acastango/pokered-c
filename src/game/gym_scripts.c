@@ -58,6 +58,9 @@ static const char kBrockBadgeInfo[] =
 #define CERULEAN_TRAINER0_NO      1
 #define CERULEAN_TRAINER1_CLASS  15   /* SWIMMER = $0F */
 #define CERULEAN_TRAINER1_NO      1
+#define BLAINE_CLASS              39   /* trainer_const BLAINE = $27 */
+#define BLAINE_NO                  1
+
 
 /* ---- State machine ----------------------------------------------- */
 typedef enum {
@@ -107,14 +110,42 @@ typedef enum {
     GS_ERIKA_TM_EXPLAIN,   /* show TM21 explanation */
     GS_ERIKA_TM_EXP_WAIT,
 
+    /* Sabrina (Saffron) */
+    GS_SABRINA_PRE_TEXT,
+    GS_SABRINA_PRE_WAIT,
+    GS_SABRINA_POST_TEXT,
+    GS_SABRINA_POST_WAIT,
+    GS_SABRINA_TM_WAIT,
+    GS_SABRINA_TM_EXPLAIN,
+    GS_SABRINA_TM_EXP_WAIT,
+
     /* Koga (Fuchsia) */
     GS_KOGA_PRE_TEXT,
     GS_KOGA_PRE_WAIT,
     GS_KOGA_POST_TEXT,
     GS_KOGA_POST_WAIT,
+    GS_KOGA_TM_NOROOM_WAIT,
     GS_KOGA_TM_WAIT,
     GS_KOGA_TM_EXPLAIN,
     GS_KOGA_TM_EXP_WAIT,
+
+    /* Blaine (Cinnabar) */
+    GS_BLAINE_PRE_TEXT,
+    GS_BLAINE_PRE_WAIT,
+    GS_BLAINE_POST_TEXT,
+    GS_BLAINE_POST_WAIT,
+    GS_BLAINE_TM_WAIT,
+    GS_BLAINE_TM_EXPLAIN,
+    GS_BLAINE_TM_EXP_WAIT,
+
+    /* Giovanni (Viridian) */
+    GS_GIOVANNI_PRE_TEXT,
+    GS_GIOVANNI_PRE_WAIT,
+    GS_GIOVANNI_POST_TEXT,
+    GS_GIOVANNI_POST_WAIT,
+    GS_GIOVANNI_TM_WAIT,
+    GS_GIOVANNI_TM_EXPLAIN,
+    GS_GIOVANNI_TM_EXP_WAIT,
 
     /* Generic guide / info text */
     GS_GUIDE_TEXT,
@@ -322,11 +353,35 @@ static char kKogaTMText[48];
 static const char kKogaTMExplain[] =
     "TM06 contains\nTOXIC!"
     "\fIt is a secret\ntechnique over\n400 years old!";
-static const char kKogaNoRoom[] =
+static const char kKogaTMNoRoom[] =
     "Make space for\nthis, child!";
 static const char kKogaAfter[] =
     "When afflicted by\nTOXIC, #MON\nsuffer more and\nmore as battle\nprogresses!"
     "\fIt will surely\nterrorize foes!";
+
+/* ---- Blaine / Cinnabar Gym dialogue ------------------------------ */
+static const char kBlainePre[] =
+    "Hah!\nI am BLAINE!"
+    "\fI am the LEADER\nof CINNABAR GYM!"
+    "\fMy fiery #MON\nwill incinerate\nall challengers!"
+    "\fHah! You better\nhave BURN HEAL!";
+
+static const char kBlaineDefeatQuote[] =
+    "I have burned\ndown to nothing!"
+    "\fNot even ashes\nremain!"
+    "\fYou have earned\nthe VOLCANOBADGE!";
+
+static char kBlaineBadgeRecv[48];
+static const char kBlaineBadgeInfo[] =
+    "The VOLCANOBADGE\nheightens the\nSPECIAL abilities\nof your #MON!"
+    "\fHere, you can\nhave this too!";
+static char kBlaineTMText[48];
+static const char kBlaineTMExplain[] =
+    "TM38 contains\nFIRE BLAST!"
+    "\fTeach it to\nfire-type #MON!";
+static const char kBlaineAfter[] =
+    "FIRE BLAST is\nthe ultimate\nfire technique!"
+    "\fDon't waste it on\nwater #MON!";
 
 /* ---- Fuchsia gym trainers (Koga underlings) ---------------------- */
 static const char kFuchsiaT1Pre[] =
@@ -759,15 +814,20 @@ void GymScripts_Tick(void) {
             snprintf(kKogaTMText, sizeof(kKogaTMText),
                      "%s received\nTM06!", playerName);
         }
-        if (!Inventory_Add(TM01 + 5, 1)) {
-            Text_ShowASCII(kKogaNoRoom);
-            gState = GS_GUIDE_WAIT;
+        if (!Inventory_Add(TM01 + 5, 1)) {   /* TM06 = TOXIC */
+            Text_ShowASCII(kKogaTMNoRoom);
+            gState = GS_KOGA_TM_NOROOM_WAIT;
             return;
         }
         SetEvent(EVENT_GOT_TM06);
         Audio_PlaySFX_GetItem1();
         Text_ShowASCII(kKogaTMText);
         gState = GS_KOGA_TM_WAIT;
+        return;
+
+    case GS_KOGA_TM_NOROOM_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_IDLE;
         return;
 
     case GS_KOGA_TM_WAIT:
@@ -781,6 +841,77 @@ void GymScripts_Tick(void) {
         return;
 
     case GS_KOGA_TM_EXP_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_IDLE;
+        return;
+
+    case GS_BLAINE_PRE_TEXT:
+        gState = GS_BLAINE_PRE_WAIT;
+        return;
+
+    case GS_BLAINE_PRE_WAIT:
+        if (Text_IsOpen()) return;
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kBlaineBadgeRecv, sizeof(kBlaineBadgeRecv),
+                     "%s received\nthe VOLCANOBADGE!", playerName);
+        }
+        gTrainerAfterText = kBlaineDefeatQuote;
+        BattleUI_SetBadgeRecvText(kBlaineBadgeRecv);
+        wGymLeaderNo   = 7;
+        gPendingClass  = BLAINE_CLASS;
+        gPendingNo     = BLAINE_NO;
+        gPendingBattle = 1;
+        gState         = GS_IDLE;
+        return;
+
+    case GS_BLAINE_POST_TEXT:
+        if (gPostFadeTimer > 0) { gPostFadeTimer--; return; }
+        Text_ShowASCII(kBlaineBadgeInfo);
+        gState = GS_BLAINE_POST_WAIT;
+        return;
+
+    case GS_BLAINE_POST_WAIT:
+        if (Text_IsOpen()) return;
+        {
+            char playerName[12] = "RED";
+            for (int i = 0; i < 11; i++) {
+                uint8_t c = wPlayerName[i];
+                if (c == 0x50) break;
+                if (c >= 0x80 && c <= 0x99)      playerName[i] = (char)('A' + c - 0x80);
+                else if (c >= 0xA0 && c <= 0xB9) playerName[i] = (char)('a' + c - 0xA0);
+                else { playerName[i] = '?'; }
+                playerName[i + 1] = '\0';
+            }
+            snprintf(kBlaineTMText, sizeof(kBlaineTMText),
+                     "%s received\nTM38!", playerName);
+        }
+        Inventory_Add(TM01 + 37, 1);   /* TM38 = FIRE BLAST */
+        SetEvent(EVENT_GOT_TM38);
+        Audio_PlaySFX_GetItem1();
+        Text_ShowASCII(kBlaineTMText);
+        gState = GS_BLAINE_TM_WAIT;
+        return;
+
+    case GS_BLAINE_TM_WAIT:
+        if (Text_IsOpen()) return;
+        gState = GS_BLAINE_TM_EXPLAIN;
+        return;
+
+    case GS_BLAINE_TM_EXPLAIN:
+        Text_ShowASCII(kBlaineTMExplain);
+        gState = GS_BLAINE_TM_EXP_WAIT;
+        return;
+
+    case GS_BLAINE_TM_EXP_WAIT:
         if (Text_IsOpen()) return;
         gState = GS_IDLE;
         return;
@@ -878,6 +1009,11 @@ void GymScripts_OnVictory(void) {
         wObtainedBadges |= (1u << BADGE_SOUL);
         wGymLeaderNo = 0;
         gState = GS_KOGA_POST_TEXT;
+    } else if (wGymLeaderNo == 7) {
+        SetEvent(EVENT_BEAT_BLAINE);
+        wObtainedBadges |= (1u << BADGE_VOLCANO);
+        wGymLeaderNo = 0;
+        gState = GS_BLAINE_POST_TEXT;
     } else {
         wGymLeaderNo = 0;
     }
@@ -1041,6 +1177,21 @@ void GymScripts_KogaInteract(void) {
     }
     Text_ShowASCII(kKogaPre);
     gState = GS_KOGA_PRE_TEXT;
+}
+
+void GymScripts_BlaineInteract(void) {
+    if (CheckEvent(EVENT_BEAT_BLAINE)) {
+        if (CheckEvent(EVENT_GOT_TM38)) {
+            Text_ShowASCII(kBlaineAfter);
+            gState = GS_GUIDE_TEXT;
+            return;
+        }
+        gPostFadeTimer = 0;
+        gState = GS_BLAINE_POST_TEXT;
+        return;
+    }
+    Text_ShowASCII(kBlainePre);
+    gState = GS_BLAINE_PRE_TEXT;
 }
 
 void GymScripts_FuchsiaTrainer1Interact(void) {

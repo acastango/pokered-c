@@ -60,3 +60,5 @@ void GymScripts_FuchsiaTrainer3Interact(void);
 void GymScripts_FuchsiaTrainer4Interact(void);
 void GymScripts_FuchsiaTrainer5Interact(void);
 void GymScripts_FuchsiaTrainer6Interact(void);
+/* Cinnabar Gym */
+void GymScripts_BlaineInteract(void);

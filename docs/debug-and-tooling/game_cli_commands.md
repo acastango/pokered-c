@@ -57,7 +57,10 @@ tele <...>                  alias for teleport
 | `celadon` / `celadon_city` | Celadon City |
 | `fuchsia` / `fuchsia_city` | Fuchsia City |
 | `cinnabar` / `cinnabar_island` | Cinnabar Island |
+| `indigo` / `indigo_plateau` | Indigo Plateau |
 | `saffron` / `saffron_city` | Saffron City |
+| `route_4_fly` | Route 4 Fly destination |
+| `route_10_fly` | Route 10 Fly destination |
 | `viridian_gym` | Viridian Gym |
 | `pewter_gym` | Pewter Gym |
 | `cerulean_gym` | Cerulean Gym |
@@ -187,6 +190,26 @@ Jump to a pre-configured story state (sets relevant event flags, warps, gives pa
 | `checkpoint pokedex_ready` | Has parcel. Warps to Oak's Lab entrance ready to deliver. |
 | `checkpoint mt_moon` | Through Brock. Warps to Mt. Moon B2F near fossil room. |
 | `checkpoint cerulean` | Through Mt. Moon. Warps to Cerulean City bridge (rival trigger nearby). |
+| `checkpoint route22` | Rival trigger setup on Route 22. |
+| `checkpoint brock` | Inside Pewter Gym, Brock unbeaten. |
+| `checkpoint misty` | Inside Cerulean Gym, Misty unbeaten. |
+| `checkpoint surge` | Inside Vermilion Gym, Lt. Surge unbeaten. |
+| `checkpoint erika` | Inside Celadon Gym, Erika unbeaten. |
+| `checkpoint koga` | Inside Fuchsia Gym, Koga unbeaten. |
+| `checkpoint blaine` | Inside Cinnabar Gym, Blaine unbeaten. |
+| `checkpoint brock_post` | Brock beaten, TM34 not obtained. |
+| `checkpoint misty_post` | Misty beaten, TM11 not obtained. |
+| `checkpoint erika_post` | Erika beaten, TM21 not obtained. |
+| `checkpoint koga_post` | Koga beaten, TM06 not obtained. |
+| `checkpoint blaine_post` | Blaine beaten, TM38 not obtained. |
+| `checkpoint gym_badges1..5` | Utility badge/event bundles for early-to-mid gym progression. |
+| `checkpoint cerulean_rocket` | Cerulean Rocket thief trigger setup. |
+| `checkpoint ss_anne_hm` | SS Anne HM/departure setup. |
+| `checkpoint liftkey_reset` | Reset Lift Key drop/pickup state in Rocket Hideout B4F. |
+| `checkpoint giovanni_reset` | Reset Giovanni + Silph Scope pickup state in Rocket Hideout B4F. |
+| `checkpoint giovanni_ready` | Warp in front of Giovanni with prerequisites set. |
+| `checkpoint list` / `checkpoint help` | List available checkpoints. |
+| `checkpoint verify <name>` | Dry-run: show checkpoint side effects, then restore original state. |
 
 ---
 
@@ -195,10 +218,59 @@ Jump to a pre-configured story state (sets relevant event flags, warps, gives pa
 | Command | Description |
 |---|---|
 | `tileinfo` / `tile_info` | Dump tile IDs and passability for player position + 4 neighbours |
+| `eventdiff snapshot` | Capture current state snapshot for later diff |
+| `eventdiff show` | Show map/pos/badge/key-flag changes since snapshot |
+| `battle_seed <0-255>` | Set deterministic RNG seed bytes (`hRandomAdd`, `hRandomSub`) |
+| `rng_state` | Print current RNG bytes + frame counter |
+| `script_trace on|off|status` | Toggle script-state transition tracing |
+| `script_trace file_on|file_off` | Toggle trace file logging |
+| `story_guard <name>` | Assert prerequisite flags/badges/items for key scenarios |
 | `replay record <name>` | Start deterministic replay capture (snapshot + per-frame inputs) |
 | `replay stop` | Stop recording or stop playback |
 | `replay play <name>` | Load replay snapshot and play recorded input stream |
 | `replay status` | Show replay state and playback position |
+| `scene_run <name>` | Run scene file `bugs/scenes/<name>.scene` |
+| `scene_stop` | Stop active scene and unlock input |
+| `scene_trigger set <scene> trigger_point <x_expr> <y_expr> [map]` | Register tile trigger that auto-runs a scene |
+| `scene_trigger list` | List configured scene trigger points |
+| `scene_trigger clear [scene]` | Clear all scene triggers, or only one scene name |
+
+`story_guard` targets:
+- `brock`, `misty`, `surge`, `erika`, `koga`, `blaine`, `bike_gate`, `list`
+
+Script trace file outputs:
+- `bugs/script_trace.log`
+- rotated backup: `bugs/script_trace.log.1`
+
+Scene trigger examples:
+
+```txt
+scene_trigger set duo trigger_point player.x-1 player.y
+scene_trigger set npc_walkoff trigger_point player.x player.y-1 pallet_town
+scene_trigger list
+scene_trigger clear duo
+scene_trigger clear
+```
+
+Coordinate expressions accepted by `scene_trigger set`:
+- absolute numeric tile coordinate: `12`, `5`
+- player-relative x: `player.x`, `player.x+2`, `player.x-1`
+- player-relative y: `player.y`, `player.y+1`, `player.y-3`
+
+---
+
+## Trainer / Gym Reset Helpers
+
+| Command | Description |
+|---|---|
+| `trainer_reset <event_flag> clear|set` | Legacy single-flag trainer defeat toggle |
+| `trainer_reset here` | Clear all trainer-defeat flags on current map |
+| `trainer_reset <map_id>` | Clear all trainer-defeat flags on map by numeric ID |
+| `trainer_reset <map_name>` | Clear all trainer-defeat flags on map by name |
+| `gym_reset <leader>` | Reset one gym (leader/trainers/TM) and auto-teleport to leader |
+| `gym_reset all` | Reset Brock..Blaine gym progress bundles |
+| `tmflow <leader> <pre|post|done|reset>` | Standardize post-leader TM branch testing |
+| `gym_badges_clear <n>` | Keep badges 1..n; clear later gym leader/trainer/TM progress |
 
 Rewind hotkeys (runtime, not CLI commands):
 

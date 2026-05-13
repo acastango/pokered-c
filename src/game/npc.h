@@ -98,6 +98,11 @@ int NPC_IsWalking(int i);
  * Used by trainer_sight.c to walk trainers toward the player. */
 void NPC_DoScriptedStep(int i, int dir);
 
+/* Debug helpers: dynamically add/remove temporary NPCs at runtime.
+ * Returns spawned NPC index, or -1 if no free slot / invalid args. */
+int  NPC_DebugSpawn(uint8_t sprite_id, int tx, int ty, int facing, int move_type);
+void NPC_DebugDespawn(int i);
+
 /* Runtime state snapshot for deterministic save-state/rewind fidelity. */
 void NPC_StateCapture(npc_state_t *out);
 void NPC_StateRestore(const npc_state_t *in);

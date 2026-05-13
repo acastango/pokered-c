@@ -6,6 +6,8 @@ This guide documents the current debug control workflow used by this repo:
 - Public interface header: [src/game/debug_cli.h](C:/Users/Anthony/pokered/src/game/debug_cli.h)
 - Python client wrapper: [tools/game_cli.py](C:/Users/Anthony/pokered/tools/game_cli.py)
 - Basic command reference helper: [tools/game_cli_commands.md](C:/Users/Anthony/pokered/tools/game_cli_commands.md)
+- Recommended scenario playbook: [debug_cli_recommended_test_flows.md](C:/Users/Anthony/pokered/docs/debug-and-tooling/debug_cli_recommended_test_flows.md)
+- Scene DSL spec (v0.1): [debug_cli_scene_dsl.md](C:/Users/Anthony/pokered/docs/debug-and-tooling/debug_cli_scene_dsl.md)
 
 ## Runtime Modes
 
@@ -72,9 +74,16 @@ The following verbs are currently implemented in `process_cmd(...)`:
 - Battle control: `fight`, `run`, `pkmn`, `pokemon`, `bag`, `item`
 - Battle diagnostics: `animlab`, `hittrace`
 - Flags/progression: `setflag`, `clearflag`, `givebadge`, `checkpoint`
+- Progression validators/reset helpers: `checkpoint verify`, `eventdiff`, `story_guard`, `trainer_reset`, `gym_reset`, `tmflow`, `gym_badges_clear`
+- RNG/script tracing: `battle_seed`, `rng_state`, `script_trace`
+- Scene scripting: `scene_run`, `scene_stop`, `scene_trigger`
 - Inventory/party cheats: `giveitem`, `givetm`, `givehm`, `givemon`, `bulba15`, `givemon_bulba15`, `squirtle15`, `givemon_squirtle15`, `teachmove`, `teach`, `movetestteam1`, `movetestteam2`, `sethealth`, `setlevel`, `healparty`, `setmoney`, `listbag`, `giveteam`, `addexp`, `exprate`
 - Save states: `quicksave`, `quickload`, `csave`
 - Deterministic replay: `replay`
+
+Scene trigger wrapper example:
+
+- `scene_trigger set duo trigger_point player.x-1 player.y`
 
 ## Save State System
 
@@ -189,6 +198,12 @@ You can teleport by numeric map id or by named aliases.
 - Named: `teleport saffron_city`
 - Alias: `tele route_24`
 
+Town aliases use ASM Fly destinations (Pokecenter-front coordinates) for stable safe spawns:
+
+- `pallet`, `viridian`, `pewter`, `cerulean`, `lavender`, `vermilion`, `celadon`, `fuchsia`, `cinnabar`, `saffron`
+- plus `indigo` / `indigo_plateau`
+- route fly spots: `route_4_fly`, `route_10_fly`
+
 There is also a focused helper script:
 
 - [tools/teleport_lift_key_grunt.ps1](C:/Users/Anthony/pokered/tools/teleport_lift_key_grunt.ps1)
@@ -214,8 +229,40 @@ Current implemented names:
 - `giovanni_reset`
 - `giovanni_ready`
 - `surge`
+- `erika`
+- `koga`
+- `blaine`
+- `brock_post`
+- `misty_post`
+- `erika_post`
+- `koga_post`
+- `blaine_post`
+- `gym_badges1`
+- `gym_badges2`
+- `gym_badges3`
+- `gym_badges4`
+- `gym_badges5`
+
+Checkpoint discovery and verification helpers:
+
+- `checkpoint list` / `checkpoint help`
+- `checkpoint verify <name>` (dry-run diff, then restores original state)
 
 These are intended for deterministic script/battle regression testing and parity passes.
+
+## Progression Guard/Reset Helpers
+
+- `story_guard <name>`: asserts prerequisite flags/badges/items and prints missing requirements.
+  - targets: `brock`, `misty`, `surge`, `erika`, `koga`, `blaine`, `bike_gate`, `list`
+- `eventdiff snapshot` / `eventdiff show`: capture key progression state then print only changed fields/flags.
+- `trainer_reset`:
+  - `trainer_reset here` (current map)
+  - `trainer_reset <map_id>`
+  - `trainer_reset <map_name>`
+  - legacy flag mode: `trainer_reset <event_flag> clear|set`
+- `gym_reset <leader>`: clears leader+trainer+TM state and auto-teleports to leader test position.
+- `tmflow <leader> <pre|post|done|reset>`: normalize post-leader TM branch testing.
+- `gym_badges_clear <n>`: keep badges 1..n and clear later gym progression bundles.
 
 ## Battle Test Helpers
 
@@ -240,6 +287,28 @@ Purpose:
 Purpose:
 
 - Exposes move hit-test internals (accuracy/effect/miss reason) in logs/state
+
+### RNG controls
+
+- `battle_seed <0-255>`: deterministic debug seed (`hRandomAdd = seed`, `hRandomSub = ~seed`)
+- `rng_state`: print current RNG bytes + frame counter
+
+Useful for reproducible encounter/battle behavior while testing script timing.
+
+## Script Trace Logging
+
+`script_trace` provides lightweight map/script transition logs intended for parity debugging.
+
+Commands:
+
+- `script_trace on|off|status`
+- `script_trace file_on|file_off`
+
+Outputs:
+
+- Console lines prefixed with `[script_trace]`
+- Rolling file log: `bugs/script_trace.log`
+- Rotated backup once size cap is reached: `bugs/script_trace.log.1`
 
 ### Move team presets
 

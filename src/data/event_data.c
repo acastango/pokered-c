@@ -3579,7 +3579,7 @@ static const map_warp_t kWarps_CinnabarGym[] = {
 };
 
 static const npc_event_t kNpcs_CinnabarGym[] = {
-    {   3,   3, 0x0a, 0, "Hah!\fI am BLAINE! I\nam the LEADER of\nCINNABAR GYM!\fMy fiery POKEMON\nwill incinerate\nall challengers!\fHah! You better\nhave BURN HEAL!", NULL },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CINNABARGYM_BLAINE */
+    {   3,   3, 0x0a, 0, NULL, GymScripts_BlaineInteract },  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CINNABARGYM_BLAINE */  /* SPRITE_MIDDLE_AGED_MAN, STAY, TEXT_CINNABARGYM_BLAINE */
     {  17,   2, 0x0c, 0, "Do you know how\nhot POKEMON fire\nbreath can get?", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD1 */
     {  17,   8, 0x0c, 0, "I was a thief, but\nI became straight\nas a trainer!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD2 */
     {  11,   4, 0x0c, 0, "You can't win!\nI have studied\nPOKEMON totally!", NULL },  /* SPRITE_SUPER_NERD, STAY, TEXT_CINNABARGYM_SUPER_NERD3 */

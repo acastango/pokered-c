@@ -159,7 +159,7 @@ Play the SFX before showing the received text. `GetItem1` jingle is ~12 frames.
 |---|----------|--------------|------|-------------|-----------|
 | 1 | Brock    | Boulder      | TM34 | Bide        | Flash     |
 | 2 | Misty    | Cascade      | TM11 | Bubblebeam  | Cut       |
-| 3 | Lt.Surge | Thunder      | TM24 | Thunderbolt | —         |
+| 3 | Lt.Surge | Thunder      | TM24 | Thunderbolt | Fly       | 
 | 4 | Erika    | Rainbow      | TM21 | Mega Drain  | Strength  |
 | 5 | Koga     | Soul         | TM06 | Toxic       | Surf      |
 | 6 | Sabrina  | Marsh        | TM46 | Psywave     | —         |

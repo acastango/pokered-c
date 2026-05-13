@@ -50,6 +50,8 @@ const char *DebugCLI_GetHistoryLine(int newest_index); /* 0 = newest */
 int DebugCLI_GetHistoryColor(int newest_index);        /* see CLI_HIST_COLOR_* */
 int DebugCLI_IsReplayPlaying(void);
 void DebugCLI_HistoryPushExternal(const char *line);
+int DebugCLI_TriggerNpcWalkoff(void);
+int DebugCLI_IsNpcWalkoffActive(void);
 
 #define CLI_HIST_COLOR_DEFAULT 0
 #define CLI_HIST_COLOR_OK      1
