@@ -1,10 +1,9 @@
 
 
 # pokered-c
-[![Gameplay Showcase Video (Click)](thumbnail.png)](https://www.youtube.com/watch?v=9b1up4gAVDE)
+**[▶ Watch gameplay showcase on YouTube](https://www.youtube.com/watch?v=9b1up4gAVDE)**
+[![Gameplay Showcase Video](thumbnail.png)](https://www.youtube.com/watch?v=9b1up4gAVDE)
 
-
-Short Gameplay Showcase featured above (click the image). ^^^ 
 
 The original Game Boy assembly is the spec. Every mechanic is ported from the disassembly rather than approximated.
 
